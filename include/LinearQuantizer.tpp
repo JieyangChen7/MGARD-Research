@@ -22,6 +22,8 @@ Int LinearQuantizer<Real, Int>::operator()(const Real x) const {
     throw std::domain_error("number too large to be quantized");
   }
   // See <https://www.cs.cmu.edu/~rbd/papers/cmj-float-to-int.html>.
+  // printf("beofore: %f, quantzer: %f, quantized: %lld\n", x, quantum, std::copysign(0.5 + std::abs(x / quantum), x));
+  // std::cout << "before: " << x << " quantum: " <<  quantum << " quantized: " << std::copysign(0.5 + std::abs(x / quantum), x) << std::endl;
   return std::copysign(0.5 + std::abs(x / quantum), x);
 }
 
@@ -49,6 +51,9 @@ template <typename Int, typename Real>
 Real LinearDequantizer<Int, Real>::operator()(const Int n) const {
   // We assume that all numbers of the form `quantum * n` are representable by
   //`Real`s.
+
+  // std::cout << "before: " << n << " quantum: " <<  quantum << " dequantized: " << quantum * n << std::endl;
+
   return quantum * n;
 }
 

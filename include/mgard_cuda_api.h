@@ -5,6 +5,7 @@
  * Date: April 2, 2021
  */
 
+#include <cstdint>
 #include "cuda/Common.h"
 #include "cuda/CompressionWorkflow.h"
 #include "cuda/MemoryManagement.h"
@@ -40,6 +41,19 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
 template <uint32_t D, typename T>
 Array<D, T> decompress(Handle<D, T> &handle,
                        Array<1, unsigned char> &compressed_array);
+
+
+void compress(std::vector<SIZE> shape, data_type T,
+                double tol, double s, enum error_bound_type mode, 
+                const void * original_data, 
+                void * compressed_data, size_t &compressed_size, Config config);
+
+void decompress(std::vector<SIZE> shape, data_type T,
+                  const void * compressed_data, size_t compressed_size, 
+                  void * decompressed_data);
+
+
+bool verify(data_type T, const void * compressed_data, size_t compressed_size);
 
 } // namespace mgard_cuda
 

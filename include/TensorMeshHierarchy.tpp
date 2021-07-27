@@ -94,6 +94,28 @@ TensorMeshHierarchy<N, Real>::TensorMeshHierarchy(
     }
   }
 
+  const std::array<std::size_t, N> &SHAPE = shapes.back();
+  for (std::size_t i = 0; i < N; ++i) {
+    std::vector<std::vector<std::size_t>> &_indices_i = _indices.at(i);
+    _indices_i.resize(L + 1);
+    const std::size_t numerator = SHAPE.at(i) - 1;
+    if (numerator) {
+      for (std::size_t l = 0; l <= L; ++l) {
+        std::vector<std::size_t> &_indices_i_l = _indices_i.at(l);
+        const std::size_t n = shapes.at(l).at(i);
+        _indices_i_l.resize(n);
+        const std::size_t denominator = n - 1;
+        for (std::size_t j = 0; j < n; ++j) {
+          _indices_i_l.at(j) = (j * numerator) / denominator;
+        }
+      }
+    } else {
+      for (std::vector<std::size_t> &_indices_i_l : _indices_i) {
+        _indices_i_l = {0};
+      }
+    }
+  }
+
   for (std::size_t i = 0; i < N; ++i) {
     std::vector<std::size_t> &dobs = dates_of_birth.at(i);
     dobs.resize(shape.at(i));
@@ -105,6 +127,12 @@ TensorMeshHierarchy<N, Real>::TensorMeshHierarchy(
         dobs.at(index) = l;
       }
     }
+  }
+
+  _shuffled_indices.resize(ndof());
+  std::size_t shuffled_index = 0;
+  for (const TensorNode<N> node : ShuffledTensorNodeRange(*this, L)) {
+    _shuffled_indices.at(unshuffled_index(node.multiindex)) = shuffled_index++;
   }
 }
 
@@ -156,83 +184,29 @@ TensorMeshHierarchy<N, Real>::indices(const std::size_t l,
                                       const std::size_t dimension) const {
   check_mesh_index_bounds(l);
   check_dimension_index_bounds<N>(dimension);
-  return TensorIndexRange(*this, l, dimension);
+  const std::vector<std::size_t> &_indices_dimension_l =
+      _indices.at(dimension).at(l);
+  std::size_t const *const data = _indices_dimension_l.data();
+  const std::size_t n = _indices_dimension_l.size();
+  return {.begin_ = data, .end_ = data + n};
+}
+
+template <std::size_t N, typename Real>
+std::size_t TensorMeshHierarchy<N, Real>::unshuffled_index(
+    const std::array<std::size_t, N> multiindex) const {
+  const std::array<std::size_t, N> &SHAPE = shapes.back();
+  std::size_t unshuffled_index_ = 0;
+  for (std::size_t i = 0; i < N; ++i) {
+    unshuffled_index_ *= SHAPE.at(i);
+    unshuffled_index_ += multiindex.at(i);
+  }
+  return unshuffled_index_;
 }
 
 template <std::size_t N, typename Real>
 std::size_t TensorMeshHierarchy<N, Real>::index(
     const std::array<std::size_t, N> multiindex) const {
-  const std::size_t l = date_of_birth(multiindex);
-  if (!l) {
-    return number_nodes_before(l, multiindex);
-  }
-  return ndof(l - 1) + number_nodes_before(l, multiindex) -
-         number_nodes_before(l - 1, multiindex);
-}
-
-template <std::size_t N, typename Real>
-std::size_t TensorMeshHierarchy<N, Real>::number_nodes_before(
-    const std::size_t l, const std::array<std::size_t, N> multiindex) const {
-  check_mesh_index_bounds(l);
-  const std::array<std::size_t, N> &SHAPE = shapes.back();
-  const std::array<std::size_t, N> &shape = shapes.at(l);
-  // Let `α` be the given node (its multiindex). A node (multiindex) `β` comes
-  // before `α` if
-  //     * `β_{1} < α_{1}` xor
-  //     * `β_{1} = α_{1}` and `β_{2} < α_{2}` xor
-  //     * …
-  //     * `β_{1} = α_{1}`, …, `β_{N - 1} = α_{N - 1}` and `β_{N} < α_{N}`.
-  // Consider one of these options: `β_{1} = α_{1}`, …, `β_{i - 1} = α_{i - 1}`
-  // and `β_{i} < α_{i}`. Let `M_{k}` and `m_{k}` be the sizes of the finest and
-  // `l`th meshes, respectively, in dimension `k`. `β` is unconstrained in
-  // dimensions `i + 1` through `N`, so we start with a factor of `m_{i + 1} × ⋯
-  // × m_{N}`. The values of `β_{1}`, …, `β_{i - 1}` are prescribed. `β_{i}` is
-  // of the form `floor((j * (M_{i} - 1)) / (m_{i} - 1))`. We want `β_{i} <
-  // α_{i}`, so `j` will go from zero up to some maximal value, after which
-  // `β_{i} ≥ α_{i}`. The count of possible `j` values is the least `j` such
-  // that `β_{i} ≥ α_{i}`. A bit of algebra shows that this is
-  // `ceil((α_{i} * (m_{i} - 1)) / (M_{i} - 1))`. So, the count of possible
-  // `β`s for this option is (assuming the constraints on `β_{1}`, …,
-  // `β_{i - 1}` can be met – see below)
-  // ```
-  //   m_{i + 1} × ⋯ × m_{N} × ceil((α_{i} * (m_{i} - 1)) / (M_{i} - 1)).
-  // ```
-  // We compute the sum of these counts in the loop below, rearranging so that
-  // we only have to multiply by each `m_{k}` once.
-  //
-  // One detail I missed: if `α` was introduced *after* the `l`th mesh, then it
-  // may not be possible for `β_{k}` to equal `α_{k}`, since `β` must be present
-  // in the `l`th mesh. Any option involving one of these 'impossible
-  // constraints' will be knocked out and contribute nothing to the sum.
-  //
-  // That above assumes that `M_{i} ≠ 1`. In that case, it is impossible for
-  // `β_{i}` to be less than `α_{i}` (both must be zero), so instead of
-  // `ceil((α_{i} * (m_{i} - 1)) / (M_{i} - 1))` we get a factor of zero.
-  std::size_t count = 0;
-  bool impossible_constraint_encountered = false;
-  for (std::size_t i = 0; i < N; ++i) {
-    const std::size_t m = shape.at(i);
-    const std::size_t M = SHAPE.at(i);
-    // Notice that this has no effect in the first iteration.
-    count *= m;
-    if (impossible_constraint_encountered) {
-      continue;
-    }
-    const std::size_t index = multiindex.at(i);
-    const std::size_t numerator = index * (m - 1);
-    const std::size_t denominator = M - 1;
-    // We want to add `ceil(numerator / denominator)`. We can compute this term
-    // using only integer divisions by adding one less than the denominator to
-    // the numerator.
-    // If the mesh is flat in this dimension (if `M == 1`), then `β_{i}` cannot
-    // be less than `α_{i}` and so this case contributes nothing to the count.
-    count += denominator ? (numerator + (denominator - 1)) / denominator : 0;
-    // The 'impossible constraint' will be encountered in the next iteration,
-    // when we stipulate that `β_{i} = α_{i}` (current value of `i`).
-    impossible_constraint_encountered =
-        impossible_constraint_encountered || dates_of_birth.at(i).at(index) > l;
-  }
-  return count;
+  return _shuffled_indices.at(unshuffled_index(multiindex));
 }
 
 template <std::size_t N, typename Real>
@@ -316,8 +290,9 @@ template <std::size_t N, typename Real>
 std::size_t TensorMeshHierarchy<N, Real>::ndof(const std::size_t l) const {
   check_mesh_index_bounds(l);
   const std::array<std::size_t, N> &shape = shapes.at(l);
-  return std::accumulate(shape.begin(), shape.end(), 1,
-                         std::multiplies<Real>());
+  return std::accumulate(shape.begin(), shape.end(),
+                         static_cast<std::size_t>(1),
+                         std::multiplies<std::size_t>());
 }
 
 template <std::size_t N, typename Real>

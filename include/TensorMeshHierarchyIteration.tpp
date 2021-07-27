@@ -1,21 +1,4 @@
-#include <stdexcept>
-
 namespace mgard {
-
-template <std::size_t N, typename Real>
-TensorIndexRange::TensorIndexRange(
-    const TensorMeshHierarchy<N, Real> &hierarchy, const std::size_t l,
-    const std::size_t dimension)
-    : size_finest(hierarchy.shapes.at(hierarchy.L).at(dimension)),
-      size_coarse(hierarchy.shapes.at(l).at(dimension)) {
-  if (size_coarse > size_finest) {
-    throw std::invalid_argument(
-        "coarse size cannot be larger than finest size");
-  }
-  if (!(size_finest && size_coarse)) {
-    throw std::invalid_argument("sizes must be nonzero");
-  }
-}
 
 template <std::size_t N>
 TensorNode<N>::TensorNode(
@@ -55,40 +38,41 @@ UnshuffledTensorNodeRange<N, Real>::UnshuffledTensorNodeRange(
     : hierarchy(hierarchy), l(l), multiindices(make_factors(hierarchy, l)) {}
 
 template <std::size_t N, typename Real>
-bool UnshuffledTensorNodeRange<N, Real>::
-operator==(const UnshuffledTensorNodeRange<N, Real> &other) const {
-  return hierarchy == other.hierarchy && l == other.l;
+bool operator==(const UnshuffledTensorNodeRange<N, Real> &a,
+                const UnshuffledTensorNodeRange<N, Real> &b) {
+  return a.l == b.l && a.hierarchy == b.hierarchy;
 }
 
 template <std::size_t N, typename Real>
-bool UnshuffledTensorNodeRange<N, Real>::
-operator!=(const UnshuffledTensorNodeRange<N, Real> &other) const {
-  return !operator==(other);
+bool operator!=(const UnshuffledTensorNodeRange<N, Real> &a,
+                const UnshuffledTensorNodeRange<N, Real> &b) {
+  return !operator==(a, b);
 }
 
 template <std::size_t N, typename Real>
 typename UnshuffledTensorNodeRange<N, Real>::iterator
 UnshuffledTensorNodeRange<N, Real>::begin() const {
-  return iterator(*this, multiindices.begin());
+  return iterator(*this, multiindices.begin(), 0);
 }
 
 template <std::size_t N, typename Real>
 typename UnshuffledTensorNodeRange<N, Real>::iterator
 UnshuffledTensorNodeRange<N, Real>::end() const {
-  return iterator(*this, multiindices.end());
+  return iterator(*this, multiindices.end(), hierarchy.ndof(l));
 }
 
 template <std::size_t N, typename Real>
 UnshuffledTensorNodeRange<N, Real>::iterator::iterator(
     const UnshuffledTensorNodeRange<N, Real> &iterable,
-    const typename CartesianProduct<TensorIndexRange, N>::iterator &inner)
-    : iterable(&iterable), inner(inner) {}
+    const typename CartesianProduct<TensorIndexRange, N>::iterator &inner,
+    const std::size_t index)
+    : iterable(&iterable), inner(inner), index(index) {}
 
 template <std::size_t N, typename Real>
 bool UnshuffledTensorNodeRange<N, Real>::iterator::
 operator==(const UnshuffledTensorNodeRange<N, Real>::iterator &other) const {
-  return (iterable == other.iterable || *iterable == *(other.iterable)) &&
-         inner == other.inner;
+  return index == other.index &&
+         (iterable == other.iterable || *iterable == *(other.iterable));
 }
 
 template <std::size_t N, typename Real>
@@ -101,6 +85,7 @@ template <std::size_t N, typename Real>
 typename UnshuffledTensorNodeRange<N, Real>::iterator &
 UnshuffledTensorNodeRange<N, Real>::iterator::operator++() {
   ++inner;
+  ++index;
   return *this;
 }
 
@@ -131,48 +116,66 @@ make_ranges(const TensorMeshHierarchy<N, Real> &hierarchy,
   return ranges;
 }
 
+template <std::size_t N, typename Real>
+std::vector<
+    std::array<typename UnshuffledTensorNodeRange<N, Real>::iterator, 2>>
+make_range_endpoints(
+    const std::vector<UnshuffledTensorNodeRange<N, Real>> &ranges,
+    const std::size_t l) {
+  std::vector<
+      std::array<typename UnshuffledTensorNodeRange<N, Real>::iterator, 2>>
+      range_endpoints;
+  range_endpoints.reserve(l + 1);
+  for (const UnshuffledTensorNodeRange<N, Real> &range : ranges) {
+    range_endpoints.push_back({range.begin(), range.end()});
+  }
+  return range_endpoints;
+}
+
 } // namespace
 
 template <std::size_t N, typename Real>
 ShuffledTensorNodeRange<N, Real>::ShuffledTensorNodeRange(
     const TensorMeshHierarchy<N, Real> &hierarchy, const std::size_t l)
-    : hierarchy(hierarchy), ranges(make_ranges(hierarchy, l)), l(l) {}
+    : hierarchy(hierarchy), ranges(make_ranges(hierarchy, l)), l(l),
+      range_endpoints(make_range_endpoints(ranges, l)) {}
 
 template <std::size_t N, typename Real>
-bool ShuffledTensorNodeRange<N, Real>::
-operator==(const ShuffledTensorNodeRange<N, Real> &other) const {
-  return hierarchy == other.hierarchy && l == other.l;
+bool operator==(const ShuffledTensorNodeRange<N, Real> &a,
+                const ShuffledTensorNodeRange<N, Real> &b) {
+  return a.l == b.l && a.hierarchy == b.hierarchy;
 }
 
 template <std::size_t N, typename Real>
-bool ShuffledTensorNodeRange<N, Real>::
-operator!=(const ShuffledTensorNodeRange<N, Real> &other) const {
-  return !operator==(other);
+bool operator!=(const ShuffledTensorNodeRange<N, Real> &a,
+                const ShuffledTensorNodeRange<N, Real> &b) {
+  return !operator==(a, b);
 }
 
 template <std::size_t N, typename Real>
 typename ShuffledTensorNodeRange<N, Real>::iterator
 ShuffledTensorNodeRange<N, Real>::begin() const {
-  return iterator(*this, 0, ranges.front().begin());
+  return iterator(*this, 0, range_endpoints.front().front(), 0);
 }
 
 template <std::size_t N, typename Real>
 typename ShuffledTensorNodeRange<N, Real>::iterator
 ShuffledTensorNodeRange<N, Real>::end() const {
-  return iterator(*this, hierarchy.L, ranges.back().end());
+  return iterator(*this, l, range_endpoints.back().back(), hierarchy.ndof(l));
 }
 
 template <std::size_t N, typename Real>
 ShuffledTensorNodeRange<N, Real>::iterator::iterator(
     const ShuffledTensorNodeRange<N, Real> &iterable, const std::size_t ell,
-    const typename UnshuffledTensorNodeRange<N, Real>::iterator &inner)
-    : iterable(iterable), ell(ell), inner(inner) {}
+    const typename UnshuffledTensorNodeRange<N, Real>::iterator &inner,
+    const std::size_t index)
+    : iterable(iterable), ell(ell), inner(inner), index(index) {}
 
 template <std::size_t N, typename Real>
 bool ShuffledTensorNodeRange<N, Real>::iterator::
 operator==(const ShuffledTensorNodeRange<N, Real>::iterator &other) const {
-  return (&iterable == &other.iterable || iterable == other.iterable) &&
-         inner == other.inner;
+  return index == other.index &&
+         (&iterable == &other.iterable || iterable == other.iterable);
 }
 
 template <std::size_t N, typename Real>
@@ -185,14 +188,14 @@ template <std::size_t N, typename Real>
 typename ShuffledTensorNodeRange<N, Real>::iterator &
 ShuffledTensorNodeRange<N, Real>::iterator::operator++() {
   while (true) {
-    // Will likely want to save the end iterator and to make `iterable.l`
-    // public. Keeping it simple for now.
-    if (++inner == iterable.ranges.at(ell).end()) {
+    if (++inner == iterable.range_endpoints.at(ell).back()) {
+      // Will likely want to make `iterable.l` public. Keeping it simple for
+      // now.
       if (ell + 1 == iterable.ranges.size()) {
         break;
       }
       ++ell;
-      inner = iterable.ranges.at(ell).begin();
+      inner = iterable.range_endpoints.at(ell).front();
       // `inner` now dereferences to a node in the coarsest mesh, but it feels
       // like skipping the next check would be asking for trouble.
     }
@@ -200,6 +203,7 @@ ShuffledTensorNodeRange<N, Real>::iterator::operator++() {
       break;
     }
   }
+  ++index;
   return *this;
 }
 

@@ -8,18 +8,7 @@
 #ifndef MGRAD_CUDA_COMMON_INTERNAL
 #define MGRAD_CUDA_COMMON_INTERNAL
 
-#include <algorithm>
-#include <cstdio>
 #include <stdint.h>
-
-#include <thrust/device_vector.h>
-#include <thrust/host_vector.h>
-
-#include "Common.h"
-#include "MemoryManagement.h"
-
-// #define WARP_SIZE 32
-// #define ROUND_UP_WARP(TID) ((TID) + WARP_SIZE - 1) / WARP_SIZE
 
 #define MAX_GRID_X 2147483647
 #define MAX_GRID_Y 65536
@@ -28,6 +17,27 @@
 #define COPY 0
 #define ADD 1
 #define SUBTRACT 2
+
+#define SIGNATURE_SIZE 16
+#define SIGNATURE "MGARD_CUDA_V010"
+
+#include <algorithm>
+#include <cstdio>
+
+
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
+
+#include "Common.h"
+
+
+
+
+// #define WARP_SIZE 32
+// #define ROUND_UP_WARP(TID) ((TID) + WARP_SIZE - 1) / WARP_SIZE
+
+
+
 
 #define gpuErrchk(ans)                                                         \
   { gpuAssert((ans), __FILE__, __LINE__); }
@@ -45,15 +55,17 @@ inline void gpuAssert(cudaError_t code, const char *file, int line,
 namespace mgard_cuda {
 
 template <typename T> struct quant_meta {
-  int l_target;
+  char signature[SIGNATURE_SIZE] = SIGNATURE;
+  SIZE l_target;
+  bool gpu_lossless;
   bool enable_lz4;
-  int dict_size;
+  SIZE dict_size;
   T norm;
   T tol;
   T s;
 };
 
-template <uint32_t D> int check_shape(std::vector<size_t> shape);
+template <DIM D> int check_shape(std::vector<SIZE> shape);
 
 bool is_2kplus1_cuda(double num);
 
@@ -63,147 +75,153 @@ bool is_2kplus1_cuda(double num);
 // j,
 //                        const int k);
 
-__forceinline__ __device__ int get_idx(const int ld, const int i, const int j) {
-  return ld * i + j;
-}
+// __forceinline__ __device__ int get_idx(const int ld, const int i, const int j) {
+//   return ld * i + j;
+// }
 
 // ld2 = nrow
 // ld1 = pitch
-__host__ __forceinline__ __device__ int
-get_idx(const int ld1, const int ld2, const int z, const int y, const int x) {
+// for 1-3D
+__host__ __forceinline__ __device__ LENGTH
+get_idx(const SIZE ld1, const SIZE ld2, const SIZE z, const SIZE y, const SIZE x) {
+  return ld2 * ld1 * z + ld1 * y + x;
+}
+
+// for 3D+
+__host__ __forceinline__ __device__ LENGTH
+get_idx(const LENGTH ld1, const LENGTH ld2, const SIZE z, const SIZE y, const SIZE x) {
   return ld2 * ld1 * z + ld1 * y + x;
 }
 
 // leading dimension first
-__host__ inline size_t get_idx(std::vector<int> lds, std::vector<int> idx) {
-  size_t curr_stride = 1;
-  size_t ret_idx = 0;
-  for (int i = 0; i < idx.size(); i++) {
+__host__ inline LENGTH get_idx(std::vector<SIZE> lds, std::vector<SIZE> idx) {
+  LENGTH curr_stride = 1;
+  LENGTH ret_idx = 0;
+  for (DIM i = 0; i < idx.size(); i++) {
     ret_idx += idx[i] * curr_stride;
     curr_stride *= lds[i];
   }
   return ret_idx;
 }
 
-template <int D> __forceinline__ __device__ size_t get_idx(int *lds, int *idx) {
-  size_t curr_stride = 1;
-  size_t ret_idx = 0;
-  for (int i = 0; i < D; i++) {
-    // printf("%llu * %llu\n", idx[i], curr_stride);
+template <DIM D> __forceinline__ __device__ LENGTH get_idx(SIZE *lds, SIZE *idx) {
+  LENGTH curr_stride = 1;
+  LENGTH ret_idx = 0;
+  for (DIM i = 0; i < D; i++) {
     ret_idx += idx[i] * curr_stride;
     curr_stride *= lds[i];
   }
   return ret_idx;
 }
 
-__host__ inline std::vector<int> gen_idx(int D, int curr_dim_r, int curr_dim_c,
-                                         int curr_dim_f, int idx_r, int idx_c,
-                                         int idx_f) {
-  std::vector<int> idx(D, 0);
+__host__ inline std::vector<SIZE> gen_idx(DIM D, DIM curr_dim_r, DIM curr_dim_c,
+                                         DIM curr_dim_f, SIZE idx_r, SIZE idx_c,
+                                         SIZE idx_f) {
+  std::vector<SIZE> idx(D, 0);
   idx[curr_dim_r] = idx_r;
   idx[curr_dim_c] = idx_c;
   idx[curr_dim_f] = idx_f;
   return idx;
 }
 
-__host__ __forceinline__ __device__ int div_roundup(int a, int b) {
+__host__ __forceinline__ __device__ int div_roundup(SIZE a, SIZE b) {
   return (a - 1) / b + 1;
 }
 
-template <int D, int R, int C, int F>
-__host__ inline void kernel_config(thrust::device_vector<int> &shape, int &tbx,
-                                   int &tby, int &tbz, int &gridx, int &gridy,
-                                   int &gridz,
-                                   thrust::device_vector<int> &assigned_dimx,
-                                   thrust::device_vector<int> &assigned_dimy,
-                                   thrust::device_vector<int> &assigned_dimz) {
+// template <int D, int R, int C, int F>
+// __host__ inline void kernel_config(thrust::device_vector<int> &shape, int &tbx,
+//                                    int &tby, int &tbz, int &gridx, int &gridy,
+//                                    int &gridz,
+//                                    thrust::device_vector<int> &assigned_dimx,
+//                                    thrust::device_vector<int> &assigned_dimy,
+//                                    thrust::device_vector<int> &assigned_dimz) {
 
-  tbx = F;
-  tby = C;
-  tbz = R;
-  gridx = ceil((double)shape[0] / F);
-  gridy = ceil((double)shape[1] / C);
-  gridz = ceil((double)shape[2] / R);
-  assigned_dimx.push_back(0);
-  assigned_dimy.push_back(1);
-  assigned_dimz.push_back(2);
+//   tbx = F;
+//   tby = C;
+//   tbz = R;
+//   gridx = ceil((double)shape[0] / F);
+//   gridy = ceil((double)shape[1] / C);
+//   gridz = ceil((double)shape[2] / R);
+//   assigned_dimx.push_back(0);
+//   assigned_dimy.push_back(1);
+//   assigned_dimz.push_back(2);
 
-  int d = 3;
-  while (d < D) {
-    if (gridx * shape[d] < MAX_GRID_X) {
-      gridx *= shape[d];
-      assigned_dimx.push_back(d);
-      d++;
-    } else {
-      break;
-    }
-  }
+//   int d = 3;
+//   while (d < D) {
+//     if (gridx * shape[d] < MAX_GRID_X) {
+//       gridx *= shape[d];
+//       assigned_dimx.push_back(d);
+//       d++;
+//     } else {
+//       break;
+//     }
+//   }
 
-  while (d < D) {
-    if (gridy * shape[d] < MAX_GRID_Y) {
-      gridy *= shape[d];
-      assigned_dimy.push_back(d);
-      d++;
-    } else {
-      break;
-    }
-  }
+//   while (d < D) {
+//     if (gridy * shape[d] < MAX_GRID_Y) {
+//       gridy *= shape[d];
+//       assigned_dimy.push_back(d);
+//       d++;
+//     } else {
+//       break;
+//     }
+//   }
 
-  while (d < D) {
-    if (gridz * shape[d] < MAX_GRID_Z) {
-      gridz *= shape[d];
-      assigned_dimz.push_back(d);
-      d++;
-    } else {
-      break;
-    }
-  }
-}
+//   while (d < D) {
+//     if (gridz * shape[d] < MAX_GRID_Z) {
+//       gridz *= shape[d];
+//       assigned_dimz.push_back(d);
+//       d++;
+//     } else {
+//       break;
+//     }
+//   }
+// }
 
-template <int D, int R, int C, int F>
-__forceinline__ __device__ void
-get_idx(int *shape, int assigned_nx, int *assigned_dimx, int assigned_ny,
-        int *assigned_dimy, int assigned_nz, int *assigned_dimz, int *idx) {
-  int bidx = blockIdx.x;
-  int bidy = blockIdx.y;
-  int bidz = blockIdx.z;
-  idx[0] = (bidx % shape[0]) * F + threadIdx.x;
-  idx[1] = (bidy % shape[1]) * C + threadIdx.y;
-  idx[2] = (bidz % shape[2]) * R + threadIdx.z;
-  if (idx[0] < 0) {
-    printf("neg %d %d %d %d\n", bidx, shape[0], F, threadIdx.x);
-  }
-  if (idx[1] < 0) {
-    printf("neg %d %d %d %d\n", bidy, shape[1], C, threadIdx.y);
-  }
-  if (idx[2] < 0) {
-    printf("neg %d %d %d %d\n", bidz, shape[2], R, threadIdx.z);
-  }
-  // bidx /= shape[0];
-  // bidy /= shape[1];
-  // bidz /= shape[2];
-  // for (int i = 1; i < assigned_nx; i++) {
-  //   int d = assigned_dimx[i];
-  //   idx[d] = bidx%shape[d];
-  //   bidx /= shape[d];
-  // }
-  // for (int i = 1; i < assigned_ny; i++) {
-  //   int d = assigned_dimy[i];
-  //   idx[d] = bidy%shape[d];
-  //   bidy /= shape[d];
-  // }
-  // for (int i = 1; i < assigned_nz; i++) {
-  //   int d = assigned_dimz[i];
-  //   idx[d] = bidz%shape[d];
-  //   bidz /= shape[d];
-  // }
-}
+// template <int D, int R, int C, int F>
+// __forceinline__ __device__ void
+// get_idx(int *shape, int assigned_nx, int *assigned_dimx, int assigned_ny,
+//         int *assigned_dimy, int assigned_nz, int *assigned_dimz, int *idx) {
+//   int bidx = blockIdx.x;
+//   int bidy = blockIdx.y;
+//   int bidz = blockIdx.z;
+//   idx[0] = (bidx % shape[0]) * F + threadIdx.x;
+//   idx[1] = (bidy % shape[1]) * C + threadIdx.y;
+//   idx[2] = (bidz % shape[2]) * R + threadIdx.z;
+//   if (idx[0] < 0) {
+//     printf("neg %d %d %d %d\n", bidx, shape[0], F, threadIdx.x);
+//   }
+//   if (idx[1] < 0) {
+//     printf("neg %d %d %d %d\n", bidy, shape[1], C, threadIdx.y);
+//   }
+//   if (idx[2] < 0) {
+//     printf("neg %d %d %d %d\n", bidz, shape[2], R, threadIdx.z);
+//   }
+//   // bidx /= shape[0];
+//   // bidy /= shape[1];
+//   // bidz /= shape[2];
+//   // for (int i = 1; i < assigned_nx; i++) {
+//   //   int d = assigned_dimx[i];
+//   //   idx[d] = bidx%shape[d];
+//   //   bidx /= shape[d];
+//   // }
+//   // for (int i = 1; i < assigned_ny; i++) {
+//   //   int d = assigned_dimy[i];
+//   //   idx[d] = bidy%shape[d];
+//   //   bidy /= shape[d];
+//   // }
+//   // for (int i = 1; i < assigned_nz; i++) {
+//   //   int d = assigned_dimz[i];
+//   //   idx[d] = bidz%shape[d];
+//   //   bidz /= shape[d];
+//   // }
+// }
 
 template <typename T> T max_norm_cuda(const T *v, size_t size);
 
 template <typename T> __device__ T _get_dist(T *coords, int i, int j);
 
-__host__ __device__ int get_lindex_cuda(const int n, const int no, const int i);
+// __host__ __device__ int get_lindex_cuda(const int n, const int no, const int i);
 
 template <class T> struct SharedMemory {
   __device__ inline operator T *() {
@@ -221,9 +239,9 @@ template <typename T> __device__ inline T lerp(T v0, T v1, T t) {
   // return fma(t, v1, fma(-t, v0, v0));
 #ifdef MGARD_CUDA_FMA
   if (sizeof(T) == sizeof(double)) {
-    return __fma_rz(t, v1, __fma_rn(-t, v0, v0));
+    return fma(t, v1, fma(-t, v0, v0));
   } else if (sizeof(T) == sizeof(float)) {
-    return __fmaf_rz(t, v1, __fmaf_rn(-t, v0, v0));
+    return fmaf(t, v1, fmaf(-t, v0, v0));
   }
 #else
   T r = v0 + v0 * t * -1;
@@ -236,37 +254,37 @@ template <typename T>
 __device__ inline T mass_trans(T a, T b, T c, T d, T e, T h1, T h2, T h3, T h4,
                                T r1, T r2, T r3, T r4) {
   T tb, tc, td, tb1, tb2, tc1, tc2, td1, td2;
-#ifdef MGARD_CUDA_FMA
-  if (sizeof(T) == sizeof(double)) {
-    tb1 = __fma_rn(c, h2, a * h1);
-    tb2 = __fma_rn(b, h2, b * h1);
+// #ifdef MGARD_CUDA_FMA
+//   if (sizeof(T) == sizeof(double)) {
+//     tb1 = fma(c, h2, a * h1);
+//     tb2 = fma(b, h2, b * h1);
 
-    tc1 = __fma_rn(d, h3, b * h2);
-    tc2 = __fma_rn(c, h3, c * h2);
+//     tc1 = fma(d, h3, b * h2);
+//     tc2 = fma(c, h3, c * h2);
 
-    td1 = __fma_rn(c, h4, e * h3);
-    td2 = __fma_rn(d, h4, d * h3);
+//     td1 = fma(c, h4, e * h3);
+//     td2 = fma(d, h4, d * h3);
 
-    tb = __fma_rn(2, tb2, tb1);
-    tc = __fma_rn(2, tc2, tc1);
-    td = __fma_rn(2, td2, td1);
-    return __fma_rn(td, r4, __fma_rn(tb, r1, tc));
-  } else if (sizeof(T) == sizeof(float)) {
-    tb1 = __fmaf_rn(c, h2, a * h1);
-    tb2 = __fmaf_rn(b, h2, b * h1);
+//     tb = fma(2, tb2, tb1);
+//     tc = fma(2, tc2, tc1);
+//     td = fma(2, td2, td1);
+//     return fma(td, r4, fma(tb, r1, tc));
+//   } else if (sizeof(T) == sizeof(float)) {
+//     tb1 = fmaf(c, h2, a * h1);
+//     tb2 = fmaf(b, h2, b * h1);
 
-    tc1 = __fmaf_rn(d, h3, b * h2);
-    tc2 = __fmaf_rn(c, h3, c * h2);
+//     tc1 = fmaf(d, h3, b * h2);
+//     tc2 = fmaf(c, h3, c * h2);
 
-    td1 = __fmaf_rn(c, h4, e * h3);
-    td2 = __fmaf_rn(d, h4, d * h3);
+//     td1 = fmaf(c, h4, e * h3);
+//     td2 = fmaf(d, h4, d * h3);
 
-    tb = __fmaf_rn(2, tb2, tb1);
-    tc = __fmaf_rn(2, tc2, tc1);
-    td = __fmaf_rn(2, td2, td1);
-    return __fmaf_rn(td, r4, __fmaf_rn(tb, r1, tc));
-  }
-#else
+//     tb = fmaf(2, tb2, tb1);
+//     tc = fmaf(2, tc2, tc1);
+//     td = fmaf(2, td2, td1);
+//     return fmaf(td, r4, fmaf(tb, r1, tc));
+//   }
+// #else
 
   if (h1 + h2 != 0) {
     r1 = h1 / (h1 + h2);
@@ -279,12 +297,13 @@ __device__ inline T mass_trans(T a, T b, T c, T d, T e, T h1, T h2, T h3, T h4,
     r4 = 0.0;
   }
 
-  tb = a * h1 + b * 2 * (h1 + h2) + c * h2;
-  tc = b * h2 + c * 2 * (h2 + h3) + d * h3;
-  td = c * h3 + d * 2 * (h3 + h4) + e * h4;
+  // printf("%f %f %f %f %f (%f %f %f %f)\n", a, b, c, d, e, h1, h2, h3, h4);
+  tb = a * (h1/6) + b * ((h1 + h2)/3) + c * (h2/6);
+  tc = b * (h2/6) + c * ((h2 + h3)/3) + d * (h3/6);
+  td = c * (h3/6) + d * ((h3 + h4)/3) + e * (h4/6);
   tc += tb * r1 + td * r4;
   return tc;
-#endif
+// #endif
 }
 
 template <typename T>
@@ -292,9 +311,9 @@ __device__ inline T tridiag_forward(T prev, T bm, T curr) {
 
 #ifdef MGARD_CUDA_FMA
   if (sizeof(T) == sizeof(double)) {
-    return __fma_rn(prev, bm, curr);
+    return fma(prev, bm, curr);
   } else if (sizeof(T) == sizeof(float)) {
-    return __fmaf_rn(prev, bm, curr);
+    return fmaf(prev, bm, curr);
   }
 #else
   return curr - prev * bm;
@@ -306,13 +325,44 @@ __device__ inline T tridiag_backward(T prev, T dist, T am, T curr) {
 
 #ifdef MGARD_CUDA_FMA
   if (sizeof(T) == sizeof(double)) {
-    return __fma_rn(-1 * dist, prev, curr) * am;
+    return fma(-1 * dist, prev, curr) * am;
   } else if (sizeof(T) == sizeof(float)) {
-    return __fmaf_rn(-1 * dist, prev, curr) * am;
+    return fmaf(-1 * dist, prev, curr) * am;
   }
 #else
   return (curr - dist * prev) / am;
 #endif
+}
+
+
+template <typename T>
+__device__ inline T tridiag_forward2(T prev, T am, T bm, T curr) {
+
+// #ifdef MGARD_CUDA_FMA
+//   if (sizeof(T) == sizeof(double)) {
+//     return fma(prev, bm, curr);
+//   } else if (sizeof(T) == sizeof(float)) {
+//     return fmaf(prev, bm, curr);
+//   }
+// #else
+  // printf("am: %f bm: %f\n", am, bm);
+  return curr - prev * (am / bm);
+// #endif
+}
+
+template <typename T>
+__device__ inline T tridiag_backward2(T prev, T am, T bm, T curr) {
+
+// #ifdef MGARD_CUDA_FMA
+//   if (sizeof(T) == sizeof(double)) {
+//     return fma(-1 * dist, prev, curr) * am;
+//   } else if (sizeof(T) == sizeof(float)) {
+//     return fmaf(-1 * dist, prev, curr) * am;
+//   }
+// #else
+  // printf("am: %f bm: %f\n", am, bm);
+  return (curr - am * prev) / bm;
+// #endif
 }
 
 } // namespace mgard_cuda

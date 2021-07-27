@@ -27,6 +27,47 @@ void print_usage_message(char *argv[], FILE *fp) {
           argv[0]);
 }
 
+
+float L_inf_norm(size_t num_float, float * in_buff) {
+  float L_inf = 0;
+  for (int i = 0; i < num_float; ++i) {
+    float temp = fabs(in_buff[i]);
+    if (temp > L_inf)
+      L_inf = temp;
+  }
+  return L_inf;
+}
+
+
+float L_2_norm(size_t num_float, float * in_buff) {
+  float L_2 = 0;
+  for (int i = 0; i < num_float; ++i) {
+    float temp = fabs(in_buff[i]);
+      L_2 += temp * temp;
+  }
+  return std::sqrt(L_2);
+}
+
+float L_inf_error(size_t num_float, float * in_buff, float * mgard_out_buff) {
+  float error_L_inf_norm = 0;
+  for (int i = 0; i < num_float; ++i) {
+    float temp = fabs(in_buff[i] - mgard_out_buff[i]);
+    if (temp > error_L_inf_norm)
+      error_L_inf_norm = temp;
+  }
+  return error_L_inf_norm;
+}
+
+float L_2_error(size_t num_float, float * in_buff, float * mgard_out_buff) {
+  float error_L_2_norm = 0;
+  for (int i = 0; i < num_float; ++i) {
+    float temp = fabs(in_buff[i] - mgard_out_buff[i]);
+    error_L_2_norm += temp * temp;
+  }
+  return std::sqrt(error_L_2_norm);
+}
+
+
 int main(int argc, char *argv[]) {
   size_t result;
 
@@ -39,6 +80,7 @@ int main(int argc, char *argv[]) {
   char *infile;    //, *outfile;
   std::vector<size_t> shape;
   float tol, s = 0;
+  int device = 0; // 0 CPU; 1 GPU
 
   int i = 1;
   data_srouce = atoi(argv[i++]);
@@ -59,6 +101,10 @@ int main(int argc, char *argv[]) {
   printf("Abs. error bound: %.2e ", tol);
   s = atof(argv[i++]);
   printf("S: %.2f\n", s);
+  device = atoi(argv[i++]);
+  if (device == 0) printf("Use: CPU\n");
+  if (device == 1) printf("Use: GPU\n");
+
   size_t lSize;
   long num_float;
 
@@ -117,58 +163,85 @@ int main(int argc, char *argv[]) {
   }
 
   size_t out_size;
-  float *mgard_out_buff = NULL;
-
-  printf("Start compressing and decompressing with GPU\n");
+  float *mgard_out_buff = new float[num_float];
+  printf("Start compressing and decompressing\n");
   if (D == 1) {
-    mgard_cuda::Array<1, float> in_array(shape);
-    in_array.loadData(in_buff);
-    mgard_cuda::Array<1, float> test = in_array;
-    mgard_cuda::Handle<1, float> handle(shape);
-    mgard_cuda::Array<1, unsigned char> compressed_array =
-        mgard_cuda::compress(handle, in_array, mgard_cuda::ABS, tol, s);
-    out_size = compressed_array.getShape()[0];
-    mgard_cuda::Array<1, float> out_array =
-        mgard_cuda::decompress(handle, compressed_array);
-    mgard_out_buff = new float[num_float];
-    memcpy(mgard_out_buff, out_array.getDataHost(),
-           num_float * sizeof(float));
+    if (device == 0) {
+      const mgard::TensorMeshHierarchy<1, float> hierarchy({shape[0]});
+      mgard::CompressedDataset<1, float> compressed_dataset = mgard::compress(hierarchy, in_buff, s, tol);
+      out_size = compressed_dataset.size();
+      mgard::DecompressedDataset<1, float> decompressed_dataset = mgard::decompress(compressed_dataset);
+      memcpy(mgard_out_buff, decompressed_dataset.data(), num_float * sizeof(float));
+    } else {
+      mgard_cuda::Array<1, float> in_array(shape);
+      in_array.loadData(in_buff);
+      mgard_cuda::Array<1, float> test = in_array;
+      mgard_cuda::Handle<1, float> handle(shape);
+      mgard_cuda::Array<1, unsigned char> compressed_array =
+          mgard_cuda::compress(handle, in_array, mgard_cuda::ABS, tol, s);
+      out_size = compressed_array.getShape()[0];
+      mgard_cuda::Array<1, float> out_array =
+          mgard_cuda::decompress(handle, compressed_array);
+      memcpy(mgard_out_buff, out_array.getDataHost(),
+             num_float * sizeof(float));
+    }
   } else if (D == 2) {
-    mgard_cuda::Array<2, float> in_array(shape);
-    in_array.loadData(in_buff);
-    mgard_cuda::Handle<2, float> handle(shape);
-    mgard_cuda::Array<1, unsigned char> compressed_array =
-        mgard_cuda::compress(handle, in_array, mgard_cuda::ABS, tol, s);
-    out_size = compressed_array.getShape()[0];
-    mgard_cuda::Array<2, float> out_array =
-        mgard_cuda::decompress(handle, compressed_array);
-    mgard_out_buff = new float[num_float];
-    memcpy(mgard_out_buff, out_array.getDataHost(),
-           num_float * sizeof(float));
+    if (device == 0) {
+      const mgard::TensorMeshHierarchy<2, float> hierarchy({shape[1], shape[0]});
+      mgard::CompressedDataset<2, float> compressed_dataset = mgard::compress(hierarchy, in_buff, s, tol);
+      out_size = compressed_dataset.size();
+      mgard::DecompressedDataset<2, float> decompressed_dataset = mgard::decompress(compressed_dataset);
+      memcpy(mgard_out_buff, decompressed_dataset.data(), num_float * sizeof(float));
+    } else {
+      mgard_cuda::Array<2, float> in_array(shape);
+      in_array.loadData(in_buff);
+      mgard_cuda::Handle<2, float> handle(shape);
+      mgard_cuda::Array<1, unsigned char> compressed_array =
+          mgard_cuda::compress(handle, in_array, mgard_cuda::ABS, tol, s);
+      out_size = compressed_array.getShape()[0];
+      mgard_cuda::Array<2, float> out_array =
+          mgard_cuda::decompress(handle, compressed_array);
+      memcpy(mgard_out_buff, out_array.getDataHost(),
+             num_float * sizeof(float));
+    }
   } else if (D == 3) {
-    mgard_cuda::Array<3, float> in_array(shape);
-    in_array.loadData(in_buff);
-    mgard_cuda::Handle<3, float> handle(shape);
-    mgard_cuda::Array<1, unsigned char> compressed_array =
-        mgard_cuda::compress(handle, in_array, mgard_cuda::ABS, tol, s);
-    out_size = compressed_array.getShape()[0];
-    mgard_cuda::Array<3, float> out_array =
-        mgard_cuda::decompress(handle, compressed_array);
-    mgard_out_buff = new float[num_float];
-    memcpy(mgard_out_buff, out_array.getDataHost(),
-           num_float * sizeof(float));
+    if (device == 0) {
+      const mgard::TensorMeshHierarchy<3, float> hierarchy({shape[2], shape[1], shape[0]});
+      mgard::CompressedDataset<3, float> compressed_dataset = mgard::compress(hierarchy, in_buff, s, tol);
+      out_size = compressed_dataset.size();
+      mgard::DecompressedDataset<3, float> decompressed_dataset = mgard::decompress(compressed_dataset);
+      memcpy(mgard_out_buff, decompressed_dataset.data(), num_float * sizeof(float));
+    } else {
+      mgard_cuda::Array<3, float> in_array(shape);
+      in_array.loadData(in_buff);
+      mgard_cuda::Handle<3, float> handle(shape);
+      mgard_cuda::Array<1, unsigned char> compressed_array =
+          mgard_cuda::compress(handle, in_array, mgard_cuda::ABS, tol, s);
+      out_size = compressed_array.getShape()[0];
+      mgard_cuda::Array<3, float> out_array =
+          mgard_cuda::decompress(handle, compressed_array);
+      memcpy(mgard_out_buff, out_array.getDataHost(),
+             num_float * sizeof(float));
+    }
   } else if (D == 4) {
-    mgard_cuda::Array<4, float> in_array(shape);
-    in_array.loadData(in_buff);
-    mgard_cuda::Handle<4, float> handle(shape);
-    mgard_cuda::Array<1, unsigned char> compressed_array =
-        mgard_cuda::compress(handle, in_array, mgard_cuda::ABS, tol, s);
-    out_size = compressed_array.getShape()[0];
-    mgard_cuda::Array<4, float> out_array =
-        mgard_cuda::decompress(handle, compressed_array);
-    mgard_out_buff = new float[num_float];
-    memcpy(mgard_out_buff, out_array.getDataHost(),
-           num_float * sizeof(float));
+    if (device == 0) {
+      const mgard::TensorMeshHierarchy<4, float> hierarchy({shape[3], shape[2], shape[1], shape[0]});
+      mgard::CompressedDataset<4, float> compressed_dataset = mgard::compress(hierarchy, in_buff, s, tol);
+      out_size = compressed_dataset.size();
+      mgard::DecompressedDataset<4, float> decompressed_dataset = mgard::decompress(compressed_dataset);
+      memcpy(mgard_out_buff, decompressed_dataset.data(), num_float * sizeof(float));
+    } else {
+      mgard_cuda::Array<4, float> in_array(shape);
+      in_array.loadData(in_buff);
+      mgard_cuda::Handle<4, float> handle(shape);
+      mgard_cuda::Array<1, unsigned char> compressed_array =
+          mgard_cuda::compress(handle, in_array, mgard_cuda::ABS, tol, s);
+      out_size = compressed_array.getShape()[0];
+      mgard_cuda::Array<4, float> out_array =
+          mgard_cuda::decompress(handle, compressed_array);
+      memcpy(mgard_out_buff, out_array.getDataHost(),
+             num_float * sizeof(float));
+    }
   }
 
   printf("In size:  %10ld  Out size: %10ld  Compression ratio: %10ld \n", lSize,
@@ -179,20 +252,7 @@ int main(int argc, char *argv[]) {
   // result = fwrite (mgard_out_buff, 1, lSize, qfile);
   // fclose(qfile);
   // if (result != lSize) {fputs ("Writing error",stderr); exit (4);}
-  int error_count = 100;
-  float error_L_inf_norm = 0;
-  float sum = 0;
-  for (int i = 0; i < num_float; ++i) {
-    float temp = fabs(in_buff[i] - mgard_out_buff[i]);
-    if (temp > error_L_inf_norm)
-      error_L_inf_norm = temp;
-    if (temp >= tol && error_count) {
-      printf("not bounded: buffer[%d]: %f vs. mgard_out_buff[%d]: %f \n", i,
-             in_buff[i], i, mgard_out_buff[i]);
-      error_count--;
-    }
-    sum += temp * temp;
-  }
+  
 
   float max = 0, min = std::numeric_limits<float>::max(), range = 0;
   float error_sum = 0, mse = 0, psnr = 0;
@@ -206,25 +266,33 @@ int main(int argc, char *argv[]) {
   mse = error_sum / num_float;
   psnr = 20*log10(range)-10*log10(mse);
 
-  mgard_cuda::cudaFreeHostHelper(in_buff);
+  
 
   // printf("sum: %e\n", sum/num_float);
-  float absolute_L_inf_error = error_L_inf_norm;
+  float absolute_error = 0.0;
 
-  // std::ofstream fout("mgard_out.dat", std::ios::binary);
-  // fout.write(reinterpret_cast<const char *>(mgard_comp_buff), out_size);
-  // fout.close();
+  if (s == std::numeric_limits<float>::infinity()) {
+    absolute_error = L_inf_error(num_float, in_buff, mgard_out_buff);
+    printf("Abs. L^infty error bound: %10.5E \n", tol);
+    printf("Abs. L^infty error: %10.5E \n", absolute_error);
+  }
 
-  printf("Abs. L^infty error bound: %10.5E \n", tol);
-  printf("Abs. L^infty error: %10.5E \n", absolute_L_inf_error);
+  if (s == 0) {
+    absolute_error = L_2_error(num_float, in_buff, mgard_out_buff);
+    printf("Abs. L^2 error bound: %10.5E \n", tol);
+    printf("Abs. L^2 error: %10.5E \n", absolute_error);
+  }
+
   printf("MSE: %10.5E\n", mse);
   printf("PSNR: %10.5E\n", psnr);
 
-  if (absolute_L_inf_error < tol) {
+  if (absolute_error < tol) {
     printf(ANSI_GREEN "SUCCESS: Error tolerance met!" ANSI_RESET "\n");
     return 0;
   } else {
     printf(ANSI_RED "FAILURE: Error tolerance NOT met!" ANSI_RESET "\n");
     return -1;
   }
+  delete [] mgard_out_buff;
+  mgard_cuda::cudaFreeHostHelper(in_buff);
 }

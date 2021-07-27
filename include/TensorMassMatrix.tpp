@@ -74,8 +74,10 @@ void ConstituentMassMatrix<N, Real>::do_operator_parentheses(
     out_right = &CLO::hierarchy->at(v, alpha);
     v_right = *out_right;
 
+    // printf("(%llu, %llu, %llu, %llu)%f <- %f %f %f\n", alpha[0], alpha[1], alpha[2], alpha[3], h_left / 6 * v_left + (h_left + h_right) / 3 * v_middle +
+    //               h_right / 6 * v_right, v_left, v_middle, v_right);
     // TODO: Figure out changing.
-    *out_middle = h_left / 6 * v_left + (h_left + h_right) / 3 * v_middle +
+    *(out_middle) = h_left / 6 * v_left + (h_left + h_right) / 3 * v_middle +
                   h_right / 6 * v_right;
   }
 
@@ -84,6 +86,8 @@ void ConstituentMassMatrix<N, Real>::do_operator_parentheses(
   v_left = v_middle;
   v_middle = v_right;
   out_middle = out_right;
+
+  // printf("\n");
 
   // TODO: Figure out changing.
   *out_middle = h_left / 6 * v_left + h_left / 3 * v_middle;

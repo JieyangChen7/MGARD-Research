@@ -39,6 +39,7 @@ int main(int argc, char *argv[]) {
   char *infile;    //, *outfile;
   std::vector<size_t> shape;
   double tol, s = 0;
+  int device = 0; // 0 CPU; 1 GPU
 
   int i = 1;
   data_srouce = atoi(argv[i++]);
@@ -59,6 +60,10 @@ int main(int argc, char *argv[]) {
   printf("Rel. error bound: %.2e ", tol);
   s = atof(argv[i++]);
   printf("S: %.2f\n", s);
+  device = atoi(argv[i++]);
+  if (device == 0) printf("Use: CPU\n");
+  if (device == 1) printf("Use: GPU\n");
+
   size_t lSize;
   long num_double;
 
@@ -124,58 +129,86 @@ int main(int argc, char *argv[]) {
   }
 
   size_t out_size;
-  double *mgard_out_buff = NULL;
+  double *mgard_out_buff = new double[num_double];
 
-  printf("Start compressing and decompressing with GPU\n");
+  printf("Start compressing and decompressing\n");
   if (D == 1) {
-    mgard_cuda::Array<1, double> in_array(shape);
-    in_array.loadData(in_buff);
-    mgard_cuda::Array<1, double> test = in_array;
-    mgard_cuda::Handle<1, double> handle(shape);
-    mgard_cuda::Array<1, unsigned char> compressed_array =
-        mgard_cuda::compress(handle, in_array, mgard_cuda::REL, tol, s);
-    out_size = compressed_array.getShape()[0];
-    mgard_cuda::Array<1, double> out_array =
-        mgard_cuda::decompress(handle, compressed_array);
-    mgard_out_buff = new double[num_double];
-    memcpy(mgard_out_buff, out_array.getDataHost(),
-           num_double * sizeof(double));
+    if (device == 0) {
+      const mgard::TensorMeshHierarchy<1, double> hierarchy({shape[0]});
+      mgard::CompressedDataset<1, double> compressed_dataset = mgard::compress(hierarchy, in_buff, s, data_L_inf_norm * tol);
+      out_size = compressed_dataset.size();
+      mgard::DecompressedDataset<1, double> decompressed_dataset = mgard::decompress(compressed_dataset);
+      memcpy(mgard_out_buff, decompressed_dataset.data(), num_double * sizeof(double));
+    } else {
+      mgard_cuda::Array<1, double> in_array(shape);
+      in_array.loadData(in_buff);
+      mgard_cuda::Array<1, double> test = in_array;
+      mgard_cuda::Handle<1, double> handle(shape);
+      mgard_cuda::Array<1, unsigned char> compressed_array =
+          mgard_cuda::compress(handle, in_array, mgard_cuda::REL, tol, s);
+      out_size = compressed_array.getShape()[0];
+      mgard_cuda::Array<1, double> out_array =
+          mgard_cuda::decompress(handle, compressed_array);
+      memcpy(mgard_out_buff, out_array.getDataHost(),
+             num_double * sizeof(double));
+    }
   } else if (D == 2) {
-    mgard_cuda::Array<2, double> in_array(shape);
-    in_array.loadData(in_buff);
-    mgard_cuda::Handle<2, double> handle(shape);
-    mgard_cuda::Array<1, unsigned char> compressed_array =
-        mgard_cuda::compress(handle, in_array, mgard_cuda::REL, tol, s);
-    out_size = compressed_array.getShape()[0];
-    mgard_cuda::Array<2, double> out_array =
-        mgard_cuda::decompress(handle, compressed_array);
-    mgard_out_buff = new double[num_double];
-    memcpy(mgard_out_buff, out_array.getDataHost(),
-           num_double * sizeof(double));
+    if (device == 0) {
+      const mgard::TensorMeshHierarchy<2, double> hierarchy({shape[1], shape[0]});
+      mgard::CompressedDataset<2, double> compressed_dataset = mgard::compress(hierarchy, in_buff, s, data_L_inf_norm * tol);
+      out_size = compressed_dataset.size();
+      mgard::DecompressedDataset<2, double> decompressed_dataset = mgard::decompress(compressed_dataset);
+      memcpy(mgard_out_buff, decompressed_dataset.data(), num_double * sizeof(double));
+    } else {
+      mgard_cuda::Array<2, double> in_array(shape);
+      in_array.loadData(in_buff);
+      mgard_cuda::Handle<2, double> handle(shape);
+      mgard_cuda::Array<1, unsigned char> compressed_array =
+          mgard_cuda::compress(handle, in_array, mgard_cuda::REL, tol, s);
+      out_size = compressed_array.getShape()[0];
+      mgard_cuda::Array<2, double> out_array =
+          mgard_cuda::decompress(handle, compressed_array);
+      memcpy(mgard_out_buff, out_array.getDataHost(),
+             num_double * sizeof(double));
+    }
   } else if (D == 3) {
-    mgard_cuda::Array<3, double> in_array(shape);
-    in_array.loadData(in_buff);
-    mgard_cuda::Handle<3, double> handle(shape);
-    mgard_cuda::Array<1, unsigned char> compressed_array =
-        mgard_cuda::compress(handle, in_array, mgard_cuda::REL, tol, s);
-    out_size = compressed_array.getShape()[0];
-    mgard_cuda::Array<3, double> out_array =
-        mgard_cuda::decompress(handle, compressed_array);
-    mgard_out_buff = new double[num_double];
-    memcpy(mgard_out_buff, out_array.getDataHost(),
-           num_double * sizeof(double));
+    if (device == 0) {
+      const mgard::TensorMeshHierarchy<3, double> hierarchy({shape[2], shape[1], shape[0]});
+      mgard::CompressedDataset<3, double> compressed_dataset = mgard::compress(hierarchy, in_buff, s, data_L_inf_norm * tol);
+      out_size = compressed_dataset.size();
+      mgard::DecompressedDataset<3, double> decompressed_dataset = mgard::decompress(compressed_dataset);
+      memcpy(mgard_out_buff, decompressed_dataset.data(), num_double * sizeof(double));
+    } else {
+      mgard_cuda::Array<3, double> in_array(shape);
+      in_array.loadData(in_buff);
+      mgard_cuda::Handle<3, double> handle(shape);
+      mgard_cuda::Array<1, unsigned char> compressed_array =
+          mgard_cuda::compress(handle, in_array, mgard_cuda::REL, tol, s);
+      out_size = compressed_array.getShape()[0];
+      mgard_cuda::Array<3, double> out_array =
+          mgard_cuda::decompress(handle, compressed_array);
+      memcpy(mgard_out_buff, out_array.getDataHost(),
+             num_double * sizeof(double));
+    }
   } else if (D == 4) {
-    mgard_cuda::Array<4, double> in_array(shape);
-    in_array.loadData(in_buff);
-    mgard_cuda::Handle<4, double> handle(shape);
-    mgard_cuda::Array<1, unsigned char> compressed_array =
-        mgard_cuda::compress(handle, in_array, mgard_cuda::REL, tol, s);
-    out_size = compressed_array.getShape()[0];
-    mgard_cuda::Array<4, double> out_array =
-        mgard_cuda::decompress(handle, compressed_array);
-    mgard_out_buff = new double[num_double];
-    memcpy(mgard_out_buff, out_array.getDataHost(),
-           num_double * sizeof(double));
+    if (device == 0) {
+      const mgard::TensorMeshHierarchy<4, double> hierarchy({shape[3], shape[2], shape[1], shape[0]});
+      mgard::CompressedDataset<4, double> compressed_dataset = mgard::compress(hierarchy, in_buff, s, data_L_inf_norm * tol);
+      out_size = compressed_dataset.size();
+      mgard::DecompressedDataset<4, double> decompressed_dataset = mgard::decompress(compressed_dataset);
+      memcpy(mgard_out_buff, decompressed_dataset.data(), num_double * sizeof(double));
+    } else {
+      mgard_cuda::Array<4, double> in_array(shape);
+      in_array.loadData(in_buff);
+      mgard_cuda::Handle<4, double> handle(shape);
+      mgard_cuda::Array<1, unsigned char> compressed_array =
+          mgard_cuda::compress(handle, in_array, mgard_cuda::REL, tol, s);
+      out_size = compressed_array.getShape()[0];
+      mgard_cuda::Array<4, double> out_array =
+          mgard_cuda::decompress(handle, compressed_array);
+      memcpy(mgard_out_buff, out_array.getDataHost(),
+             num_double * sizeof(double));
+    }
   }
 
   printf("In size:  %10ld  Out size: %10ld  Compression ratio: %10ld \n", lSize,
@@ -193,8 +226,8 @@ int main(int argc, char *argv[]) {
     if (temp > error_L_inf_norm)
       error_L_inf_norm = temp;
     if (temp / data_L_inf_norm >= tol && error_count) {
-      printf("not bounded: buffer[%d]: %f vs. mgard_out_buff[%d]: %f \n", i,
-             in_buff[i], i, mgard_out_buff[i]);
+      // printf("not bounded: buffer[%d]: %f vs. mgard_out_buff[%d]: %f \n", i,
+      //        in_buff[i], i, mgard_out_buff[i]);
       error_count--;
     }
   }
@@ -235,4 +268,5 @@ int main(int argc, char *argv[]) {
     printf(ANSI_RED "FAILURE: Error tolerance NOT met!" ANSI_RESET "\n");
     return -1;
   }
+  delete [] mgard_out_buff;
 }

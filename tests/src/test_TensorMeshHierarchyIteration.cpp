@@ -1,5 +1,6 @@
 #include "catch2/catch_test_macros.hpp"
 
+#include <algorithm>
 #include <array>
 #include <vector>
 
@@ -16,7 +17,7 @@ TEST_CASE("TensorIndexRange size and iteration",
     const mgard::TensorMeshHierarchy<1, float> hierarchy({17});
 
     {
-      const mgard::TensorIndexRange range(hierarchy, 4, 0);
+      const mgard::TensorIndexRange range = hierarchy.indices(4, 0);
       REQUIRE(range.size() == 17);
       TrialTracker tracker;
       std::size_t expected = 0;
@@ -28,7 +29,7 @@ TEST_CASE("TensorIndexRange size and iteration",
     }
 
     {
-      const mgard::TensorIndexRange range(hierarchy, 2, 0);
+      const mgard::TensorIndexRange range = hierarchy.indices(2, 0);
       REQUIRE(range.size() == 5);
       TrialTracker tracker;
       std::size_t expected = 0;
@@ -45,7 +46,7 @@ TEST_CASE("TensorIndexRange size and iteration",
     const mgard::TensorMeshHierarchy<1, float> hierarchy({10});
 
     {
-      const mgard::TensorIndexRange range(hierarchy, 4, 0);
+      const mgard::TensorIndexRange range = hierarchy.indices(4, 0);
       REQUIRE(range.size() == 10);
       TrialTracker tracker;
       std::size_t expected = 0;
@@ -57,7 +58,7 @@ TEST_CASE("TensorIndexRange size and iteration",
     }
 
     {
-      const mgard::TensorIndexRange range(hierarchy, 2, 0);
+      const mgard::TensorIndexRange range = hierarchy.indices(2, 0);
       REQUIRE(range.size() == 5);
       TrialTracker tracker;
       const std::vector<std::size_t> expected = {0, 2, 4, 6, 9};
@@ -189,18 +190,26 @@ TEST_CASE("TensorNode predecessors and successors",
 
 namespace {
 
+template <std::size_t N, typename Real>
+std::vector<std::array<std::size_t, N>> get_shuffled_node_multiindices(
+    const mgard::TensorMeshHierarchy<N, Real> &hierarchy, const std::size_t l) {
+  const mgard::ShuffledTensorNodeRange<N, Real> nodes(hierarchy, l);
+  std::vector<std::array<std::size_t, N>> multiindices(hierarchy.ndof(l));
+  std::transform(
+      nodes.begin(), nodes.end(), multiindices.begin(),
+      [](const mgard::TensorNode<N> &node) -> std::array<std::size_t, N> {
+        return node.multiindex;
+      });
+  return multiindices;
+}
+
 template <std::size_t N>
 void test_shuffled_dereferencing(
     const std::array<std::size_t, N> shape,
     const std::vector<std::array<std::size_t, N>> &expected) {
   const mgard::TensorMeshHierarchy<N, float> hierarchy(shape);
-  std::vector<std::array<std::size_t, N>> obtained(hierarchy.ndof());
-  const mgard::ShuffledTensorNodeRange nodes(hierarchy, hierarchy.L);
-  std::transform(
-      nodes.begin(), nodes.end(), obtained.begin(),
-      [](const mgard::TensorNode<N> &node) -> std::array<std::size_t, N> {
-        return node.multiindex;
-      });
+  const std::vector<std::array<std::size_t, N>> obtained =
+      get_shuffled_node_multiindices(hierarchy, hierarchy.L);
   REQUIRE(obtained == expected);
 }
 
@@ -230,5 +239,19 @@ TEST_CASE("ShuffledTensorNodeRange dereferencing",
         {1, 1, 2}, {1, 2, 0}, {1, 2, 1}, {1, 2, 2}, {2, 0, 1}, {2, 1, 0},
         {2, 1, 1}, {2, 1, 2}, {2, 2, 1}};
     test_shuffled_dereferencing<3>({3, 3, 3}, expected);
+  }
+
+  SECTION("partial ranges") {
+    const mgard::TensorMeshHierarchy<3, float> hierarchy({20, 19, 21});
+    const std::vector<std::array<std::size_t, 3>> multiindices_L =
+        get_shuffled_node_multiindices(hierarchy, hierarchy.L);
+    TrialTracker tracker;
+    for (std::size_t l = 0; l <= hierarchy.L; ++l) {
+      const std::vector<std::array<std::size_t, 3>> multiindices_l =
+          get_shuffled_node_multiindices(hierarchy, l);
+      tracker += std::equal(multiindices_l.begin(), multiindices_l.end(),
+                            multiindices_L.begin());
+    }
+    REQUIRE(tracker);
   }
 }

@@ -8,33 +8,39 @@
 #ifndef MGRAD_CUDA_GRID_PROCESSING_KERNEL_3D_TEMPLATE
 #define MGRAD_CUDA_GRID_PROCESSING_KERNEL_3D_TEMPLATE
 
+#include "CommonInternal.h"
+
 #include "GridProcessingKernel3D.h"
 
 namespace mgard_cuda {
 
-template <uint32_t D, typename T, int R, int C, int F>
+template <DIM D, typename T, SIZE R, SIZE C, SIZE F>
 __global__ void
-_gpk_reo_3d(int nr, int nc, int nf, int nr_c, int nc_c, int nf_c, T *dratio_r,
-            T *dratio_c, T *dratio_f, T *dv, int lddv1, int lddv2, T *dw,
-            int lddw1, int lddw2, T *dwf, int lddwf1, int lddwf2, T *dwc,
-            int lddwc1, int lddwc2, T *dwr, int lddwr1, int lddwr2, T *dwcf,
-            int lddwcf1, int lddwcf2, T *dwrf, int lddwrf1, int lddwrf2,
-            T *dwrc, int lddwrc1, int lddwrc2, T *dwrcf, int lddwrcf1,
-            int lddwrcf2) {
+_gpk_reo_3d(SIZE nr, SIZE nc, SIZE nf, SIZE nr_c, SIZE nc_c, SIZE nf_c, T *dratio_r,
+            T *dratio_c, T *dratio_f, T *dv, SIZE lddv1, SIZE lddv2, T *dw,
+            SIZE lddw1, SIZE lddw2, T *dwf, SIZE lddwf1, SIZE lddwf2, T *dwc,
+            SIZE lddwc1, SIZE lddwc2, T *dwr, SIZE lddwr1, SIZE lddwr2, T *dwcf,
+            SIZE lddwcf1, SIZE lddwcf2, T *dwrf, SIZE lddwrf1, SIZE lddwrf2,
+            T *dwrc, SIZE lddwrc1, SIZE lddwrc2, T *dwrcf, SIZE lddwrcf1,
+            SIZE lddwrcf2) {
+
+  // to be removed
   int TYPE = 1;
   bool INTERPOLATION = true;
   bool CALC_COEFF = true;
   bool in_next = false;
   bool skip = false;
-  int r, c, f;
-  int rest_r, rest_c, rest_f;
-  int nr_p, nc_p, nf_p;
-  int rest_r_p, rest_c_p, rest_f_p;
-  int r_sm, c_sm, f_sm;
-  int r_sm_ex, c_sm_ex, f_sm_ex;
-  int r_gl, c_gl, f_gl;
-  int r_gl_ex, c_gl_ex, f_gl_ex;
-  int threadId;
+
+  SIZE r, c, f;
+  SIZE rest_r, rest_c, rest_f;
+  SIZE nr_p, nc_p, nf_p;
+  SIZE rest_r_p, rest_c_p, rest_f_p;
+  SIZE r_sm, c_sm, f_sm;
+  SIZE r_sm_ex, c_sm_ex, f_sm_ex;
+  SIZE r_gl, c_gl, f_gl;
+  SIZE r_gl_ex, c_gl_ex, f_gl_ex;
+  LENGTH threadId;
+
   T res;
 
   r = blockIdx.z * blockDim.z;
@@ -78,8 +84,8 @@ _gpk_reo_3d(int nr, int nc, int nf, int nr_c, int nc_c, int nf_c, T *dratio_r,
              (threadIdx.y * blockDim.x) + threadIdx.x;
 
   T *sm = SharedMemory<T>();
-  int ldsm1 = F * 2 + 1;
-  int ldsm2 = C * 2 + 1;
+  SIZE ldsm1 = F * 2 + 1;
+  SIZE ldsm2 = C * 2 + 1;
   T *v_sm = sm;
   T *ratio_f_sm = sm + (F * 2 + 1) * (C * 2 + 1) * (R * 2 + 1);
   T *ratio_c_sm = ratio_f_sm + F * 2;
@@ -817,7 +823,8 @@ _gpk_reo_3d(int nr, int nc, int nf, int nr_c, int nc_c, int nf_c, T *dratio_r,
         }
       }
 
-      // if (nr == 70) printf("f-store: (%d %d %d) <- %f (%d %d %d)\n", r_gl,
+      // if (nr == 70) 
+      // printf("f-store: (%d %d %d) <- %f (%d %d %d)\n", r_gl,
       // c_gl, f_gl, v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)], r_sm, c_sm,
       // f_sm);
       // asm volatile("membar.cta;");
@@ -1183,18 +1190,45 @@ _gpk_reo_3d(int nr, int nc, int nf, int nr_c, int nc_c, int nf_c, T *dratio_r,
               // printf("test3\n");
               if (!skip) {
                 if (INTERPOLATION) {
+                  // double t1 = fmaf(-1*ratio_f_sm[f_sm - 1], v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm - 1)], v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm - 1)]);
+                  // double t2 = fmaf(ratio_f_sm[f_sm - 1], v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm + 1)], t1);
+                  // double r1 = v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm - 1)] + v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm - 1)] * ratio_f_sm[f_sm - 1] * -1;
+                  // double r2 = r1 + ratio_f_sm[f_sm - 1] * v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm + 1)];
+                  // double r3 = ratio_f_sm[f_sm - 1] * v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm + 1)];
+                  // printf("%.6f * %.6f = %.6f; %.6f + %.6f = %.6f\n", 
+                  //       ratio_f_sm[f_sm - 1],
+                  //       v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm + 1)],
+                  //       r3,
+                  //       r1, r3, r1+r3);
+                  // printf("res: %f<- %f %f %f lerp: %f<-_%f %f %f %f)\n",
+                  //   res, v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm - 1)],
+                  //            v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm + 1)],
+
+                  //            ratio_f_sm[f_sm - 1],
+                  //            lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm - 1)],
+                  //            v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm + 1)],
+
+                  //            ratio_f_sm[f_sm - 1]), 
+                  //             t1, t2, r1, r2);
+
+
+
                   res = lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm - 1)],
                              v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm + 1)],
                              ratio_f_sm[f_sm - 1]);
                 }
                 if (INTERPOLATION && CALC_COEFF) {
+                  
                   res = v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] - res;
                 }
                 if (!INTERPOLATION && CALC_COEFF) {
                   res -= dwf[get_idx(lddwf1, lddwf2, r_gl, c_gl, f_gl)];
                 }
               }
-              // printf("dwf (%d %d %d): %f\n", r_gl, c_gl, f_gl, res);
+              // printf("dwf (%d %d %d): %f<-(%f %f %f)\n", r_gl, c_gl, f_gl, res, 
+              //   v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm - 1)],
+              //                v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm + 1)],
+              //                ratio_f_sm[f_sm - 1]);
               dwf[get_idx(lddwf1, lddwf2, r_gl, c_gl, f_gl)] = res;
             }
           } else if (TYPE == 2) {
@@ -1280,6 +1314,8 @@ _gpk_reo_3d(int nr, int nc, int nf, int nr_c, int nc_c, int nf_c, T *dratio_r,
                 r_gl < nr_c && c_gl < nc - nc_c && f_gl < nf - nf_c) {
               if (!skip) {
                 if (INTERPOLATION) {
+
+
                   T f1 = lerp(
                       v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm - 1, f_sm - 1)],
                       v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm - 1, f_sm + 1)],
@@ -1289,6 +1325,10 @@ _gpk_reo_3d(int nr, int nc, int nf, int nr_c, int nc_c, int nf_c, T *dratio_r,
                       v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm + 1, f_sm + 1)],
                       ratio_f_sm[f_sm - 1]);
                   res = lerp(f1, f2, ratio_c_sm[c_sm - 1]);
+
+
+                  // printf("%f = (%f+%f)/2\n", res, f1, f2);
+
                 }
                 if (INTERPOLATION && CALC_COEFF) {
                   res = v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] - res;
@@ -1785,24 +1825,23 @@ _gpk_reo_3d(int nr, int nc, int nf, int nr_c, int nc_c, int nf_c, T *dratio_r,
   // }
 }
 
-template <uint32_t D, typename T, int R, int C, int F>
+template <DIM D, typename T, SIZE R, SIZE C, SIZE F>
 void gpk_reo_3d_adaptive_launcher(
-    Handle<D, T> &handle, int nr, int nc, int nf, T *dratio_r, T *dratio_c,
-    T *dratio_f, T *dv, int lddv1, int lddv2, T *dw, int lddw1, int lddw2,
-    T *dwf, int lddwf1, int lddwf2, T *dwc, int lddwc1, int lddwc2, T *dwr,
-    int lddwr1, int lddwr2, T *dwcf, int lddwcf1, int lddwcf2, T *dwrf,
-    int lddwrf1, int lddwrf2, T *dwrc, int lddwrc1, int lddwrc2, T *dwrcf,
-    int lddwrcf1, int lddwrcf2, int queue_idx) {
-  cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
-  cudaDeviceSetCacheConfig(cudaFuncCachePreferShared);
-  int nr_c = nr / 2 + 1;
-  int nc_c = nc / 2 + 1;
-  int nf_c = nf / 2 + 1;
-  int total_thread_z = std::max(nr - 1, 1);
-  int total_thread_y = std::max(nc - 1, 1);
-  int total_thread_x = std::max(nf - 1, 1);
+    Handle<D, T> &handle, SIZE nr, SIZE nc, SIZE nf, T *dratio_r, T *dratio_c,
+    T *dratio_f, T *dv, SIZE lddv1, SIZE lddv2, T *dw, SIZE lddw1, SIZE lddw2,
+    T *dwf, SIZE lddwf1, SIZE lddwf2, T *dwc, SIZE lddwc1, SIZE lddwc2, T *dwr,
+    SIZE lddwr1, SIZE lddwr2, T *dwcf, SIZE lddwcf1, SIZE lddwcf2, T *dwrf,
+    SIZE lddwrf1, SIZE lddwrf2, T *dwrc, SIZE lddwrc1, SIZE lddwrc2, T *dwrcf,
+    SIZE lddwrcf1, SIZE lddwrcf2, int queue_idx) {
 
-  int tbx, tby, tbz, gridx, gridy, gridz;
+  SIZE nr_c = nr / 2 + 1;
+  SIZE nc_c = nc / 2 + 1;
+  SIZE nf_c = nf / 2 + 1;
+  SIZE total_thread_z = std::max(nr - 1, (SIZE)1);
+  SIZE total_thread_y = std::max(nc - 1, (SIZE)1);
+  SIZE total_thread_x = std::max(nf - 1, (SIZE)1);
+
+  SIZE tbx, tby, tbz, gridx, gridy, gridz;
   dim3 threadsPerBlock, blockPerGrid;
   size_t sm_size;
   // const int R = 4;
@@ -1835,15 +1874,15 @@ void gpk_reo_3d_adaptive_launcher(
 #endif
 }
 
-template <uint32_t D, typename T>
-void gpk_reo_3d(Handle<D, T> &handle, int nr, int nc, int nf, T *dratio_r,
-                T *dratio_c, T *dratio_f, T *dv, int lddv1, int lddv2, T *dw,
-                int lddw1, int lddw2, T *dwf, int lddwf1, int lddwf2, T *dwc,
-                int lddwc1, int lddwc2, T *dwr, int lddwr1, int lddwr2, T *dwcf,
-                int lddwcf1, int lddwcf2, T *dwrf, int lddwrf1, int lddwrf2,
-                T *dwrc, int lddwrc1, int lddwrc2, T *dwrcf, int lddwrcf1,
-                int lddwrcf2, int queue_idx, int config) {
-
+template <DIM D, typename T>
+void gpk_reo_3d(Handle<D, T> &handle, SIZE nr, SIZE nc, SIZE nf, T *dratio_r,
+                T *dratio_c, T *dratio_f, T *dv, SIZE lddv1, SIZE lddv2, T *dw,
+                SIZE lddw1, SIZE lddw2, T *dwf, SIZE lddwf1, SIZE lddwf2, T *dwc,
+                SIZE lddwc1, SIZE lddwc2, T *dwr, SIZE lddwr1, SIZE lddwr2, T *dwcf,
+                SIZE lddwcf1, SIZE lddwcf2, T *dwrf, SIZE lddwrf1, SIZE lddwrf2,
+                T *dwrc, SIZE lddwrc1, SIZE lddwrc2, T *dwrcf, SIZE lddwrcf1,
+                SIZE lddwrcf2, int queue_idx, int config) {
+  
 #define GPK(R, C, F)                                                           \
   {                                                                            \
     gpk_reo_3d_adaptive_launcher<D, T, R, C, F>(                               \
@@ -1928,46 +1967,48 @@ void gpk_reo_3d(Handle<D, T> &handle, int nr, int nc, int nf, T *dratio_r,
 #undef GPK
 }
 
-template <uint32_t D, typename T, int R, int C, int F>
+template <DIM D, typename T, SIZE R, SIZE C, SIZE F>
 __global__ void
-_gpk_rev_3d(int nr, int nc, int nf, int nr_c, int nc_c, int nf_c, T *dratio_r,
-            T *dratio_c, T *dratio_f, T *dv, int lddv1, int lddv2, T *dw,
-            int lddw1, int lddw2, T *dwf, int lddwf1, int lddwf2, T *dwc,
-            int lddwc1, int lddwc2, T *dwr, int lddwr1, int lddwr2, T *dwcf,
-            int lddwcf1, int lddwcf2, T *dwrf, int lddwrf1, int lddwrf2,
-            T *dwrc, int lddwrc1, int lddwrc2, T *dwrcf, int lddwrcf1,
-            int lddwrcf2, int svr, int svc, int svf, int nvr, int nvc,
-            int nvf) {
+_gpk_rev_3d(SIZE nr, SIZE nc, SIZE nf, SIZE nr_c, SIZE nc_c, SIZE nf_c, T *dratio_r,
+            T *dratio_c, T *dratio_f, T *dv, SIZE lddv1, SIZE lddv2, T *dw,
+            SIZE lddw1, SIZE lddw2, T *dwf, SIZE lddwf1, SIZE lddwf2, T *dwc,
+            SIZE lddwc1, SIZE lddwc2, T *dwr, SIZE lddwr1, SIZE lddwr2, T *dwcf,
+            SIZE lddwcf1, SIZE lddwcf2, T *dwrf, SIZE lddwrf1, SIZE lddwrf2,
+            T *dwrc, SIZE lddwrc1, SIZE lddwrc2, T *dwrcf, SIZE lddwrcf1,
+            SIZE lddwrcf2, SIZE svr, SIZE svc, SIZE svf, SIZE nvr, SIZE nvc,
+            SIZE nvf) {
 
+  //to be removed
   int TYPE = 1;
   bool INTERPOLATION = true;
   bool COEFF_RESTORE = true;
   int in_next = false;
   int skip = false;
 
-  register int r = blockIdx.z * blockDim.z;
-  register int c = blockIdx.y * blockDim.y;
-  register int f = blockIdx.x * blockDim.x;
 
-  register int r_sm = threadIdx.z;
-  register int c_sm = threadIdx.y;
-  register int f_sm = threadIdx.x;
+  SIZE r = blockIdx.z * blockDim.z;
+  SIZE c = blockIdx.y * blockDim.y;
+  SIZE f = blockIdx.x * blockDim.x;
 
-  register int r_sm_ex = R * 2;
-  register int c_sm_ex = C * 2;
-  register int f_sm_ex = F * 2;
+  SIZE r_sm = threadIdx.z;
+  SIZE c_sm = threadIdx.y;
+  SIZE f_sm = threadIdx.x;
 
-  register int r_gl;
-  register int c_gl;
-  register int f_gl;
+  SIZE r_sm_ex = R * 2;
+  SIZE c_sm_ex = C * 2;
+  SIZE f_sm_ex = F * 2;
 
-  register int r_gl_ex;
-  register int c_gl_ex;
-  register int f_gl_ex;
+  SIZE r_gl;
+  SIZE c_gl;
+  SIZE f_gl;
+
+  SIZE r_gl_ex;
+  SIZE c_gl_ex;
+  SIZE f_gl_ex;
 
   T res;
 
-  int threadId = (threadIdx.z * (blockDim.x * blockDim.y)) +
+  LENGTH threadId = (threadIdx.z * (blockDim.x * blockDim.y)) +
                  (threadIdx.y * blockDim.x) + threadIdx.x;
 
   // extern __shared__ __align__(sizeof(T)) unsigned char smem[];
@@ -1977,8 +2018,8 @@ _gpk_rev_3d(int nr, int nc, int nf, int nr_c, int nc_c, int nf_c, T *dratio_r,
 
   // extern __shared__ double sm[]; // size: (blockDim.x + 1) * (blockDim.y + 1)
   // * (blockDim.z + 1)
-  int ldsm1 = F * 2 + 1;
-  int ldsm2 = C * 2 + 1;
+  SIZE ldsm1 = F * 2 + 1;
+  SIZE ldsm2 = C * 2 + 1;
   T *v_sm = sm;
   T *ratio_f_sm = sm + (F * 2 + 1) * (C * 2 + 1) * (R * 2 + 1);
   T *ratio_c_sm = ratio_f_sm + F * 2;
@@ -1995,17 +2036,17 @@ _gpk_rev_3d(int nr, int nc, int nf, int nr_c, int nc_c, int nf_c, T *dratio_r,
   //   ratio_f_sm[f_sm] = dratio_f[f + f_sm];
   // }
 
-  int rest_r = nr - r;
-  int rest_c = nc - c;
-  int rest_f = nf - f;
+  SIZE rest_r = nr - r;
+  SIZE rest_c = nc - c;
+  SIZE rest_f = nf - f;
 
-  int nr_p = nr;
-  int nc_p = nc;
-  int nf_p = nf;
+  SIZE nr_p = nr;
+  SIZE nc_p = nc;
+  SIZE nf_p = nf;
 
-  int rest_r_p;
-  int rest_c_p;
-  int rest_f_p;
+  SIZE rest_r_p;
+  SIZE rest_c_p;
+  SIZE rest_f_p;
 
   if (nr % 2 == 0) {
     nr_p = nr + 1;
@@ -3193,7 +3234,7 @@ _gpk_rev_3d(int nr, int nc, int nf, int nr_c, int nc_c, int nf_c, T *dratio_r,
         c_gl = c / 2 + C;
         f_gl = f / 2 + (threadId - R * C * F) % F;
 
-        if (TYPE) {
+        if (TYPE == 1) {
           if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
               r_gl < nr_c && c_gl < nc_c && f_gl < nf - nf_c) {
             res = dwf[get_idx(lddwf1, lddwf2, r_gl, c_gl, f_gl)];
@@ -4003,25 +4044,25 @@ _gpk_rev_3d(int nr, int nc, int nf, int nr_c, int nc_c, int nf_c, T *dratio_r,
   }
 }
 
-template <uint32_t D, typename T, int R, int C, int F>
+template <DIM D, typename T, SIZE R, SIZE C, SIZE F>
 void gpk_rev_3d_adaptive_launcher(
-    Handle<D, T> &handle, int nr, int nc, int nf, T *dratio_r, T *dratio_c,
-    T *dratio_f, T *dv, int lddv1, int lddv2, T *dw, int lddw1, int lddw2,
-    T *dwf, int lddwf1, int lddwf2, T *dwc, int lddwc1, int lddwc2, T *dwr,
-    int lddwr1, int lddwr2, T *dwcf, int lddwcf1, int lddwcf2, T *dwrf,
-    int lddwrf1, int lddwrf2, T *dwrc, int lddwrc1, int lddwrc2, T *dwrcf,
-    int lddwrcf1, int lddwrcf2, int svr, int svc, int svf, int nvr, int nvc,
-    int nvf, int queue_idx) {
+    Handle<D, T> &handle, SIZE nr, SIZE nc, SIZE nf, T *dratio_r, T *dratio_c,
+    T *dratio_f, T *dv, SIZE lddv1, SIZE lddv2, T *dw, SIZE lddw1, SIZE lddw2,
+    T *dwf, SIZE lddwf1, SIZE lddwf2, T *dwc, SIZE lddwc1, SIZE lddwc2, T *dwr,
+    SIZE lddwr1, SIZE lddwr2, T *dwcf, SIZE lddwcf1, SIZE lddwcf2, T *dwrf,
+    SIZE lddwrf1, SIZE lddwrf2, T *dwrc, SIZE lddwrc1, SIZE lddwrc2, T *dwrcf,
+    SIZE lddwrcf1, SIZE lddwrcf2, SIZE svr, SIZE svc, SIZE svf, SIZE nvr, SIZE nvc,
+    SIZE nvf, int queue_idx) {
   cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
   cudaDeviceSetCacheConfig(cudaFuncCachePreferShared);
-  int nr_c = nr / 2 + 1;
-  int nc_c = nc / 2 + 1;
-  int nf_c = nf / 2 + 1;
-  int total_thread_z = std::max(nr - 1, 1);
-  int total_thread_y = std::max(nc - 1, 1);
-  int total_thread_x = std::max(nf - 1, 1);
+  SIZE nr_c = nr / 2 + 1;
+  SIZE nc_c = nc / 2 + 1;
+  SIZE nf_c = nf / 2 + 1;
+  SIZE total_thread_z = std::max(nr - 1, (SIZE)1);
+  SIZE total_thread_y = std::max(nc - 1, (SIZE)1);
+  SIZE total_thread_x = std::max(nf - 1, (SIZE)1);
 
-  int tbx, tby, tbz, gridx, gridy, gridz;
+  SIZE tbx, tby, tbz, gridx, gridy, gridz;
   dim3 threadsPerBlock, blockPerGrid;
   size_t sm_size;
 
@@ -4053,15 +4094,15 @@ void gpk_rev_3d_adaptive_launcher(
 #endif
 }
 
-template <uint32_t D, typename T>
-void gpk_rev_3d(Handle<D, T> &handle, int nr, int nc, int nf, T *dratio_r,
-                T *dratio_c, T *dratio_f, T *dv, int lddv1, int lddv2, T *dw,
-                int lddw1, int lddw2, T *dwf, int lddwf1, int lddwf2, T *dwc,
-                int lddwc1, int lddwc2, T *dwr, int lddwr1, int lddwr2, T *dwcf,
-                int lddwcf1, int lddwcf2, T *dwrf, int lddwrf1, int lddwrf2,
-                T *dwrc, int lddwrc1, int lddwrc2, T *dwrcf, int lddwrcf1,
-                int lddwrcf2, int svr, int svc, int svf, int nvr, int nvc,
-                int nvf, int queue_idx, int config) {
+template <DIM D, typename T>
+void gpk_rev_3d(Handle<D, T> &handle, SIZE nr, SIZE nc, SIZE nf, T *dratio_r,
+                T *dratio_c, T *dratio_f, T *dv, SIZE lddv1, SIZE lddv2, T *dw,
+                SIZE lddw1, SIZE lddw2, T *dwf, SIZE lddwf1, SIZE lddwf2, T *dwc,
+                SIZE lddwc1, SIZE lddwc2, T *dwr, SIZE lddwr1, SIZE lddwr2, T *dwcf,
+                SIZE lddwcf1, SIZE lddwcf2, T *dwrf, SIZE lddwrf1, SIZE lddwrf2,
+                T *dwrc, SIZE lddwrc1, SIZE lddwrc2, T *dwrcf, SIZE lddwrcf1,
+                SIZE lddwrcf2, SIZE svr, SIZE svc, SIZE svf, SIZE nvr, SIZE nvc,
+                SIZE nvf, int queue_idx, int config) {
 
 #define GPK(R, C, F)                                                           \
   {                                                                            \

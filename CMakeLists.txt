@@ -26,7 +26,7 @@ endmacro ()
 mgard_option(MGARD_ENABLE_CUDA "Enable Cuda support" OFF)
 
 #For performance optimization
-mgard_option(MGARD_ENABLE_CUDA_FMA "Enable Cuda support with fused multpily-add instruction" ON)
+mgard_option(MGARD_ENABLE_CUDA_FMA "Enable Cuda support with fused multpily-add instruction" OFF)
 mgard_option(MGARD_ENABLE_CUDA_OPTIMIZE_VOLTA "Optimized for Volta GPUs" OFF)
 mgard_option(MGARD_ENABLE_CUDA_OPTIMIZE_TURING "Optimized for Turing GPUs" OFF)
 
@@ -84,7 +84,9 @@ if(MGARD_ENABLE_CUDA)
   find_package(CUDAToolkit)
   set (CMAKE_CXX_STANDARD 14)
   set(MGARD_CUDA_SRC
+      src/cuda/API.cu
       src/cuda/Array.cu
+      src/cuda/SubArray.cu
       src/cuda/Message.cpp
       src/cuda/CompressionWorkflow.cu
       src/cuda/Handle.cu
@@ -92,7 +94,7 @@ if(MGARD_ENABLE_CUDA)
       src/cuda/CommonInternal.cu    
       src/cuda/PrecomputeKernels.cu  
       src/cuda/DataRefactoring.cu   
-      src/cuda/DataRefactoring_AMR.cu   
+      #src/cuda/DataRefactoring_AMR.cu   
       src/cuda/GridProcessingKernels/InterpCalcCoeff.cu
       src/cuda/GridProcessingKernels/InterpCalcCoeff_3D.cu
       src/cuda/GridProcessingKernels/Interpolation.cu
@@ -115,13 +117,14 @@ if(MGARD_ENABLE_CUDA)
       src/cuda/IterativeProcessingKernels/SolveTridiag1_3D.cu
       src/cuda/IterativeProcessingKernels/SolveTridiag2_3D.cu
       src/cuda/IterativeProcessingKernels/SolveTridiag3_3D.cu
-      src/cuda/IterativeProcessingKernels/SolveTridiag1_3D_AMR.cu
+      #src/cuda/IterativeProcessingKernels/SolveTridiag1_3D_AMR.cu
       src/cuda/LevelwiseProcessingKernels/CopyLevel.cu
       src/cuda/LevelwiseProcessingKernels/AddLevel.cu
       src/cuda/LevelwiseProcessingKernels/SubtractLevel.cu
       src/cuda/LinearQuantization/LevelwiseLinearQuantization.cu
       src/cuda/LinearQuantization/LevelwiseLinearDequantization.cu
       src/cuda/LosslessCompression.cu
+      src/cuda/ErrorCalculator.cu
       src/cuda/ParallelHuffman/canonical.cu
       src/cuda/ParallelHuffman/constants.cc
       src/cuda/ParallelHuffman/cuda_mem.cu
@@ -133,11 +136,15 @@ if(MGARD_ENABLE_CUDA)
       src/cuda/ParallelHuffman/par_huffman.cu
       src/cuda/ParallelHuffman/par_huffman_sortbyfreq.cu
       src/cuda/ParallelHuffman/par_merge.cu
-      src/cuda/ParallelHuffman/types.cc)
+      src/cuda/ParallelHuffman/types.cc
+      src/cuda/Testing/ReorderToolsGPU.cu
+      #src/cuda/Testing/ReorderToolsCPU.cpp
+      )
 
   set(MGARD_CUDA_HEADER
       include/mgard_cuda_api.h
       include/cuda/Array.h
+      include/cuda/SubArray.h
       include/cuda/Message.h
       include/cuda/Handle.h
       include/cuda/MemoryManagement.h                 
@@ -145,7 +152,7 @@ if(MGARD_ENABLE_CUDA)
       include/cuda/CommonInternal.h   
       include/cuda/PrecomputeKernels.h   
       include/cuda/DataRefactoring.h   
-      include/cuda/DataRefactoring_AMR.h   
+      #include/cuda/DataRefactoring_AMR.h
       include/cuda/GridProcessingKernel.hpp   
       include/cuda/GridProcessingKernel.h
       include/cuda/GridProcessingKernel3D.hpp   
@@ -158,13 +165,14 @@ if(MGARD_ENABLE_CUDA)
       include/cuda/IterativeProcessingKernel.h
       include/cuda/IterativeProcessingKernel3D.hpp   
       include/cuda/IterativeProcessingKernel3D.h
-      include/cuda/IterativeProcessingKernel3D_AMR.hpp   
-      include/cuda/IterativeProcessingKernel3D_AMR.h
+      #include/cuda/IterativeProcessingKernel3D_AMR.hpp   
+      #include/cuda/IterativeProcessingKernel3D_AMR.h
       include/cuda/LevelwiseProcessingKernel.hpp   
       include/cuda/LevelwiseProcessingKernel.h
       include/cuda/LinearQuantization.hpp
       include/cuda/LinearQuantization.h
       include/cuda/LosslessCompression.h
+      include/cuda/ErrorCalculator.h
       include/cuda/ParallelHuffman/canonical.cuh
       include/cuda/ParallelHuffman/constants.hh
       include/cuda/ParallelHuffman/cuda_error_handling.cuh
@@ -178,11 +186,14 @@ if(MGARD_ENABLE_CUDA)
       include/cuda/ParallelHuffman/par_huffman.cuh
       include/cuda/ParallelHuffman/par_merge.cuh
       include/cuda/ParallelHuffman/timer.hh
-      include/cuda/ParallelHuffman/types.hh)
+      include/cuda/ParallelHuffman/types.hh
+      include/cuda/Testing/ReorderToolsCPU.h
+      include/cuda/Testing/ReorderToolsCPU.hpp
+      include/cuda/Testing/ReorderToolsGPU.h
+      include/cuda/Testing/ReorderToolsGPU.hpp)
 
   SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -DMGARD_CUDA")
   SET(CMAKE_CUDA_FLAGS  "${CMAKE_CUDA_FLAGS} -DMGARD_CUDA")
-
   set (MGARD_CUDA_SEPARATE_COMPILE_COMPILATION_OPTION 
        CUDA_SEPARABLE_COMPILATION ON)
 
@@ -203,14 +214,12 @@ if(MGARD_ENABLE_CUDA)
   if(MGARD_ENABLE_CUDA_OPTIMIZE_TURING)
     SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -DMGARD_CUDA_OPTIMIZE_TURING")
     SET(CMAKE_CUDA_FLAGS  "${CMAKE_CUDA_FLAGS} -DMGARD_CUDA_OPTIMIZE_TURING")
-    SET(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_75,code=sm_75")
-    set(CUDA_ARCH_STRING "75")
+    set(CUDA_ARCH_STRING "${CUDA_ARCH_STRING};75")
   endif()
   if(MGARD_ENABLE_CUDA_OPTIMIZE_VOLTA)
     SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -DMGARD_CUDA_OPTIMIZE_VOLTA")
     SET(CMAKE_CUDA_FLAGS  "${CMAKE_CUDA_FLAGS} -DMGARD_CUDA_OPTIMIZE_VOLTA")
-    SET(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_70,code=sm_70")
-    set(CUDA_ARCH_STRING "70")
+    set(CUDA_ARCH_STRING "${CUDA_ARCH_STRING};70;72")
   endif()
 endif()
 
@@ -272,9 +281,8 @@ src/IndicatorInput.cpp
 )
 
 # Set library
-add_library(mgard-library STATIC
+add_library(mgard-library SHARED
   src/mgard_compress.cpp  include/mgard_compress.hpp
-  src/TensorMeshHierarchyIteration.cpp  include/TensorMeshHierarchyIteration.hpp include/TensorMeshHierarchyIteration.tpp
   ${MGARD_CUDA_SRC}   ${MGARD_CUDA_HEADER}
 )
 set_target_properties(mgard-library PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
@@ -413,18 +421,24 @@ else()
 endif()
 
 if(MGARD_ENABLE_CUDA)
-    add_executable(TestDoubleRelativeError ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/TestDoubleRelativeError.cpp)
-    target_link_libraries(TestDoubleRelativeError mgard-library  ${CMAKE_DL_LIBS})
-    target_include_directories(TestDoubleRelativeError PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
-    add_executable(TestFloatRelativeError ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/TestFloatRelativeError.cpp)
-    target_link_libraries(TestFloatRelativeError mgard-library  ${CMAKE_DL_LIBS})
-    target_include_directories(TestFloatRelativeError PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
-    add_executable(TestDoubleAbsoluteError ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/TestDoubleAbsoluteError.cpp)
-    target_link_libraries(TestDoubleAbsoluteError mgard-library  ${CMAKE_DL_LIBS})
-    target_include_directories(TestDoubleAbsoluteError PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
-    add_executable(TestFloatAbsoluteError ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/TestFloatAbsoluteError.cpp)
-    target_link_libraries(TestFloatAbsoluteError mgard-library  ${CMAKE_DL_LIBS})
-    target_include_directories(TestFloatAbsoluteError PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+    add_executable(mgard_cuda ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/Executable.cpp)
+    target_link_libraries(mgard_cuda mgard-library  ${CMAKE_DL_LIBS})
+    target_include_directories(mgard_cuda PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+    add_executable(BatchTests ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/Testing/BatchTests.cpp)
+    target_link_libraries(BatchTests mgard-library  ${CMAKE_DL_LIBS})
+    target_include_directories(BatchTests PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+    # add_executable(TestDoubleRelativeError ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/TestDoubleRelativeError.cpp)
+    # target_link_libraries(TestDoubleRelativeError mgard-library  ${CMAKE_DL_LIBS})
+    # target_include_directories(TestDoubleRelativeError PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+    # add_executable(TestFloatRelativeError ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/TestFloatRelativeError.cpp)
+    # target_link_libraries(TestFloatRelativeError mgard-library  ${CMAKE_DL_LIBS})
+    # target_include_directories(TestFloatRelativeError PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+    # add_executable(TestDoubleAbsoluteError ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/TestDoubleAbsoluteError.cpp)
+    # target_link_libraries(TestDoubleAbsoluteError mgard-library  ${CMAKE_DL_LIBS})
+    # target_include_directories(TestDoubleAbsoluteError PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+    # add_executable(TestFloatAbsoluteError ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/TestFloatAbsoluteError.cpp)
+    # target_link_libraries(TestFloatAbsoluteError mgard-library  ${CMAKE_DL_LIBS})
+    # target_include_directories(TestFloatAbsoluteError PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 endif()
 
 if(MGARD_ENABLE_CUDA)

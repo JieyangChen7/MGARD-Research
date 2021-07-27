@@ -18,6 +18,8 @@
 #include <functional>
 #include <numeric>
 
+#include "cuda/MemoryManagement.h"
+
 #ifdef MGARD_TIMING
 #include <chrono>
 #endif
@@ -28,7 +30,6 @@
 #include "TensorProlongation.hpp"
 #include "TensorRestriction.hpp"
 #include "blas.hpp"
-#include "shuffle.hpp"
 
 namespace mgard {
 
@@ -158,19 +159,95 @@ void decompose(const TensorMeshHierarchy<N, Real> &hierarchy, Real *const v) {
     zero_on_old_subtract_and_copy_back_on_new(hierarchy, v, buffer, l);
     // Now we have `(I - Π_{l - 1})Q_{l}u` on `nodes(l)` of `buffer`. Time to
     // project.
+    // printf ("cjy3113\n");
+    // { //debug
+    //     Real * uv = new Real[hierarchy.ndof()];
+    //     unshuffle(hierarchy, v, uv);
+    //     printf("after coeff\n");
+    //     for (int i =0; i < 1; i++) {
+    //       for (int j =0; j < 3; j++) {
+    //         printf(ANSI_RED "i, j = %d, %d\n" ANSI_RESET,i, j);
+    //         mgard_cuda::print_matrix(3, 3, 3, uv + i * 3*3*3*3 + j * 3*3*3, 3, 3);
+    //       }
+    //     }
+    //   }
+
     {
       const TensorMassMatrix<N, Real> M(hierarchy, l);
       const TensorRestriction<N, Real> R(hierarchy, l);
       const TensorMassMatrixInverse<N, Real> m_inv(hierarchy, l - 1);
+
+      // { //debug
+      //   Real * uv = new Real[ndof];
+      //   unshuffle(hierarchy, buffer, uv);
+      //   printf("before M:\n");
+      //   for (int i =0; i < 3; i++) {
+      //     printf("i = %d\n",i);
+      //     mgard_cuda::print_matrix(3, 3, 3, uv + i * 3*3*3, 3, 3);
+      //   }
+      // }
+
+      
       M(buffer);
+
+      // { //debug
+      //   Real * uv = new Real[ndof];
+      //   unshuffle(hierarchy, buffer, uv);
+      //   printf("after M:\n");
+      //   for (int i =0; i < 3; i++) {
+      //     printf("i = %d\n",i);
+      //     mgard_cuda::print_matrix(3, 3, 3, uv + i * 3*3*3, 3, 3);
+      //   }
+      // }
+      // printf ("cjy9119\n");
       R(buffer);
+
+      // { //debug
+      //   Real * uv = new Real[hierarchy.ndof()];
+      //   unshuffle(hierarchy, buffer, uv);
+      //   printf("after R\n");
+      //   for (int i =0; i < 1; i++) {
+      //     for (int j =0; j < 3; j++) {
+      //       printf(ANSI_RED "i, j = %d, %d\n" ANSI_RESET,i, j);
+      //       mgard_cuda::print_matrix(3, 3, 3, uv + i * 3*3*3*3 + j * 3*3*3, 3, 3);
+      //     }
+      //   }
+      // }
+
+      
+
+      // printf ("cjy3113\n");
       m_inv(buffer);
+
+      // { //debug
+      //   Real * uv = new Real[hierarchy.ndof()];
+      //   unshuffle(hierarchy, buffer, uv);
+      //   printf("after TR\n");
+      //   for (int i =0; i < 1; i++) {
+      //     for (int j =0; j < 3; j++) {
+      //       printf(ANSI_RED "i, j = %d, %d\n" ANSI_RESET,i, j);
+      //       mgard_cuda::print_matrix(3, 3, 3, uv + i * 3*3*3*3 + j * 3*3*3, 3, 3);
+      //     }
+      //   }
+      // }
     }
     // Now we have `Q_{l - 1}u - Π_{l - 1}Q_{l}u` on `old_nodes(l)` of `buffer`.
     // Time to correct `Π_{l - 1}Q_{l}u` on `old_nodes(l)` of `v`.
     add_on_old_add_on_new(hierarchy, buffer, v, l - 1);
     // Now we have `(I - Π_{l - 1})Q_{l}u` on `new_nodes(l)` of `v` and
     // `Q_{l - 1}u` on `old_nodes(l)` of `v`.
+
+    // { //debug
+    //   Real * uv = new Real[hierarchy.ndof()];
+    //   unshuffle(hierarchy, v, uv);
+    //   printf("after apply correction\n");
+    //   for (int i =0; i < 1; i++) {
+    //     for (int j =0; j < 3; j++) {
+    //       printf(ANSI_RED "i, j = %d, %d\n" ANSI_RESET,i, j);
+    //       mgard_cuda::print_matrix(3, 3, 3, uv + i * 3*3*3*3 + j * 3*3*3, 3, 3);
+    //     }
+    //   }
+    // }
   }
   std::free(buffer);
 }
@@ -188,6 +265,20 @@ void recompose(const TensorMeshHierarchy<N, Real> &hierarchy, Real *const v) {
     zero_on_old_copy_on_new(hierarchy, v, buffer, l);
     // Now we have `(I - Π_{l - 1})Q_{l}u` on `nodes(l)` of `buffer`. Time to
     // project.
+
+    // { //debug
+    //   Real * uv = new Real[hierarchy.ndof()];
+    //   unshuffle(hierarchy, v, uv);
+    //   printf("before subtract correction\n");
+    //   for (int i =0; i < 1; i++) {
+    //     for (int j =0; j < 3; j++) {
+    //       printf(ANSI_RED "i, j = %d, %d\n" ANSI_RESET,i, j);
+    //       mgard_cuda::print_matrix(3, 3, 3, uv + i * 3*3*3*3 + j * 3*3*3, 3, 3);
+    //     }
+    //   }
+    // }
+
+
     {
       const TensorMassMatrix<N, Real> M(hierarchy, l);
       const TensorRestriction<N, Real> R(hierarchy, l);
@@ -195,6 +286,18 @@ void recompose(const TensorMeshHierarchy<N, Real> &hierarchy, Real *const v) {
       M(buffer);
       R(buffer);
       m_inv(buffer);
+
+      // { //debug
+      //   Real * uv = new Real[hierarchy.ndof()];
+      //   unshuffle(hierarchy, buffer, uv);
+      //   printf("correction correction\n");
+      //   for (int i =0; i < 1; i++) {
+      //     for (int j =0; j < 3; j++) {
+      //       printf(ANSI_RED "i, j = %d, %d\n" ANSI_RESET,i, j);
+      //       mgard_cuda::print_matrix(3, 3, 3, uv + i * 3*3*3*3 + j * 3*3*3, 3, 3);
+      //     }
+      //   }
+      // }
     }
     // Now we have `Q_{l - 1}u - Π_{l - 1}Q_{l}u` on `old_nodes(l)` of `buffer`.
     // We can subtract `Q_{l - 1}u` (on `old_nodes(l)` of `v`) to obtain
@@ -203,6 +306,20 @@ void recompose(const TensorMeshHierarchy<N, Real> &hierarchy, Real *const v) {
     // Now we have `-Π_{l - 1}Q_{l}u` on `old_nodes(l)` of buffer. In addition,
     // we have zeros on `new_nodes(l)` of buffer, so we're ready to use
     // `TensorProlongationAddition`.
+
+    // { //debug
+    //   Real * uv = new Real[hierarchy.ndof()];
+    //   unshuffle(hierarchy, buffer, uv);
+    //   printf("subtract correction\n");
+    //   for (int i =0; i < 1; i++) {
+    //     for (int j =0; j < 3; j++) {
+    //       printf(ANSI_RED "i, j = %d, %d\n" ANSI_RESET,i, j);
+    //       mgard_cuda::print_matrix(3, 3, 3, uv + i * 3*3*3*3 + j * 3*3*3, 3, 3);
+    //     }
+    //   }
+    // }
+
+
     {
       const TensorProlongationAddition<N, Real> PA(hierarchy, l);
       PA(buffer);
@@ -211,7 +328,23 @@ void recompose(const TensorMeshHierarchy<N, Real> &hierarchy, Real *const v) {
     // from `(I - Π_{l - 1})Q_{l}u`, we'll recover the projection.
     copy_negation_on_old_subtract_on_new(hierarchy, buffer, v, l);
     // Now we have `Q_{l}u` on `nodes(l)` of `v`.
+
+
   }
+
+  // { //debug
+  //     Real * uv = new Real[hierarchy.ndof()];
+  //     unshuffle(hierarchy, v, uv);
+  //     printf("final output\n");
+  //     for (int i =0; i < 1; i++) {
+  //       for (int j =0; j < 1; j++) {
+  //         printf(ANSI_RED "i, j = %d, %d\n" ANSI_RESET,i, j);
+  //         mgard_cuda::print_matrix(3, 3, 3, uv + i * 3*3*3*3 + j * 3*3*3, 3, 3);
+  //       }
+  //     }
+  //     }
+
+
   std::free(buffer);
 }
 

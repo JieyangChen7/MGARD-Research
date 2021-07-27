@@ -62,6 +62,12 @@ compress(const TensorMeshHierarchy<N, Real> &hierarchy, Real *const v,
   shuffle(hierarchy, v, u);
   decompose(hierarchy, u);
 
+  // printf("after decompsition:");
+  // for (int i = 0; i < ndof; i++) {
+  //   printf("%f ", u[i]);
+  // }
+  // printf("\n");
+
   using Qntzr = TensorMultilevelCoefficientQuantizer<N, Real, DEFAULT_INT_T>;
   const Qntzr quantizer(hierarchy, s, tolerance);
   using It = typename Qntzr::iterator;

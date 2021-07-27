@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
 
   int data_srouce; // 0: generate random data; 1: input file
   char *infile;    //, *outfile;
-  std::vector<size_t> shape;
+  std::vector<mgard_cuda::SIZE> shape;
   float tol, s = 0;
 
   int i = 1;

@@ -4,7 +4,8 @@
  * Author: Jieyang Chen (chenj3@ornl.gov)
  * Date: April 2, 2021
  */
-
+#include "cuda/CommonInternal.h"
+ 
 #include "cuda/IterativeProcessingKernel3D_AMR.h"
 #include "cuda/IterativeProcessingKernel3D_AMR.hpp"
 

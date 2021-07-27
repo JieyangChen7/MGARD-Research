@@ -9,45 +9,38 @@
 #include "cuda/CommonInternal.h"
 #include "cuda/LosslessCompression.h"
 #include "cuda/ParallelHuffman/huffman_workflow.cuh"
+#include "mgard_compress.hpp"
 #include <typeinfo>
 
 namespace mgard_cuda {
 
 template <uint32_t D, typename T, typename C>
 void cascaded_compress(Handle<D, T> &handle, C *input_data, size_t intput_count,
-                       void *&output_data, size_t & output_size, int n_rle,
+                       void *&output_data, size_t &output_size, int n_rle,
                        int n_de, bool bitpack, int queue_idx) {
 
+  nvcomp::CascadedCompressor compressor(nvcomp::TypeOf<C>(), n_rle, n_de,
+                                        bitpack);
 
-  // nvcomp::CascadedCompressor<C> compressor(input_data, intput_count, n_rle,
-  //                                          n_de, bitpack);
-
-  nvcomp::CascadedCompressor compressor(nvcomp::TypeOf<C>(), n_rle,
-                                           n_de, bitpack);
-
-  size_t * temp_bytes;
+  size_t *temp_bytes;
   cudaMallocHostHelper((void **)&temp_bytes, sizeof(size_t));
-  size_t * output_bytes;
+  size_t *output_bytes;
   cudaMallocHostHelper((void **)&output_bytes, sizeof(size_t));
 
-  compressor.configure(intput_count*sizeof(C), temp_bytes, output_bytes);
+  compressor.configure(intput_count * sizeof(C), temp_bytes, output_bytes);
 
   void *temp_space;
-  // size_t temp_size = compressor.get_temp_size();
-  cudaMallocHelper(&temp_space, *temp_bytes);
+  cudaMallocHelper(handle, &temp_space, *temp_bytes);
+  cudaMallocHelper(handle, &output_data, *output_bytes);
 
-  // output_size = compressor.get_max_output_size(temp_space, temp_size);
-  cudaMallocHelper(&output_data, *output_bytes);
-
-  compressor.compress_async(input_data, intput_count*sizeof(C),
-                            temp_space, *temp_bytes, output_data, output_bytes,
+  compressor.compress_async(input_data, intput_count * sizeof(C), temp_space,
+                            *temp_bytes, output_data, output_bytes,
                             *(cudaStream_t *)handle.get(queue_idx));
   handle.sync(queue_idx);
   output_size = *output_bytes;
   cudaFreeHelper(temp_space);
   cudaFreeHostHelper(temp_bytes);
   cudaFreeHostHelper(output_bytes);
-
 }
 
 template <uint32_t D, typename T, typename C>
@@ -55,47 +48,31 @@ void cascaded_decompress(Handle<D, T> &handle, void *input_data,
                          size_t input_size, C *&output_data, int queue_idx) {
 
   // nvcomp::Decompressor<C> decompressor(input_data, input_size,
-  //                                      *(cudaStream_t *)handle.get(queue_idx));
+  //                                      *(cudaStream_t
+  //                                      *)handle.get(queue_idx));
 
   nvcomp::CascadedDecompressor decompressor;
 
-  size_t * temp_bytes;
+  size_t *temp_bytes;
   cudaMallocHostHelper((void **)&temp_bytes, sizeof(size_t));
-  size_t * output_bytes;
+  size_t *output_bytes;
   cudaMallocHostHelper((void **)&output_bytes, sizeof(size_t));
 
   decompressor.configure(input_data, input_size, temp_bytes, output_bytes,
-              *(cudaStream_t *)handle.get(queue_idx));
+                         *(cudaStream_t *)handle.get(queue_idx));
 
   void *temp_space;
-  // size_t temp_size = decompressor.get_temp_size();
-  cudaMallocHelper((void **)&temp_space, *temp_bytes);
+  cudaMallocHelper(handle, (void **)&temp_space, *temp_bytes);
+  cudaMallocHelper(handle, (void **)&output_data, *output_bytes);
 
-  // size_t output_count = decompressor.get_num_elements();
-  cudaMallocHelper((void **)&output_data, *output_bytes);
-
-  decompressor.decompress_async(input_data, input_size,
-                                temp_space, *temp_bytes, output_data,
-                                *output_bytes,
+  decompressor.decompress_async(input_data, input_size, temp_space, *temp_bytes,
+                                output_data, *output_bytes,
                                 *(cudaStream_t *)handle.get(queue_idx));
   handle.sync(queue_idx);
   cudaFreeHelper(temp_space);
   cudaFreeHostHelper(temp_bytes);
   cudaFreeHostHelper(output_bytes);
 }
-
-// template void cascaded_decompress<double, int>(Handle<double> &handle, void *
-// input_data,
-//                 size_t input_size, int * &output_data,  int queue_idx);
-// template void cascaded_decompress<float, int>(Handle<float> &handle, void *
-// input_data,
-//              size_t input_size, int * &output_data, int queue_idx);
-// template void cascaded_decompress<double, uint32_t>(Handle<double> &handle,
-// void * input_data,
-//                 size_t input_size, uint32_t * &output_data,  int queue_idx);
-// template void cascaded_decompress<float, uint32_t>(Handle<float> &handle,
-// void * input_data,
-//              size_t input_size, uint32_t * &output_data, int queue_idx);
 
 template <uint32_t D, typename T, typename C>
 void lz4_compress(Handle<D, T> &handle, C *input_data, size_t input_count,
@@ -104,22 +81,19 @@ void lz4_compress(Handle<D, T> &handle, C *input_data, size_t input_count,
 
   nvcomp::LZ4Compressor compressor(chunk_size);
 
-  size_t * temp_bytes;
+  size_t *temp_bytes;
   cudaMallocHostHelper((void **)&temp_bytes, sizeof(size_t));
-  size_t * output_bytes;
+  size_t *output_bytes;
   cudaMallocHostHelper((void **)&output_bytes, sizeof(size_t));
 
-  compressor.configure(input_count*sizeof(C), temp_bytes, output_bytes);
+  compressor.configure(input_count * sizeof(C), temp_bytes, output_bytes);
 
   void *temp_space;
-  // size_t temp_size = compressor.get_temp_size();
-  cudaMallocHelper(&temp_space, *temp_bytes);
+  cudaMallocHelper(handle, &temp_space, *temp_bytes);
+  cudaMallocHelper(handle, &output_data, *output_bytes);
 
-  // output_size = compressor.get_max_output_size(temp_space, temp_size);
-  cudaMallocHelper(&output_data, *output_bytes);
-
-  compressor.compress_async(input_data, input_count*sizeof(C),
-                            temp_space, *temp_bytes, output_data, output_bytes,
+  compressor.compress_async(input_data, input_count * sizeof(C), temp_space,
+                            *temp_bytes, output_data, output_bytes,
                             *(cudaStream_t *)handle.get(queue_idx));
 
   handle.sync(queue_idx);
@@ -127,85 +101,35 @@ void lz4_compress(Handle<D, T> &handle, C *input_data, size_t input_count,
   cudaFreeHelper(temp_space);
   cudaFreeHostHelper(temp_bytes);
   cudaFreeHostHelper(output_bytes);
-
-  // void *temp_space;
-  // size_t temp_size = compressor.get_temp_size();
-  // cudaMallocHelper(&temp_space, temp_size);
-
-  // output_size = compressor.get_max_output_size(temp_space, temp_size);
-  // cudaMallocHelper(&output_data, output_size);
-
-  // compressor.compress_async(temp_space, temp_size, output_data, &output_size,
-  //                           *(cudaStream_t *)handle.get(queue_idx));
-
-  // cudaStreamSynchronize(*(cudaStream_t *)handle.get(queue_idx));
-  // cudaFreeHelper(temp_space);
 }
 
 template <uint32_t D, typename T, typename C>
 void lz4_decompress(Handle<D, T> &handle, void *input_data, size_t input_size,
                     C *&output_data, size_t &output_size, int queue_idx) {
 
-
   nvcomp::LZ4Decompressor decompressor;
 
-  size_t * temp_bytes;
+  size_t *temp_bytes;
   cudaMallocHostHelper((void **)&temp_bytes, sizeof(size_t));
-  size_t * output_bytes;
+  size_t *output_bytes;
   cudaMallocHostHelper((void **)&output_bytes, sizeof(size_t));
 
   decompressor.configure(input_data, input_size, temp_bytes, output_bytes,
-              *(cudaStream_t *)handle.get(queue_idx));
+                         *(cudaStream_t *)handle.get(queue_idx));
 
   void *temp_space;
-  // size_t temp_size = decompressor.get_temp_size();
-  cudaMallocHelper((void **)&temp_space, *temp_bytes);
+  cudaMallocHelper(handle, (void **)&temp_space, *temp_bytes);
+  cudaMallocHelper(handle, (void **)&output_data, *output_bytes);
 
-  // size_t output_count = decompressor.get_num_elements();
-  cudaMallocHelper((void **)&output_data, *output_bytes);
-
-  decompressor.decompress_async(input_data, input_size,
-                                temp_space, *temp_bytes, output_data,
-                                *output_bytes,
+  decompressor.decompress_async(input_data, input_size, temp_space, *temp_bytes,
+                                output_data, *output_bytes,
                                 *(cudaStream_t *)handle.get(queue_idx));
   handle.sync(queue_idx);
   output_size = *output_bytes;
   cudaFreeHelper(temp_space);
   cudaFreeHostHelper(temp_bytes);
   cudaFreeHostHelper(output_bytes);
-
-  // nvcomp::Decompressor<C> decompressor(input_data, input_size,
-  //                                      *(cudaStream_t *)handle.get(queue_idx));
-
-  // void *temp_space;
-  // size_t temp_size = decompressor.get_temp_size();
-  // cudaMallocHelper(&temp_space, temp_size);
-
-  // output_size = decompressor.get_output_size();
-  // cudaMallocHelper((void **)&output_data, output_size);
-
-  // decompressor.decompress_async(temp_space, temp_size, output_data, output_size,
-  //                               *(cudaStream_t *)handle.get(queue_idx));
-  // cudaStreamSynchronize(*(cudaStream_t *)handle.get(queue_idx));
-  // cudaFreeHelper(temp_space);
 }
-
-// template void lz4_compress<double, int>(Handle<double> &handle, int *
-// input_data,
-//              size_t intput_count, void * &output_data, size_t &output_size,
-//              size_t chunk_size, int queue_idx);
-// template void lz4_compress<float, int>(Handle<float> &handle, int *
-// input_data,
-//              size_t intput_count, void * &output_data, size_t &output_size,
-//              size_t chunk_size, int queue_idx);
-// template void lz4_compress<double, uint32_t>(Handle<double> &handle, uint32_t
-// * input_data,
-//              size_t intput_count, void * &output_data, size_t &output_size,
-//              size_t chunk_size, int queue_idx);
-// template void lz4_compress<float, uint32_t>(Handle<float> &handle, uint32_t *
-// input_data,
-//              size_t intput_count, void * &output_data, size_t &output_size,
-//              size_t chunk_size, int queue_idx);
 
 #define KERNELS(D, T, C)                                                       \
   template void cascaded_compress<D, T, C>(                                    \
@@ -458,5 +382,115 @@ KERNELS(4, double, int, uint32_t, uint64_t)
 KERNELS(4, float, int, uint32_t, uint64_t)
 KERNELS(5, double, int, uint32_t, uint64_t)
 KERNELS(5, float, int, uint32_t, uint64_t)
+
+template <uint32_t D, typename T, typename S, typename H>
+void cpu_lossless_compression(Handle<D, T> &handle, S *input_data, size_t input_count,
+  H *&out_data, size_t &out_data_size) {
+
+
+  int * int_vector = new int[input_count];
+
+  
+  cudaMemcpyAsyncHelper(handle, int_vector, input_data,
+                        input_count*sizeof(S), AUTO, 0);
+  handle.sync(0);
+
+  std::vector<long int> input_vector(input_count);
+  for (int i = 0; i < input_count; i++) input_vector[i] = int_vector[i];
+
+  // printf("%u %u\n", sizeof(long int), sizeof(int));
+  // printf("dqv\n");
+  // print_matrix_cuda(1, input_count, input_data, input_count);
+
+  // printf("input_vector: ");
+  // for (int i = 0; i < input_vector.size(); i++) printf("%d ", input_vector[i]);
+  // printf("\n");
+
+#ifndef MGARD_ZSTD
+  std::vector<std::uint8_t> z_output;
+  // TODO: Check whether `compress_memory_z` changes its input.
+  mgard::compress_memory_z(
+      const_cast<void *>(static_cast<void const *>(input_vector.data())),
+      input_vector.size() * sizeof(long int), z_output);
+  // Possibly we should check that `sizeof(std::uint8_t)` is `1`.
+  const std::size_t out_data_size = z_output.size();
+
+  void *const buffer = new unsigned char[size];
+  std::copy(z_output.begin(), z_output.end(),
+            static_cast<unsigned char *>(buffer));
+#else
+  // Compress an array of data using `zstd`.
+  std::vector<unsigned char> zstd_output;
+  int zstd_outsize;
+
+  void *const buffer =
+      mgard::compress_memory_huffman(input_vector, zstd_output, zstd_outsize);
+
+  out_data_size = zstd_outsize;
+#endif
+  cudaMallocHelper(handle, (void**)&out_data, out_data_size);
+  cudaMemcpyAsyncHelper(handle, out_data, buffer,
+                        out_data_size, AUTO, 0);
+  handle.sync(0);
+  delete[] int_vector;
+}
+
+template <uint32_t D, typename T, typename S, typename H>
+void cpu_lossless_decompression(Handle<D, T> &handle, H *input_data, size_t input_count,
+  S *&out_data, size_t output_count) {
+
+  // printf("cpu decompression: %llu\n", input_count);
+  std::vector<unsigned char> input_vector(input_count);
+  cudaMemcpyAsyncHelper(handle, input_vector.data(), input_data,
+                        input_count, AUTO, 0);
+  handle.sync(0);
+  // printf("copy done\n");
+
+  long int * output_vector = new long int[output_count];
+  int * int_vector = new int[output_count];
+
+#ifndef MGARD_ZSTD
+  mgard::decompress_memory_z(const_cast<void *>(input_vector.data()), input_vector.size(),
+                      reinterpret_cast<int *>(output_vector),
+                      output_count * sizeof(*output_vector));
+#else
+  mgard::decompress_memory_huffman(
+      reinterpret_cast<unsigned char *>(input_vector.data()),
+      input_vector.size(), output_vector, output_count * sizeof(*output_vector));
+#endif
+
+  for (int i = 0; i < output_count; i++) int_vector[i] = output_vector[i];
+  cudaMallocHelper(handle, (void**)&out_data, output_count * sizeof(S));
+  cudaMemcpyAsyncHelper(handle, out_data, int_vector,
+                        output_count*sizeof(S), AUTO, 0);
+  handle.sync(0);
+  delete [] output_vector;
+  delete [] int_vector;
+
+  // printf("dqv\n");
+  // print_matrix_cuda(1, output_count, out_data, output_count);
+
+}
+
+#define KERNELS(D, T, S, H)                                                    \
+  template void cpu_lossless_compression<D, T, S, H>(Handle<D, T> &handle,     \
+                                        S *input_data, size_t input_count,     \
+                                        H *&out_data, size_t &out_data_size);  \
+  template void cpu_lossless_decompression<D, T, S, H>(Handle<D, T> &handle,   \
+                                        H *input_data, size_t input_count,     \
+                                        S *&out_data, size_t output_count);
+
+
+KERNELS(1, double, int, unsigned char)
+KERNELS(1, float, int, unsigned char)
+KERNELS(2, double, int, unsigned char)
+KERNELS(2, float, int, unsigned char)
+KERNELS(3, double, int, unsigned char)
+KERNELS(3, float, int, unsigned char)
+KERNELS(4, double, int, unsigned char)
+KERNELS(4, float, int, unsigned char)
+KERNELS(5, double, int, unsigned char)
+KERNELS(5, float, int, unsigned char)
+
 
 } // namespace mgard_cuda

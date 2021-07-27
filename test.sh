@@ -14,6 +14,9 @@ BIN_DOUBLE_REL="./bin/TestDoubleRelativeError"
 BIN_FLOAT_REL="./bin/TestFloatRelativeError"
 BIN_DOUBLE_ABS="./bin/TestDoubleAbsoluteError"
 BIN_FLOAT_ABS="./bin/TestFloatAbsoluteError"
+EXEC="./bin/mgard_cuda"
+CPU=0
+GPU=1
 
 # ./convert.py ../512x512x512/velocity_x.dat 512 512 512 s data_513_d.dat 513 513 513 d 
 # ./convert.py ../512x512x512/velocity_x.dat 512 512 512 s data_257_d.dat 257 257 257 d 
@@ -56,34 +59,69 @@ test_amr () {
    $1 0 2 9 9 0.001 0 1
 }
 
-test_group () { 
-   $1 0 1 100 0.001 0 1
-   $1 0 2 3 70 0.001 0 1
+
+test_cpu_gpu() {
+   $1 0 1 17 0.1 0 $2
+
+
+}
+test_group_l2 () { 
+   $1 0 1 100 0.001 0 $2
+   $1 0 2 3 70 0.001 0 $2
    # $BIN_DOUBLE 1 ../data_513_d.dat 3 513 513 513 0.001 0 1
-   $1 0 3 70 170 180 0.001 0 1
-   $1 0 3 808 80 80 0.001 0 1
-   $1 0 3 80 80 10000 0.001 0 1
-   $1 0 3 80 10000 80 0.001 0 1
-   $1 0 3 10000 80 80 0.001 0 1
-   $1 0 3 64 5 12 0.00001 0 1
-   $1 0 4 5 5 5 5 0.000001 0 1
-   $1 0 4 70 50 10 30 1 0 1
+   $1 0 3 70 170 180 0.001 0 $2
+   $1 0 3 808 80 80 0.001 0 $2
+   $1 0 3 80 80 10000 0.001 0 $2
+   $1 0 3 80 10000 80 0.001 0 $2
+   $1 0 3 10000 80 80 0.001 0 $2
+   $1 0 3 64 5 12 0.00001 0 $2
+   $1 0 4 5 5 5 5 0.00001 0 $2
+   $1 0 4 70 50 10 30 0.0001 0 $2
    # $BIN_FLOAT 1 ../../512x512x512/velocity_x.dat 3 512 512 512 0.001 0 1
 
    #NO TEST YET
    # $BIN_DOUBLE 0 5 5 5 5 5 5 0.000001 0 1
 }
 
+
+test_group_l_inf () { 
+   # $EXEC random $1 1 5 $2 1e-4 1 $3
+   # $EXEC random $1 2 3 70 $2 0.001 inf $3
+   # $EXEC random $1 3 70 170 180 $2 0.001 inf $3
+   # $EXEC random $1 3 808 80 80 $2 0.001 inf $3
+   # $EXEC random $1 3 80 80 10000 $2 0.001 inf $3
+   # $EXEC random $1 3 80 10000 80 $2 0.001 inf $3
+   # $EXEC random $1 3 10000 80 80 $2 0.001 inf $3
+   # $EXEC random $1 3 64 5 12 $2 0.00001 inf $3
+   $EXEC random $1 5 5 5 5 5 5 $2 0.0001 0 $3
+   # $EXEC random $1 4 10 100 10 100 $2 0.1 inf $3
+
+   # $EXEC random $1 4 70 50 10 30 $2 0.1 inf $3
+
+   #NO TEST YET
+   # $BIN_DOUBLE 0 5 5 5 5 5 5 0.000001 0 1
+}
+
+test_group_l_inf d rel $1
+
+DATA=../../512x512x512/velocity_x.dat
+# DATA=/home/jieyang/dev/data/pk.data
+# DATA=/home/jieyang/dev/data/enst.dat
+
 test_real_data() {
-   $BIN_FLOAT_REL 1 ../../512x512x512/velocity_x.dat 3 512 512 512 0.1 0
+   $BIN_FLOAT_REL 1 ../../512x512x512/velocity_x.dat 3 512 512 512 0.000001 0 1
+   # $BIN_FLOAT_REL 1 ../../512x512x512/velocity_x.dat 3 5 5 5 0.01 0 1
+   # $BIN_FLOAT_REL 1 $DATA 3 768 768 768 1 inf 1
+   # $BIN_FLOAT_REL 1 $DATA 3 768 768 768 1 inf 1
 }
 
 
 test_perf () { 
 
-	# $BIN_DOUBLE 0 5 5 5 5 5 5 0.000001 0 1
-   $BIN_DOUBLE 0 3 513 513 513 1 0 1
-   # $BIN_FLOAT 1 ../../512x512x512/velocity_x.dat 3 512 512 512 0.1 0 1
+	$BIN_DOUBLE_REL 0 5 5 5 5 5 5 0.000001 0 1
+   # $BIN_DOUBLE_REL 0 3 513 513 513 1 0 1
+   # $BIN_DOUBLE_REL 0 3 5 5 5 0.00001 0 0
+   # $BIN_FLOAT_REL 1 ../../512x512x512/velocity_x.dat 3 512 512 512 0.1 0 1
 }
 
 
@@ -135,15 +173,22 @@ METRIC=l1tex__t_bytes_pipe_lsu_mem_global_op_ld.sum.per_second,l1tex__t_bytes_pi
 
 # for i in {1..500}
 # do
-#  # test_group $BIN_DOUBLE_REL
-# #  test_group $BIN_DOUBLE_ABS
-# #  test_group $BIN_FLOAT_REL
-# #  test_group $BIN_FLOAT_ABS
+#  test_group_l_inf $BIN_DOUBLE_REL 1
+#  test_group_l_inf $BIN_DOUBLE_ABS 1
+#  test_group_l_inf $BIN_FLOAT_REL 1
+#  test_group_l_inf $BIN_FLOAT_ABS 1
 # done
 
+
+# test_cpu_gpu $BIN_DOUBLE_ABS 0
+# 
 # test_real_data
 
-test_amr $BIN_DOUBLE_REL
+# $EXEC ../../512x512x512/velocity_x.dat s 3 512 512 512 abs 1e4 0 $1
+
+# $EXEC random d 2 5 5 rel 0.1 0 $1
+
+# test_amr $BIN_DOUBLE_REL
 
 # for i in {1..1}
 # do
@@ -167,7 +212,7 @@ test_amr $BIN_DOUBLE_REL
 # $NVPROF $BIN
 
 
-# $NVPROF -f --export-profile timeline.prof $BIN
+# $NVPROF -f --export-profile timeline.prof $BIN_FLOAT_REL 1 ../../512x512x512/velocity_x.dat 3 512 512 512 0.1 inf 1
 # $NVPROF $BIN
 # KERNEL=_mass_multiply_1_cpt
 # $NVPROF --print-gpu-trace $BIN 2> >(grep $KERNEL)
