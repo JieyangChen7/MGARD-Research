@@ -8,6 +8,7 @@
 #ifndef MGRAD_CUDA_ITERATIVE_PROCESSING_KERNEL_3D_AMR_TEMPLATE
 #define MGRAD_CUDA_ITERATIVE_PROCESSING_KERNEL_3D_AMR_TEMPLATE
 
+#include "IPKFunctor.h"
 #include "IterativeProcessingKernel3D_AMR.h"
 namespace mgard_cuda {
 
@@ -527,8 +528,8 @@ void ipk_1_3d_amr_adaptive_launcher(Handle<D, T> &handle, int nr, int nc, int nf
   dim3 threadsPerBlock, blockPerGrid;
   size_t sm_size;
 
-  tbx = std::max(C, std::min(C, total_thread_x));
-  tby = std::max(R, std::min(R, total_thread_y));
+  tbx = C;//std::max(C, std::min(C, total_thread_x));
+  tby = R;//std::max(R, std::min(R, total_thread_y));
   tbz = 1;
   sm_size = (R * C + 2) * (F + G) * sizeof(T);
   gridx = ceil((float)total_thread_x / tbx);
@@ -542,9 +543,9 @@ void ipk_1_3d_amr_adaptive_launcher(Handle<D, T> &handle, int nr, int nc, int nf
       nr, nc, nf_c, am, bm, ddist_f, dv, lddv1, lddv2,
       retrieve, block_size, fv, ldfv1, ldfv2, bv, ldbv1, ldbv2);
   gpuErrchk(cudaGetLastError());
-#ifdef MGARD_CUDA_DEBUG
-  gpuErrchk(cudaDeviceSynchronize());
-#endif
+  if (handle.sync_and_check_all_kernels) {
+    gpuErrchk(cudaDeviceSynchronize());
+  }
   // std::cout << "test\n";
 }
 
@@ -561,9 +562,9 @@ void ipk_1_3d_amr(Handle<D, T> &handle, int nr, int nc, int nf_c, T *am, T *bm,
         retrieve, block_size, fv, ldfv1, ldfv2, bv, ldbv1, ldbv2, queue_idx); \
   }
   bool profile = false;
-#ifdef MGARD_CUDA_KERNEL_PROFILE
-  profile = true;
-#endif
+  if (handle.profile_kernels) {
+    profile = true;
+  }
   if (D == 3) {
     if (profile || config == 6) {
       IPK(2, 2, 128, 2)
@@ -1098,8 +1099,8 @@ void ipk_2_3d_adaptive_launcher(Handle<D, T> &handle, int nr, int nc_c,
   dim3 threadsPerBlock, blockPerGrid;
   size_t sm_size;
 
-  tbx = std::max(F, std::min(F, total_thread_x));
-  tby = std::max(R, std::min(R, total_thread_y));
+  tbx = F;//std::max(F, std::min(F, total_thread_x));
+  tby = R;//std::max(R, std::min(R, total_thread_y));
   tbz = 1;
   sm_size = (R * F + 2) * (C + G) * sizeof(T);
   gridx = ceil((float)total_thread_x / tbx);
@@ -1111,9 +1112,9 @@ void ipk_2_3d_adaptive_launcher(Handle<D, T> &handle, int nr, int nc_c,
                              *(cudaStream_t *)handle.get(queue_idx)>>>(
       nr, nc_c, nf_c, am, bm, ddist_c, dv, lddv1, lddv2);
   gpuErrchk(cudaGetLastError());
-#ifdef MGARD_CUDA_DEBUG
-  gpuErrchk(cudaDeviceSynchronize());
-#endif
+  if (handle.sync_and_check_all_kernels) {
+    gpuErrchk(cudaDeviceSynchronize());
+  }
 }
 
 template <uint32_t D, typename T>
@@ -1127,9 +1128,9 @@ void ipk_2_3d(Handle<D, T> &handle, int nr, int nc_c, int nf_c, T *am, T *bm,
         handle, nr, nc_c, nf_c, am, bm, ddist_c, dv, lddv1, lddv2, queue_idx); \
   }
   bool profile = false;
-#ifdef MGARD_CUDA_KERNEL_PROFILE
-  profile = true;
-#endif
+  if (handle.profile_kernels) {
+    profile = true;
+  }
   if (D == 3) {
     if (profile || config == 6) {
       IPK(2, 2, 128, 2)
@@ -1613,8 +1614,8 @@ void ipk_3_3d_adaptive_launcher(Handle<D, T> &handle, int nr_c, int nc_c,
   dim3 threadsPerBlock, blockPerGrid;
   size_t sm_size;
 
-  tbx = std::max(F, std::min(F, total_thread_x));
-  tby = std::max(C, std::min(C, total_thread_y));
+  tbx = F;//std::max(F, std::min(F, total_thread_x));
+  tby = C;//std::max(C, std::min(C, total_thread_y));
   tbz = 1;
   sm_size = (C * F + 2) * (R + G) * sizeof(T);
   gridx = ceil((float)total_thread_x / tbx);
@@ -1626,9 +1627,9 @@ void ipk_3_3d_adaptive_launcher(Handle<D, T> &handle, int nr_c, int nc_c,
                              *(cudaStream_t *)handle.get(queue_idx)>>>(
       nr_c, nc_c, nf_c, am, bm, ddist_r, dv, lddv1, lddv2);
   gpuErrchk(cudaGetLastError());
-#ifdef MGARD_CUDA_DEBUG
-  gpuErrchk(cudaDeviceSynchronize());
-#endif
+  if (handle.sync_and_check_all_kernels) {
+    gpuErrchk(cudaDeviceSynchronize());
+  }
 }
 
 template <uint32_t D, typename T>
@@ -1644,9 +1645,9 @@ void ipk_3_3d(Handle<D, T> &handle, int nr_c, int nc_c, int nf_c, T *am, T *bm,
   }
 
   bool profile = false;
-#ifdef MGARD_CUDA_KERNEL_PROFILE
-  profile = true;
-#endif
+  if (handle.profile_kernels) {
+    profile = true;
+  }
   if (D == 3) {
     if (profile || config == 6) {
       IPK(2, 2, 128, 2)

@@ -9,7 +9,7 @@
 #define MGRAD_CUDA_GRID_PROCESSING_KERNEL_TEMPLATE
 
 #include "CommonInternal.h"
-
+#include "GPKFunctor.h"
 #include "GridProcessingKernel.h"
 
 namespace mgard_cuda {
@@ -1965,12 +1965,9 @@ void gpk_reo_adaptive_launcher(
       lddwrc1, lddwrc2, dwrcf, lddwrcf1, lddwrcf2);
 
   gpuErrchk(cudaGetLastError());
-#ifdef MGARD_CUDA_DEBUG
-  gpuErrchk(cudaDeviceSynchronize());
-#endif
-  // high_resolution_clock::time_point t2 = high_resolution_clock::now();
-  // duration<double> time_span = duration_cast<duration<double>>(t2 - t1);
-  // printf("gpk_reo_kernel time: %.6f s\n", time_span.count());
+  if (handle.sync_and_check_all_kernels) {
+    gpuErrchk(cudaDeviceSynchronize());
+  }
 }
 
 template <DIM D_GLOBAL, DIM D_LOCAL, typename T, bool INTERPOLATION,
@@ -1997,9 +1994,9 @@ void gpk_reo(Handle<D_GLOBAL, T> &handle, SIZE *shape_h, SIZE *shape_d,
         lddwrcf1, lddwrcf2, queue_idx);                                        \
   }
   bool profile = false;
-#ifdef MGARD_CUDA_KERNEL_PROFILE
-  profile = true;
-#endif
+  if (handle.profile_kernels) {
+    profile = true;
+  }
   if (D_LOCAL == 3) {
     if (profile || config == 6) {
       GPK(2, 2, 128)
@@ -2084,14 +2081,14 @@ _gpk_rev(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM unprocessed_n,
          LENGTH lddwrc1, LENGTH lddwrc2, T *dwrcf, LENGTH lddwrcf1, LENGTH lddwrcf2,
          SIZE svr, SIZE svc, SIZE svf, SIZE nvr, SIZE nvc, SIZE nvf) {
 
-  bool debug = false;
-  if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 &&
-      threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0)
-    debug = false;
+  // bool debug = false;
+  // if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 &&
+  //     threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0)
+  //   debug = false;
 
-  bool debug2 = false;
-  if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0)
-    debug2 = false;
+  // bool debug2 = false;
+  // if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0)
+  //   debug2 = false;
 
   LENGTH threadId = (threadIdx.z * (blockDim.x * blockDim.y)) +
                     (threadIdx.y * blockDim.x) + threadIdx.x;
@@ -2321,9 +2318,9 @@ _gpk_rev(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM unprocessed_n,
           r_gl < nr_c && c_gl < nc_c && f_gl < nf) {
         v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
             dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)];
-        if (debug2)
-          printf("(%d %d %d) %f <- (%d %d %d)\n", r_sm, c_sm, f_sm,
-                 dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)], r_gl, c_gl, f_gl);
+        // if (debug2)
+        //   printf("(%d %d %d) %f <- (%d %d %d)\n", r_sm, c_sm, f_sm,
+        //          dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)], r_gl, c_gl, f_gl);
         if (!skip) {
           if (INTERPOLATION) {
             ;
@@ -2346,9 +2343,9 @@ _gpk_rev(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM unprocessed_n,
           r_gl < nr_c && c_gl < nc_c && f_gl < nf) {
         v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
             dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)];
-        if (debug2)
-          printf("(%d %d %d) %f <- (%d %d %d)\n", r_sm, c_sm, f_sm,
-                 dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)], r_gl, c_gl, f_gl);
+        // if (debug2)
+        //   printf("(%d %d %d) %f <- (%d %d %d)\n", r_sm, c_sm, f_sm,
+        //          dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)], r_gl, c_gl, f_gl);
         if (!skip) {
           if (INTERPOLATION) {
             ;
@@ -2415,9 +2412,9 @@ _gpk_rev(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM unprocessed_n,
           r_gl < nr_c && c_gl < nc_c && f_gl < nf) {
         v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
             dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)];
-        if (debug2)
-          printf("(%d %d %d) %f <- (%d %d %d)\n", r_sm, c_sm, f_sm,
-                 dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)], r_gl, c_gl, f_gl);
+        // if (debug2)
+        //   printf("(%d %d %d) %f <- (%d %d %d)\n", r_sm, c_sm, f_sm,
+        //          dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)], r_gl, c_gl, f_gl);
         if (!skip) {
           if (INTERPOLATION) {
             ;
@@ -2483,9 +2480,9 @@ _gpk_rev(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM unprocessed_n,
           r_gl < nr_c && c_gl < nc_c && f_gl < nf) {
         v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
             dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)];
-        if (debug2)
-          printf("(%d %d %d) %f <- (%d %d %d)\n", r_sm, c_sm, f_sm,
-                 dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)], r_gl, c_gl, f_gl);
+        // if (debug2)
+        //   printf("(%d %d %d) %f <- (%d %d %d)\n", r_sm, c_sm, f_sm,
+        //          dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)], r_gl, c_gl, f_gl);
         if (!skip) {
           if (INTERPOLATION) {
             ;
@@ -2549,9 +2546,9 @@ _gpk_rev(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM unprocessed_n,
           r_gl < nr_c && c_gl < nc_c && f_gl < nf) {
         v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
             dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)];
-        if (debug2)
-          printf("(%d %d %d) %f <- (%d %d %d)\n", r_sm, c_sm, f_sm,
-                 dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)], r_gl, c_gl, f_gl);
+        // if (debug2)
+        //   printf("(%d %d %d) %f <- (%d %d %d)\n", r_sm, c_sm, f_sm,
+        //          dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)], r_gl, c_gl, f_gl);
         if (!skip) {
           if (INTERPOLATION) {
             ;
@@ -2616,9 +2613,9 @@ _gpk_rev(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM unprocessed_n,
           r_gl < nr_c && c_gl < nc_c && f_gl < nf) {
         v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
             dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)];
-        if (debug2)
-          printf("(%d %d %d) %f <- (%d %d %d)\n", r_sm, c_sm, f_sm,
-                 dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)], r_gl, c_gl, f_gl);
+        // if (debug2)
+        //   printf("(%d %d %d) %f <- (%d %d %d)\n", r_sm, c_sm, f_sm,
+        //          dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)], r_gl, c_gl, f_gl);
         if (!skip) {
           if (INTERPOLATION) {
             ;
@@ -2682,9 +2679,9 @@ _gpk_rev(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM unprocessed_n,
           r_gl < nr_c && c_gl < nc_c && f_gl < nf) {
         v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
             dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)];
-        if (debug2)
-          printf("(%d %d %d) %f <- (%d %d %d)\n", r_sm, c_sm, f_sm,
-                 dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)], r_gl, c_gl, f_gl);
+        // if (debug2)
+        //   printf("(%d %d %d) %f <- (%d %d %d)\n", r_sm, c_sm, f_sm,
+        //          dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)], r_gl, c_gl, f_gl);
         if (!skip) {
           if (INTERPOLATION) {
             ;
@@ -2748,9 +2745,9 @@ _gpk_rev(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM unprocessed_n,
           r_gl < nr_c && c_gl < nc_c && f_gl < nf) {
         v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
             dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)];
-        if (debug2)
-          printf("(%d %d %d) %f <- (%d %d %d)\n", r_sm, c_sm, f_sm,
-                 dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)], r_gl, c_gl, f_gl);
+        // if (debug2)
+        //   printf("(%d %d %d) %f <- (%d %d %d)\n", r_sm, c_sm, f_sm,
+        //          dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)], r_gl, c_gl, f_gl);
         if (!skip) {
           if (INTERPOLATION) {
             ;
@@ -2815,9 +2812,9 @@ _gpk_rev(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM unprocessed_n,
           r_gl < nr_c && c_gl < nc_c && f_gl < nf) {
         v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
             dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)];
-        if (debug2)
-          printf("(%d %d %d) %f <- (%d %d %d)\n", r_sm, c_sm, f_sm,
-                 dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)], r_gl, c_gl, f_gl);
+        // if (debug2)
+        //   printf("(%d %d %d) %f <- (%d %d %d)\n", r_sm, c_sm, f_sm,
+        //          dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)], r_gl, c_gl, f_gl);
         if (!skip) {
           if (INTERPOLATION) {
             ;
@@ -2838,21 +2835,21 @@ _gpk_rev(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM unprocessed_n,
 
   __syncthreads();
 
-  __syncthreads();
-  if (debug) {
-    printf("TYPE: %d %d %d %d\n", TYPE, min(rest_r_p, R * 2 + 1),
-           min(rest_c_p, C * 2 + 1), min(rest_f_p, F * 2 + 1));
-    for (int i = 0; i < min(rest_r_p, R * 2 + 1); i++) {
-      for (int j = 0; j < min(rest_c_p, C * 2 + 1); j++) {
-        for (int k = 0; k < min(rest_f_p, F * 2 + 1); k++) {
-          printf("%2.2f ", v_sm[get_idx(ldsm1, ldsm2, i, j, k)]);
-        }
-        printf("\n");
-      }
-      printf("\n");
-    }
-  }
-  __syncthreads();
+  // __syncthreads();
+  // if (debug) {
+  //   printf("TYPE: %d %d %d %d\n", TYPE, min(rest_r_p, R * 2 + 1),
+  //          min(rest_c_p, C * 2 + 1), min(rest_f_p, F * 2 + 1));
+  //   for (int i = 0; i < min(rest_r_p, R * 2 + 1); i++) {
+  //     for (int j = 0; j < min(rest_c_p, C * 2 + 1); j++) {
+  //       for (int k = 0; k < min(rest_f_p, F * 2 + 1); k++) {
+  //         printf("%2.2f ", v_sm[get_idx(ldsm1, ldsm2, i, j, k)]);
+  //       }
+  //       printf("\n");
+  //     }
+  //     printf("\n");
+  //   }
+  // }
+  // __syncthreads();
 
   if (dwf && threadId >= R * C * F && threadId < R * C * F * 2) {
 
@@ -3779,21 +3776,21 @@ _gpk_rev(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM unprocessed_n,
     }
   }
 
-  __syncthreads();
-  if (debug) {
-    printf("TYPE: %d %d %d %d\n", TYPE, min(rest_r_p, R * 2 + 1),
-           min(rest_c_p, C * 2 + 1), min(rest_f_p, F * 2 + 1));
-    for (int i = 0; i < min(rest_r_p, R * 2 + 1); i++) {
-      for (int j = 0; j < min(rest_c_p, C * 2 + 1); j++) {
-        for (int k = 0; k < min(rest_f_p, F * 2 + 1); k++) {
-          printf("%2.2f ", v_sm[get_idx(ldsm1, ldsm2, i, j, k)]);
-        }
-        printf("\n");
-      }
-      printf("\n");
-    }
-  }
-  __syncthreads();
+  // __syncthreads();
+  // if (debug) {
+  //   printf("TYPE: %d %d %d %d\n", TYPE, min(rest_r_p, R * 2 + 1),
+  //          min(rest_c_p, C * 2 + 1), min(rest_f_p, F * 2 + 1));
+  //   for (int i = 0; i < min(rest_r_p, R * 2 + 1); i++) {
+  //     for (int j = 0; j < min(rest_c_p, C * 2 + 1); j++) {
+  //       for (int k = 0; k < min(rest_f_p, F * 2 + 1); k++) {
+  //         printf("%2.2f ", v_sm[get_idx(ldsm1, ldsm2, i, j, k)]);
+  //       }
+  //       printf("\n");
+  //     }
+  //     printf("\n");
+  //   }
+  // }
+  // __syncthreads();
 
   __syncthreads();
 
@@ -4171,9 +4168,9 @@ void gpk_rev_adaptive_launcher(
       lddwrc1, lddwrc2, dwrcf, lddwrcf1, lddwrcf2, svr, svc, svf, nvr, nvc,
       nvf);
   gpuErrchk(cudaGetLastError());
-#ifdef MGARD_CUDA_DEBUG
-  gpuErrchk(cudaDeviceSynchronize());
-#endif
+  if (handle.sync_and_check_all_kernels) {
+    gpuErrchk(cudaDeviceSynchronize());
+  }
 }
 
 template <DIM D_GLOBAL, DIM D_LOCAL, typename T, bool INTERPOLATION,
@@ -4201,9 +4198,9 @@ void gpk_rev(Handle<D_GLOBAL, T> &handle, SIZE *shape_h, SIZE *shape_d,
         lddwrcf1, lddwrcf2, svr, svc, svf, nvr, nvc, nvf, queue_idx);          \
   }
   bool profile = false;
-#ifdef MGARD_CUDA_KERNEL_PROFILE
-  profile = true;
-#endif
+  if (handle.profile_kernels) {
+    profile = true;
+  }
   if (D_LOCAL == 3) {
     // if (profile || config == 6) {
     //   GPK(2, 2, 128)

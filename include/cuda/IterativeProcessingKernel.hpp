@@ -9,7 +9,7 @@
 #define MGRAD_CUDA_ITERATIVE_PROCESSING_KERNEL_TEMPLATE
 
 #include "CommonInternal.h"
-
+#include "IPKFunctor.h"
 #include "IterativeProcessingKernel.h"
 namespace mgard_cuda {
 
@@ -19,14 +19,14 @@ __global__ void _ipk_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
                        DIM curr_dim_c, DIM curr_dim_f, T *am, T *bm, T *dist_f,
                        T *v, LENGTH ldv1, LENGTH ldv2) {
 
-  bool debug = false;
-  if (blockIdx.z == 0 && blockIdx.y == 0 && blockIdx.x == 0 &&
-      threadIdx.z == 0 && threadIdx.y == 0)
-    debug = false;
+  // bool debug = false;
+  // if (blockIdx.z == 0 && blockIdx.y == 0 && blockIdx.x == 0 &&
+  //     threadIdx.z == 0 && threadIdx.y == 0)
+  //   debug = false;
 
-  bool debug2 = false;
-  if (threadIdx.z == 0 && threadIdx.y == 0 && threadIdx.x == 0)
-    debug2 = false;
+  // bool debug2 = false;
+  // if (threadIdx.z == 0 && threadIdx.y == 0 && threadIdx.x == 0)
+  //   debug2 = false;
 
   LENGTH threadId = (threadIdx.z * (blockDim.x * blockDim.y)) +
                     (threadIdx.y * blockDim.x) + threadIdx.x;
@@ -77,9 +77,9 @@ __global__ void _ipk_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
   SIZE bidx = blockIdx.x;
   SIZE firstD = div_roundup(nc, C);
   SIZE blockId = bidx % firstD;
-  if (debug2) {
-    printf("blockIdx.x %u nc %u blockDim.x %u firstD: %u blockId %u\n", blockIdx.x, nc, blockDim.x, firstD, blockId);
-  }
+  // if (debug2) {
+  //   printf("blockIdx.x %u nc %u blockDim.x %u firstD: %u blockId %u\n", blockIdx.x, nc, blockDim.x, firstD, blockId);
+  // }
   bidx /= firstD;
 
   for (DIM d = 0; d < D; d++) {
@@ -90,9 +90,9 @@ __global__ void _ipk_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
           t = shape_c_sm[d];
       //  }
       //}
-      if (debug2) {
-        printf("%u mod %u = %u, %u / %u = %u (shape_c: %u %u %u %u %u)\n", bidx, t, bidx % t, bidx, t, bidx/t, shape_c_sm[4], shape_c_sm[3],shape_c_sm[2],shape_c_sm[1],shape_c_sm[0]);
-      }
+      // if (debug2) {
+      //   printf("%u mod %u = %u, %u / %u = %u (shape_c: %u %u %u %u %u)\n", bidx, t, bidx % t, bidx, t, bidx/t, shape_c_sm[4], shape_c_sm[3],shape_c_sm[2],shape_c_sm[1],shape_c_sm[0]);
+      // }
       idx[d] = bidx % t;
       bidx /= t;
     }
@@ -130,11 +130,11 @@ __global__ void _ipk_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
   //   debug2 = false;
   // }
 
-  if (debug2) {
-    printf("ld: (%d %d %d %d %d) (shape_c: %u %u %u %u %u)\n", 
-      ldvs_sm[4], ldvs_sm[3],ldvs_sm[2],ldvs_sm[1],ldvs_sm[0],
-      shape_c_sm[4], shape_c_sm[3],shape_c_sm[2],shape_c_sm[1],shape_c_sm[0]);
-  }
+  // if (debug2) {
+  //   printf("ld: (%d %d %d %d %d) (shape_c: %u %u %u %u %u)\n", 
+  //     ldvs_sm[4], ldvs_sm[3],ldvs_sm[2],ldvs_sm[1],ldvs_sm[0],
+  //     shape_c_sm[4], shape_c_sm[3],shape_c_sm[2],shape_c_sm[1],shape_c_sm[0]);
+  // }
 
   T *vec = v + get_idx(ldv1, ldv2, r_gl, c_gl, 0);
 
@@ -188,22 +188,22 @@ __global__ void _ipk_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
 
     /* Computation of v in parallel*/
     if (r_sm < r_rest && c_sm < c_rest) {
-      if (debug) printf("forward %f <- %f %f %f %f\n",
-                  tridiag_forward2(
-          prev_vec_sm, am_sm[0], bm_sm[0], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]),
-                  prev_vec_sm, am_sm[0], bm_sm[0], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]);
+      // if (debug) printf("forward %f <- %f %f %f %f\n",
+      //             tridiag_forward2(
+      //     prev_vec_sm, am_sm[0], bm_sm[0], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]),
+      //             prev_vec_sm, am_sm[0], bm_sm[0], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]);
 
       vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)] = tridiag_forward2(
           prev_vec_sm, am_sm[0], bm_sm[0], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]);
 
       //#pragma unroll 32
       for (SIZE i = 1; i < F; i++) {
-        if (debug) printf("forward %f <- %f %f %f %f\n",
-                  tridiag_forward2(
-            vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i - 1)], am_sm[i], bm_sm[i],
-            vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i)]),
-                  vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i - 1)], am_sm[i], bm_sm[i],
-            vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i)]);
+        // if (debug) printf("forward %f <- %f %f %f %f\n",
+        //           tridiag_forward2(
+        //     vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i - 1)], am_sm[i], bm_sm[i],
+        //     vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i)]),
+        //           vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i - 1)], am_sm[i], bm_sm[i],
+        //     vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i)]);
 
         vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i)] = tridiag_forward2(
             vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i - 1)], am_sm[i], bm_sm[i],
@@ -276,10 +276,10 @@ __global__ void _ipk_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
   /* Only 1 col remain */
   if (f_ghost + f_rest == 1) {
     if (r_sm < r_rest && c_sm < c_rest) {
-      if (debug) printf("forward %f <- %f %f %f %f\n",
-                  tridiag_forward2(
-          prev_vec_sm, am_sm[0], bm_sm[0], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]),
-                  prev_vec_sm, am_sm[0], bm_sm[0], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]);
+      // if (debug) printf("forward %f <- %f %f %f %f\n",
+      //             tridiag_forward2(
+      //     prev_vec_sm, am_sm[0], bm_sm[0], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]),
+      //             prev_vec_sm, am_sm[0], bm_sm[0], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]);
       vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)] = tridiag_forward2(
           prev_vec_sm, am_sm[0], bm_sm[0], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]);
       // printf ("prev_vec_sm = %f\n", prev_vec_sm );
@@ -289,19 +289,19 @@ __global__ void _ipk_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
 
   } else {
     if (r_sm < r_rest && c_sm < c_rest) {
-      if (debug) printf("forward %f <- %f %f %f %f\n",
-                  tridiag_forward2(
-          prev_vec_sm, am_sm[0], bm_sm[0], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]),
-                  prev_vec_sm, am_sm[0], bm_sm[0], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]);
+      // if (debug) printf("forward %f <- %f %f %f %f\n",
+      //             tridiag_forward2(
+      //     prev_vec_sm, am_sm[0], bm_sm[0], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]),
+      //             prev_vec_sm, am_sm[0], bm_sm[0], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]);
       vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)] = tridiag_forward2(
           prev_vec_sm, am_sm[0], bm_sm[0], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]);
       for (SIZE i = 1; i < f_ghost + f_rest; i++) {
-        if (debug) printf("forward %f <- %f %f %f %f\n",
-                  tridiag_forward2(
-            vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i - 1)], am_sm[i], bm_sm[i],
-            vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i)]),
-                  vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i - 1)], am_sm[i], bm_sm[i],
-            vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i)]);
+        // if (debug) printf("forward %f <- %f %f %f %f\n",
+        //           tridiag_forward2(
+        //     vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i - 1)], am_sm[i], bm_sm[i],
+        //     vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i)]),
+        //           vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i - 1)], am_sm[i], bm_sm[i],
+        //     vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i)]);
         vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i)] = tridiag_forward2(
             vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i - 1)], am_sm[i], bm_sm[i],
             vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i)]);
@@ -360,10 +360,10 @@ __global__ void _ipk_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
 
     /* Computation of v in parallel*/
     if (r_sm < r_rest && c_sm < c_rest) {
-      if (debug) printf("backward %f <- %f %f %f %f\n",
-                  tridiag_backward2(prev_vec_sm, am_sm[0], bm_sm[0],
-                           vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]),
-                  prev_vec_sm, am_sm[0], bm_sm[0], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]);
+      // if (debug) printf("backward %f <- %f %f %f %f\n",
+      //             tridiag_backward2(prev_vec_sm, am_sm[0], bm_sm[0],
+      //                      vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]),
+      //             prev_vec_sm, am_sm[0], bm_sm[0], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]);
 
       vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)] =
           tridiag_backward2(prev_vec_sm, am_sm[0], bm_sm[0],
@@ -371,12 +371,12 @@ __global__ void _ipk_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
       //#pragma unroll 32
       for (SIZE i = 1; i < F; i++) {
 
-        if (debug) printf("backward %f <- %f %f %f %f\n",
-                  tridiag_backward2(
-            vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i - 1)],
-            am_sm[i], bm_sm[i], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i)]),
-                  vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i - 1)],
-            am_sm[i], bm_sm[i], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i)]);
+        // if (debug) printf("backward %f <- %f %f %f %f\n",
+        //           tridiag_backward2(
+        //     vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i - 1)],
+        //     am_sm[i], bm_sm[i], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i)]),
+        //           vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i - 1)],
+        //     am_sm[i], bm_sm[i], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i)]);
 
         vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i)] = tridiag_backward2(
             vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i - 1)],
@@ -433,10 +433,10 @@ __global__ void _ipk_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
   /* Only 1 col remain */
   if (f_ghost + f_rest == 1) {
     if (r_sm < r_rest && c_sm < c_rest) {
-      if (debug) printf("backward %f <- %f %f %f %f\n",
-                  tridiag_backward2(prev_vec_sm, am_sm[0], bm_sm[0],
-                           vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]),
-                  prev_vec_sm, am_sm[0], bm_sm[0], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]);
+      // if (debug) printf("backward %f <- %f %f %f %f\n",
+      //             tridiag_backward2(prev_vec_sm, am_sm[0], bm_sm[0],
+      //                      vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]),
+      //             prev_vec_sm, am_sm[0], bm_sm[0], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]);
 
       vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)] =
           tridiag_backward2(prev_vec_sm, am_sm[0], bm_sm[0],
@@ -448,22 +448,22 @@ __global__ void _ipk_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
 
   } else {
     if (r_sm < r_rest && c_sm < c_rest) {
-      if (debug) printf("backward %f <- %f %f %f %f\n",
-                  tridiag_backward2(prev_vec_sm, am_sm[0], bm_sm[0],
-                           vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]),
-                  prev_vec_sm, am_sm[0], bm_sm[0], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]);
+      // if (debug) printf("backward %f <- %f %f %f %f\n",
+      //             tridiag_backward2(prev_vec_sm, am_sm[0], bm_sm[0],
+      //                      vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]),
+      //             prev_vec_sm, am_sm[0], bm_sm[0], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]);
 
       vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)] =
           tridiag_backward2(prev_vec_sm, am_sm[0], bm_sm[0],
                            vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)]);
       for (SIZE i = 1; i < f_ghost + f_rest; i++) {
 
-        if (debug) printf("backward %f <- %f %f %f %f\n",
-                  tridiag_backward2(
-            vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i - 1)],
-            am_sm[i], bm_sm[i], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i)]),
-                  vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i - 1)],
-            am_sm[i], bm_sm[i], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i)]);
+        // if (debug) printf("backward %f <- %f %f %f %f\n",
+        //           tridiag_backward2(
+        //     vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i - 1)],
+        //     am_sm[i], bm_sm[i], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i)]),
+        //           vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i - 1)],
+        //     am_sm[i], bm_sm[i], vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i)]);
 
 
         vec_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, i)] = tridiag_backward2(
@@ -507,13 +507,14 @@ void ipk_1_adaptive_launcher(Handle<D, T> &handle, SIZE *shape_h, SIZE *shape_c_
   dim3 threadsPerBlock, blockPerGrid;
   size_t sm_size;
 
-  tbx = std::max(C, std::min(C, total_thread_x));
-  tby = std::max(R, std::min(R, total_thread_y));
+  // tbx = std::max(C, std::min(C, total_thread_x));
+  // tby = std::max(R, std::min(R, total_thread_y));
+  tbx = C;
+  tby = R;
   tbz = 1;
   sm_size = (R * C + 2) * (F + G) * sizeof(T);
   sm_size += (D * 4) * sizeof(SIZE);
   sm_size += (D * 1) * sizeof(DIM);
-
   gridx = ceil((float)total_thread_x / tbx);
   gridy = ceil((float)total_thread_y / tby);
   gridz = 1;
@@ -542,9 +543,9 @@ void ipk_1_adaptive_launcher(Handle<D, T> &handle, SIZE *shape_h, SIZE *shape_c_
       shape_d, shape_c_d, ldvs, ldws, processed_n, processed_dims_d, curr_dim_r,
       curr_dim_c, curr_dim_f, am, bm, ddist_f, dv, lddv1, lddv2);
   gpuErrchk(cudaGetLastError());
-#ifdef MGARD_CUDA_DEBUG
-  gpuErrchk(cudaDeviceSynchronize());
-#endif
+  if (handle.sync_and_check_all_kernels) {
+    gpuErrchk(cudaDeviceSynchronize());
+  }
   // std::cout << "test\n";
 }
 
@@ -564,9 +565,9 @@ void ipk_1(Handle<D, T> &handle, SIZE *shape_h, SIZE *shape_c_h, SIZE *shape_d,
         curr_dim_c, curr_dim_f, am, bm, ddist_f, dv, lddv1, lddv2, queue_idx); \
   }
   bool profile = false;
-#ifdef MGARD_CUDA_KERNEL_PROFILE
-  profile = true;
-#endif
+  if (handle.profile_kernels) {
+    profile = true;
+  }
   if (D >= 3) {
     if (profile || config == 6) {
       IPK(2, 2, 128, 2)
@@ -643,14 +644,14 @@ __global__ void _ipk_2(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
                        DIM curr_dim_c, DIM curr_dim_f, T *am, T *bm, T *dist_c,
                        T *v, LENGTH ldv1, LENGTH ldv2) {
 
-  bool debug = false;
-  if (blockIdx.z == 0 && blockIdx.y == 0 && blockIdx.x == 0 &&
-      threadIdx.z == 0 && threadIdx.y == 0)
-    debug = false;
+  // bool debug = false;
+  // if (blockIdx.z == 0 && blockIdx.y == 0 && blockIdx.x == 0 &&
+  //     threadIdx.z == 0 && threadIdx.y == 0)
+  //   debug = false;
 
-  bool debug2 = false;
-  if (threadIdx.z == 0 && threadIdx.y == 0 && threadIdx.x == 0)
-    debug2 = false;
+  // bool debug2 = false;
+  // if (threadIdx.z == 0 && threadIdx.y == 0 && threadIdx.x == 0)
+  //   debug2 = false;
 
   LENGTH threadId = (threadIdx.z * (blockDim.x * blockDim.y)) +
                     (threadIdx.y * blockDim.x) + threadIdx.x;
@@ -933,20 +934,20 @@ __global__ void _ipk_2(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
   c_gl = 0;
   prev_vec_sm = 0.0;
 
-  if (f_gl + f_sm == 0 && r_gl + r_sm == 0 && idx[3] == 0)
-    debug = false;
-  if (debug)
-    printf("block id: (%d %d %d) thread id: (%d %d %d)\n", blockIdx.x,
-           blockIdx.y, blockIdx.z, threadIdx.x, threadIdx.y, threadIdx.z);
+  // if (f_gl + f_sm == 0 && r_gl + r_sm == 0 && idx[3] == 0)
+  //   debug = false;
+  // if (debug)
+  //   printf("block id: (%d %d %d) thread id: (%d %d %d)\n", blockIdx.x,
+  //          blockIdx.y, blockIdx.z, threadIdx.x, threadIdx.y, threadIdx.z);
 
   /* Load first ghost */
   if (r_sm < r_rest && f_sm < f_rest) {
     for (SIZE i = 0; i < c_ghost; i++) {
       vec_sm[get_idx(ldsm1, ldsm2, r_sm, i, f_sm)] =
           vec[get_idx(ldv1, ldv2, r_sm, (nc_c - 1) - (c_gl + i), f_sm)];
-      if (debug)
-        printf("load vec_sm[%d] = %f\n", get_idx(ldsm1, ldsm2, r_sm, i, f_sm),
-               vec_sm[get_idx(ldsm1, ldsm2, r_sm, i, f_sm)]);
+      // if (debug)
+      //   printf("load vec_sm[%d] = %f\n", get_idx(ldsm1, ldsm2, r_sm, i, f_sm),
+      //          vec_sm[get_idx(ldsm1, ldsm2, r_sm, i, f_sm)]);
     }
   }
   if (r_sm == 0 && c_sm < c_ghost) {
@@ -963,10 +964,10 @@ __global__ void _ipk_2(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
       for (SIZE i = 0; i < c_main; i++) {
         vec_sm[get_idx(ldsm1, ldsm2, r_sm, i + c_ghost, f_sm)] = vec[get_idx(
             ldv1, ldv2, r_sm, (nc_c - 1) - (c_gl + i + c_ghost), f_sm)];
-        if (debug)
-          printf("load vec_sm[%d] = %f\n",
-                 get_idx(ldsm1, ldsm2, r_sm, i + c_ghost, f_sm),
-                 vec_sm[get_idx(ldsm1, ldsm2, r_sm, i + c_ghost, f_sm)]);
+        // if (debug)
+        //   printf("load vec_sm[%d] = %f\n",
+        //          get_idx(ldsm1, ldsm2, r_sm, i + c_ghost, f_sm),
+        //          vec_sm[get_idx(ldsm1, ldsm2, r_sm, i + c_ghost, f_sm)]);
       }
     }
     if (r_sm == 0 && c_sm < c_main) {
@@ -996,9 +997,9 @@ __global__ void _ipk_2(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
       vec_sm[get_idx(ldsm1, ldsm2, r_sm, 0, c_sm)] =
           tridiag_backward2(prev_vec_sm, am_sm[0], bm_sm[0],
                            vec_sm[get_idx(ldsm1, ldsm2, r_sm, 0, c_sm)]);
-      if (debug)
-        printf("calc vec_sm[%d] = %f\n", get_idx(ldsm1, ldsm2, r_sm, 0, f_sm),
-               vec_sm[get_idx(ldsm1, ldsm2, r_sm, 0, f_sm)]);
+      // if (debug)
+      //   printf("calc vec_sm[%d] = %f\n", get_idx(ldsm1, ldsm2, r_sm, 0, f_sm),
+      //          vec_sm[get_idx(ldsm1, ldsm2, r_sm, 0, f_sm)]);
 
       for (SIZE i = 1; i < C; i++) {
         // #ifdef MGARD_CUDA_FMA
@@ -1026,9 +1027,9 @@ __global__ void _ipk_2(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
             vec_sm[get_idx(ldsm1, ldsm2, r_sm, i - 1, f_sm)], 
             am_sm[i], bm_sm[i], vec_sm[get_idx(ldsm1, ldsm2, r_sm, i, f_sm)]);
 
-        if (debug)
-          printf("calc vec_sm[%d] = %f\n", get_idx(ldsm1, ldsm2, r_sm, i, f_sm),
-                 vec_sm[get_idx(ldsm1, ldsm2, r_sm, i, f_sm)]);
+        // if (debug)
+        //   printf("calc vec_sm[%d] = %f\n", get_idx(ldsm1, ldsm2, r_sm, i, f_sm),
+        //          vec_sm[get_idx(ldsm1, ldsm2, r_sm, i, f_sm)]);
       }
 
       /* Store last v */
@@ -1073,10 +1074,10 @@ __global__ void _ipk_2(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
       vec_sm[get_idx(ldsm1, ldsm2, r_sm, i + c_ghost, f_sm)] = vec[get_idx(
           ldv1, ldv2, r_sm, (nc_c - 1) - (c_gl + i + c_ghost), f_sm)];
 
-      if (debug)
-        printf("load ec_sm[%d] = %f\n",
-               get_idx(ldsm1, ldsm2, r_sm, i + c_ghost, f_sm),
-               vec_sm[get_idx(ldsm1, ldsm2, r_sm, i + c_ghost, f_sm)]);
+      // if (debug)
+      //   printf("load ec_sm[%d] = %f\n",
+      //          get_idx(ldsm1, ldsm2, r_sm, i + c_ghost, f_sm),
+      //          vec_sm[get_idx(ldsm1, ldsm2, r_sm, i + c_ghost, f_sm)]);
     }
   }
   if (r_sm == 0 && c_sm < c_rest) {
@@ -1105,9 +1106,9 @@ __global__ void _ipk_2(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
       vec_sm[get_idx(ldsm1, ldsm2, r_sm, 0, c_sm)] =
           tridiag_backward2(prev_vec_sm, am_sm[0], bm_sm[0],
                            vec_sm[get_idx(ldsm1, ldsm2, r_sm, 0, c_sm)]);
-      if (debug)
-        printf("calc vec_sm[%d] = %f\n", get_idx(ldsm1, ldsm2, r_sm, 0, f_sm),
-               vec_sm[get_idx(ldsm1, ldsm2, r_sm, 0, f_sm)]);
+      // if (debug)
+      //   printf("calc vec_sm[%d] = %f\n", get_idx(ldsm1, ldsm2, r_sm, 0, f_sm),
+      //          vec_sm[get_idx(ldsm1, ldsm2, r_sm, 0, f_sm)]);
       // printf ("prev_vec_sm = %f\n", prev_vec_sm );
       // printf ("vec_sm[r_sm * ldsm + 0] = %f\n", vec_sm[r_sm * ldsm + 0] );
     }
@@ -1132,9 +1133,9 @@ __global__ void _ipk_2(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
       vec_sm[get_idx(ldsm1, ldsm2, r_sm, 0, c_sm)] =
           tridiag_backward2(prev_vec_sm, am_sm[0], bm_sm[0],
                            vec_sm[get_idx(ldsm1, ldsm2, r_sm, 0, c_sm)]);
-      if (debug)
-        printf("calc vec_sm[%d] = %f\n", get_idx(ldsm1, ldsm2, r_sm, 0, f_sm),
-               vec_sm[get_idx(ldsm1, ldsm2, r_sm, 0, f_sm)]);
+      // if (debug)
+      //   printf("calc vec_sm[%d] = %f\n", get_idx(ldsm1, ldsm2, r_sm, 0, f_sm),
+      //          vec_sm[get_idx(ldsm1, ldsm2, r_sm, 0, f_sm)]);
       for (SIZE i = 1; i < c_ghost + c_rest; i++) {
 
         // #ifdef MGARD_CUDA_FMA
@@ -1159,9 +1160,9 @@ __global__ void _ipk_2(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
         vec_sm[get_idx(ldsm1, ldsm2, r_sm, i, f_sm)] = tridiag_backward2(
             vec_sm[get_idx(ldsm1, ldsm2, r_sm, i - 1, f_sm)],
             am_sm[i], bm_sm[i], vec_sm[get_idx(ldsm1, ldsm2, r_sm, i, f_sm)]);
-        if (debug)
-          printf("calc vec_sm[%d] = %f\n", get_idx(ldsm1, ldsm2, r_sm, i, f_sm),
-                 vec_sm[get_idx(ldsm1, ldsm2, r_sm, i, f_sm)]);
+        // if (debug)
+        //   printf("calc vec_sm[%d] = %f\n", get_idx(ldsm1, ldsm2, r_sm, i, f_sm),
+        //          vec_sm[get_idx(ldsm1, ldsm2, r_sm, i, f_sm)]);
       }
     }
   }
@@ -1198,8 +1199,8 @@ void ipk_2_adaptive_launcher(Handle<D, T> &handle, SIZE *shape_h, SIZE *shape_c_
   dim3 threadsPerBlock, blockPerGrid;
   size_t sm_size;
 
-  tbx = std::max(F, std::min(F, total_thread_x));
-  tby = std::max(R, std::min(R, total_thread_y));
+  tbx = F;//std::max(F, std::min(F, total_thread_x));
+  tby = R;//std::max(R, std::min(R, total_thread_y));
   tbz = 1;
   sm_size = (R * F + 2) * (C + G) * sizeof(T);
   sm_size += (D * 4) * sizeof(SIZE);
@@ -1227,9 +1228,9 @@ void ipk_2_adaptive_launcher(Handle<D, T> &handle, SIZE *shape_h, SIZE *shape_c_
       shape_d, shape_c_d, ldvs, ldws, processed_n, processed_dims_d, curr_dim_r,
       curr_dim_c, curr_dim_f, am, bm, ddist_c, dv, lddv1, lddv2);
   gpuErrchk(cudaGetLastError());
-#ifdef MGARD_CUDA_DEBUG
-  gpuErrchk(cudaDeviceSynchronize());
-#endif
+  if (handle.sync_and_check_all_kernels) {
+    gpuErrchk(cudaDeviceSynchronize());
+  }
 }
 
 template <DIM D, typename T>
@@ -1248,9 +1249,9 @@ void ipk_2(Handle<D, T> &handle, SIZE *shape_h, SIZE *shape_c_h, SIZE *shape_d,
         curr_dim_c, curr_dim_f, am, bm, ddist_c, dv, lddv1, lddv2, queue_idx); \
   }
   bool profile = false;
-#ifdef MGARD_CUDA_KERNEL_PROFILE
-  profile = true;
-#endif
+  if (handle.profile_kernels) {
+    profile = true;
+  }
   if (D >= 3) {
     if (profile || config == 6) {
       IPK(2, 2, 128, 2)
@@ -1924,8 +1925,8 @@ void ipk_3_adaptive_launcher(Handle<D, T> &handle, SIZE *shape_h, SIZE *shape_c_
   dim3 threadsPerBlock, blockPerGrid;
   size_t sm_size;
 
-  tbx = std::max(F, std::min(F, total_thread_x));
-  tby = std::max(C, std::min(C, total_thread_y));
+  tbx = F;//std::max(F, std::min(F, total_thread_x));
+  tby = C;//std::max(C, std::min(C, total_thread_y));
   tbz = 1;
   sm_size = (C * F + 2) * (R + G) * sizeof(T);
   sm_size += (D * 4) * sizeof(SIZE);
@@ -1954,9 +1955,9 @@ void ipk_3_adaptive_launcher(Handle<D, T> &handle, SIZE *shape_h, SIZE *shape_c_
       shape_d, shape_c_d, ldvs, ldws, processed_n, processed_dims_d, curr_dim_r,
       curr_dim_c, curr_dim_f, am, bm, ddist_r, dv, lddv1, lddv2);
   gpuErrchk(cudaGetLastError());
-#ifdef MGARD_CUDA_DEBUG
-  gpuErrchk(cudaDeviceSynchronize());
-#endif
+  if (handle.sync_and_check_all_kernels) {
+    gpuErrchk(cudaDeviceSynchronize());
+  }
 }
 
 template <DIM D, typename T>
@@ -1976,9 +1977,9 @@ void ipk_3(Handle<D, T> &handle, SIZE *shape_h, SIZE *shape_c_h, SIZE *shape_d,
   }
 
   bool profile = false;
-#ifdef MGARD_CUDA_KERNEL_PROFILE
-  profile = true;
-#endif
+  if (handle.profile_kernels) {
+    profile = true;
+  }
   if (D >= 3) {
     if (profile || config == 6) {
       IPK(2, 2, 128, 2)

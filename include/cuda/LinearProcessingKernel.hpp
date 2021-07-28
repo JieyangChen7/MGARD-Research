@@ -9,7 +9,7 @@
 #define MGRAD_CUDA_LINEAR_PROCESSING_KERNEL_TEMPLATE
 
 #include "CommonInternal.h"
-
+#include "LPKFunctor.h"
 #include "LinearProcessingKernel.h"
 namespace mgard_cuda {
 template <DIM D, typename T, SIZE R, SIZE C, SIZE F>
@@ -19,9 +19,9 @@ _lpk_reo_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM processed_n,
            T *ddist_f, T *dratio_f, T *dv1, LENGTH lddv11, LENGTH lddv12, T *dv2,
            LENGTH lddv21, LENGTH lddv22, T *dw, LENGTH lddw1, LENGTH lddw2) {
 
-  bool debug = false;
-  if (blockIdx.z == 0 && blockIdx.y == 1 && blockIdx.x == 1 &&
-  threadIdx.z == 0 && threadIdx.y == 0 ) debug = false;
+  // bool debug = false;
+  // if (blockIdx.z == 0 && blockIdx.y == 1 && blockIdx.x == 1 &&
+  // threadIdx.z == 0 && threadIdx.y == 0 ) debug = false;
 
   // bool debug = false;
   // if (threadIdx.z == 0 && threadIdx.y == 0 && threadIdx.x == 0 ) debug =
@@ -147,27 +147,27 @@ _lpk_reo_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM processed_n,
 
   if (r_gl < nr && c_gl < nc && f_gl < nf_c) {
     if (zero_other && r_gl < zero_r && c_gl < zero_c && f_gl < zero_f) {
-      if (debug) printf("load left vsm[%d]: 0.0\n", f_sm * 2 + 2);
+      // if (debug) printf("load left vsm[%d]: 0.0\n", f_sm * 2 + 2);
       v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm * 2 + 2)] = 0.0;
     } else {
-      if (debug) printf("load left vsm[%d]<-dv1[%d, %d, %d]: %f\n", f_sm * 2
-      + 2, r_gl, c_gl, f_gl, dv1[get_idx(lddv11, lddv12, r_gl, c_gl, f_gl)]);
+      // if (debug) printf("load left vsm[%d]<-dv1[%d, %d, %d]: %f\n", f_sm * 2
+      // + 2, r_gl, c_gl, f_gl, dv1[get_idx(lddv11, lddv12, r_gl, c_gl, f_gl)]);
       v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm * 2 + 2)] =
           dv1[get_idx(lddv11, lddv12, r_gl, c_gl, f_gl)];
     }
 
     if (f_sm == actual_F - 1) {
       if (zero_other && r_gl < zero_r && c_gl < zero_c && f_gl < zero_f) {
-        if (debug) printf("load left+1 vsm[%d]: 0.0\n", actual_F * 2 + 2);
+        // if (debug) printf("load left+1 vsm[%d]: 0.0\n", actual_F * 2 + 2);
         v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, actual_F * 2 + 2)] = 0.0;
       } else {
         if (f_gl + 1 < nf_c) {
-          if (debug) printf("load left+1 vsm[%d]: %f\n", actual_F * 2 + 2,
-          dv1[get_idx(lddv11, lddv12, r_gl, c_gl, f_gl + 1)]);
+          // if (debug) printf("load left+1 vsm[%d]: %f\n", actual_F * 2 + 2,
+          // dv1[get_idx(lddv11, lddv12, r_gl, c_gl, f_gl + 1)]);
           v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, actual_F * 2 + 2)] =
               dv1[get_idx(lddv11, lddv12, r_gl, c_gl, f_gl + 1)];
         } else {
-          if (debug) printf("load left+1 vsm[%d]: 0.0\n", actual_F * 2 + 2);
+          // if (debug) printf("load left+1 vsm[%d]: 0.0\n", actual_F * 2 + 2);
           v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, actual_F * 2 + 2)] = 0.0;
         }
       }
@@ -177,18 +177,18 @@ _lpk_reo_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM processed_n,
       // left
       if (zero_other && r_gl < zero_r && c_gl < zero_c && f_gl < zero_f) {
         // coarse (-1)
-        if (debug) printf("load left-1 vsm[0]: 0.0\n");
+        // if (debug) printf("load left-1 vsm[0]: 0.0\n");
         v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)] = 0.0;
       } else {
         if (f_gl >= 1) {
           // other (-1)
-          if (debug) printf("load left-1 vsm[0]: %f\n", dv1[get_idx(lddv11,
-          lddv12, r_gl, c_gl, f_gl-1)]);
+          // if (debug) printf("load left-1 vsm[0]: %f\n", dv1[get_idx(lddv11,
+          // lddv12, r_gl, c_gl, f_gl-1)]);
           v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)] =
               dv1[get_idx(lddv11, lddv12, r_gl, c_gl, f_gl - 1)];
         } else {
           // other (-1)
-          if (debug) printf("load left-1 vsm[0]: 0.0\n");
+          // if (debug) printf("load left-1 vsm[0]: 0.0\n");
           v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 0)] = 0.0;
         }
       }
@@ -198,20 +198,20 @@ _lpk_reo_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM processed_n,
     if (!PADDING) { //other = nf_c - 1
       if (nf_c % 2 != 0) {
         if (f_gl >= 1 && f_gl < nf_c) { //shift for better memory access pattern
-          if (debug) printf("load right vsm[%d]: %f <- %d %d %d\n", f_sm * 2
-          + 1, dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl - 1)], r_gl,
-          c_gl, f_gl - 1);
+          // if (debug) printf("load right vsm[%d]: %f <- %d %d %d\n", f_sm * 2
+          // + 1, dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl - 1)], r_gl,
+          // c_gl, f_gl - 1);
           v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm * 2 + 1)] =
               dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl - 1)];
         } else {
-          if (debug) printf("load right vsm[%d]: 0\n", f_sm * 2 + 1);
+          // if (debug) printf("load right vsm[%d]: 0\n", f_sm * 2 + 1);
           v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm * 2 + 1)] = 0.0;
         }
       } else { // nf_c % 2 == 0, do not shift
         if (f_gl < nf_c - 1) { 
-          if (debug) printf("load right vsm[%d]: %f <- %d %d %d\n", f_sm * 2
-          + 3, dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl)], r_gl, c_gl,
-          f_gl);
+          // if (debug) printf("load right vsm[%d]: %f <- %d %d %d\n", f_sm * 2
+          // + 3, dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl)], r_gl, c_gl,
+          // f_gl);
           v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm * 2 + 3)] =
               dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl)];
         } else {
@@ -222,24 +222,24 @@ _lpk_reo_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM processed_n,
     } else { // PADDING other = nf_c - 2
       if (nf_c % 2 != 0) {
         if (f_gl >= 1 && f_gl < nf_c - 1) { //shift for better memory access pattern
-          if (debug) printf("load right vsm[%d]: %f <- %d %d %d\n", f_sm * 2
-          + 1, dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl - 1)], r_gl,
-          c_gl, f_gl - 1);
+          // if (debug) printf("load right vsm[%d]: %f <- %d %d %d\n", f_sm * 2
+          // + 1, dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl - 1)], r_gl,
+          // c_gl, f_gl - 1);
           v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm * 2 + 1)] =
               dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl - 1)];
         } else {
-          if (debug) printf("load right vsm[%d]: 0\n", f_sm * 2 + 1);
+          // if (debug) printf("load right vsm[%d]: 0\n", f_sm * 2 + 1);
           v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm * 2 + 1)] = 0.0;
         }
       } else { // nf_c % 2 == 0
         if (f_gl < nf_c - 2) { // do not shift
-          if (debug) printf("load right vsm[%d]: %f <- %d %d %d\n", f_sm * 2
-          + 3, dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl)], r_gl, c_gl,
-          f_gl);
+          // if (debug) printf("load right vsm[%d]: %f <- %d %d %d\n", f_sm * 2
+          // + 3, dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl)], r_gl, c_gl,
+          // f_gl);
           v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm * 2 + 3)] =
               dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl)];
         } else {
-          if (debug) printf("load right vsm[%d]: 0\n", f_sm * 2 + 3);
+          // if (debug) printf("load right vsm[%d]: 0\n", f_sm * 2 + 3);
           v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm * 2 + 3)] = 0.0;
         }
       }
@@ -250,49 +250,49 @@ _lpk_reo_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM processed_n,
       if (!PADDING) {
         if (nf_c % 2 != 0) {
           if (f_gl < nf_c - 1) {
-            if (debug) printf("load right+1 vsm[%d]: %f <- %d %d %d\n",
-            actual_F * 2 + 1, dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl)],
-            r_gl, c_gl, f_gl);
+            // if (debug) printf("load right+1 vsm[%d]: %f <- %d %d %d\n",
+            // actual_F * 2 + 1, dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl)],
+            // r_gl, c_gl, f_gl);
             v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, actual_F * 2 + 1)] =
                 dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl)];
           } else {
-            if (debug) printf("load right+1 vsm[%d]: 0.0\n", actual_F * 2 +
-            1);
+            // if (debug) printf("load right+1 vsm[%d]: 0.0\n", actual_F * 2 +
+            // 1);
             v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, actual_F * 2 + 1)] = 0.0;
           }
         } else { // nf_c % 2 == 0
           if (f_gl >= actual_F) {
-            if (debug) printf("load right-1 vsm[1]: %f <- %d %d %d\n",
-            dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl - actual_F)], r_gl,
-            c_gl, f_gl - actual_F);
+            // if (debug) printf("load right-1 vsm[1]: %f <- %d %d %d\n",
+            // dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl - actual_F)], r_gl,
+            // c_gl, f_gl - actual_F);
             v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 1)] =
                 dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl - actual_F)];
           } else {
-            if (debug) printf("load right-1 vsm[1]: 0.0\n");
+            // if (debug) printf("load right-1 vsm[1]: 0.0\n");
             v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 1)] = 0.0;
           }
         }
       } else {
         if (nf_c % 2 != 0) {
           if (f_gl < nf_c - 2) {
-            if (debug) printf("actual_F(%d), load right+1 vsm[%d]: %f <- %d %d %d\n", 
-                              actual_F, actual_F * 2 + 1, dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl)], r_gl, c_gl, f_gl);
+            // if (debug) printf("actual_F(%d), load right+1 vsm[%d]: %f <- %d %d %d\n", 
+                              // actual_F, actual_F * 2 + 1, dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl)], r_gl, c_gl, f_gl);
             v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, actual_F * 2 + 1)] =
                 dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl)];
           } else {
-            if (debug) printf("load right+1 vsm[%d]: 0.0\n", actual_F * 2 +
-            1);
+            // if (debug) printf("load right+1 vsm[%d]: 0.0\n", actual_F * 2 +
+            // 1);
             v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, actual_F * 2 + 1)] = 0.0;
           }
         } else { // nf_c % 2 == 0
           if (f_gl >= actual_F && f_gl - actual_F < nf_c - 2) {
-            if (debug) printf("load right-1 vsm[1]: %f <- %d %d %d\n",
-            dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl - actual_F)], r_gl,
-            c_gl, f_gl - actual_F);
+            // if (debug) printf("load right-1 vsm[1]: %f <- %d %d %d\n",
+            // dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl - actual_F)], r_gl,
+            // c_gl, f_gl - actual_F);
             v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 1)] =
                 dv2[get_idx(lddv21, lddv22, r_gl, c_gl, f_gl - actual_F)];
           } else {
-            if (debug) printf("load right-1 vsm[1]: 0.0\n");
+            // if (debug) printf("load right-1 vsm[1]: 0.0\n");
             v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, 1)] = 0.0;
           }
         }
@@ -300,27 +300,27 @@ _lpk_reo_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM processed_n,
     }
   }
 
-  if (debug)  printf("actual_F: %d\n", actual_F);
+  // if (debug)  printf("actual_F: %d\n", actual_F);
   if (r_sm == 0 && c_sm == 0 && f_sm < actual_F) {
-    if (debug) printf("blockId * F * 2 + f_sm = %d\n", blockId * F * 2 + f_sm);
+    // if (debug) printf("blockId * F * 2 + f_sm = %d\n", blockId * F * 2 + f_sm);
     if (blockId * F * 2 + f_sm < nf) { // padding: num of dist == nf, non-padding: non of dist == nf - 1 
-      if (debug) printf("load dist/ratio1[%d]: %f <- %d\n", 2 + f_sm, ddist_f[blockId * F * 2 + f_sm], blockId * F * 2 + f_sm);
+      // if (debug) printf("load dist/ratio1[%d]: %f <- %d\n", 2 + f_sm, ddist_f[blockId * F * 2 + f_sm], blockId * F * 2 + f_sm);
       dist_f_sm[2 + f_sm] = ddist_f[blockId * F * 2 + f_sm];
       ratio_f_sm[2 + f_sm] = dratio_f[blockId * F * 2 + f_sm];
     } else {
-      if (debug) printf("load dist/ratio1[%d]: 0.0\n", 2 + f_sm);
+      // if (debug) printf("load dist/ratio1[%d]: 0.0\n", 2 + f_sm);
       dist_f_sm[2 + f_sm] = 0.0;
       ratio_f_sm[2 + f_sm] = 0.0;
     }
 
     if (blockId * F * 2 + actual_F + f_sm < nf) {
-      if (debug) printf("load dist/ratio2[%d]: %f <- %d\n", 2 + actual_F + f_sm, ddist_f[blockId * F * 2 + actual_F + f_sm], blockId * F * 2 + actual_F + f_sm);
+      // if (debug) printf("load dist/ratio2[%d]: %f <- %d\n", 2 + actual_F + f_sm, ddist_f[blockId * F * 2 + actual_F + f_sm], blockId * F * 2 + actual_F + f_sm);
       dist_f_sm[2 + actual_F + f_sm] =
           ddist_f[blockId * F * 2 + actual_F + f_sm];
       ratio_f_sm[2 + actual_F + f_sm] =
           dratio_f[blockId * F * 2 + actual_F + f_sm];
     } else {
-      if (debug) printf("load dist/ratio2[%d]: 0.0\n", 2 + actual_F + f_sm);
+      // if (debug) printf("load dist/ratio2[%d]: 0.0\n", 2 + actual_F + f_sm);
       dist_f_sm[2 + actual_F + f_sm] = 0.0;
       ratio_f_sm[2 + actual_F + f_sm] = 0.0;
     }
@@ -330,13 +330,13 @@ _lpk_reo_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM processed_n,
     if (f_sm < 2) {
       // dist_f_sm[f_sm] = ddist_f[f_gl - 2];
       // ratio_f_sm[f_sm] = dratio_f[f_gl - 2];
-      if (debug) printf("load dist/ratio-1[%d]: %f <- %d\n", f_sm, ddist_f[blockId * F * 2 + f_sm - 2], blockId * F * 2 + f_sm - 2);
+      // if (debug) printf("load dist/ratio-1[%d]: %f <- %d\n", f_sm, ddist_f[blockId * F * 2 + f_sm - 2], blockId * F * 2 + f_sm - 2);
       dist_f_sm[f_sm] = ddist_f[blockId * F * 2 + f_sm - 2];
       ratio_f_sm[f_sm] = dratio_f[blockId * F * 2 + f_sm - 2];
     }
   } else {
     if (f_sm < 2) {
-      if (debug) printf("load dist/ratio-1[%d]: 0.0 <- %d\n", f_sm);
+      // if (debug) printf("load dist/ratio-1[%d]: 0.0 <- %d\n", f_sm);
       dist_f_sm[f_sm] = 0.0;
       ratio_f_sm[f_sm] = 0.0;
     }
@@ -362,16 +362,16 @@ _lpk_reo_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM processed_n,
 
     // bool debug = false;
     // if (idx[3] == 0) debug = false;
-    if (debug) {
-      printf("f_sm(%d) %f %f %f %f %f f_sm_h %f %f %f %f f_sm_r %f %f %f %f, out: %f\n",f_sm, a,b,c,d,e, h1,h2,h3,h4,r1,r2,r3,r4, mass_trans(a, b, c, d, e, h1, h2, h3, h4, r1, r2, r3, r4));
-    }
+    // if (debug) {
+    //   printf("f_sm(%d) %f %f %f %f %f f_sm_h %f %f %f %f f_sm_r %f %f %f %f, out: %f\n",f_sm, a,b,c,d,e, h1,h2,h3,h4,r1,r2,r3,r4, mass_trans(a, b, c, d, e, h1, h2, h3, h4, r1, r2, r3, r4));
+    // }
 
-    T tb = a * h1/6 + b * (h1+h2)/3 + c * h2/6;
-    T tc = b * h2/6 + c * (h2+h3)/3 + d * h3/6;
-    T td = c * h3/6 + d * (h3+h4)/3 + e * h4/6;
+    // T tb = a * h1/6 + b * (h1+h2)/3 + c * h2/6;
+    // T tc = b * h2/6 + c * (h2+h3)/3 + d * h3/6;
+    // T td = c * h3/6 + d * (h3+h4)/3 + e * h4/6;
 
-    if (debug) printf("f_sm(%d) tb tc td tc: %f %f %f %f\n", f_sm, tb, tc,
-    td, tc+tb * r1 + td * r4);
+    // if (debug) printf("f_sm(%d) tb tc td tc: %f %f %f %f\n", f_sm, tb, tc,
+    // td, tc+tb * r1 + td * r4);
 
     // tc += tb * r1 + td * r4;
 
@@ -417,9 +417,9 @@ void lpk_reo_1_adaptive_launcher(Handle<D, T> &handle, SIZE *shape_h,
   dim3 threadsPerBlock, blockPerGrid;
   size_t sm_size;
 
-  tbz = std::min(R, total_thread_z);
-  tby = std::min(C, total_thread_y);
-  tbx = std::min(F, total_thread_x);
+  tbz = R;
+  tby = C;
+  tbx = F;
   sm_size = (R * C * (F * 2 + 3) + (F * 2 + 3) * 2) * sizeof(T);
   sm_size += (D * 4) * sizeof(SIZE);
   sm_size += (D * 1) * sizeof(DIM);
@@ -448,9 +448,9 @@ void lpk_reo_1_adaptive_launcher(Handle<D, T> &handle, SIZE *shape_h,
       curr_dim_c, curr_dim_f, ddist_f, dratio_f, dv1, lddv11, lddv12, dv2,
       lddv21, lddv22, dw, lddw1, lddw2);
   gpuErrchk(cudaGetLastError());
-#ifdef MGARD_CUDA_DEBUG
-  gpuErrchk(cudaDeviceSynchronize());
-#endif
+  if (handle.sync_and_check_all_kernels) {
+    gpuErrchk(cudaDeviceSynchronize());
+  }
 }
 
 template <DIM D, typename T>
@@ -460,7 +460,6 @@ void lpk_reo_1(Handle<D, T> &handle, SIZE *shape_h, SIZE *shape_c_h, SIZE *shape
                DIM curr_dim_c, DIM curr_dim_f, T *ddist_f, T *dratio_f, T *dv1,
                LENGTH lddv11, LENGTH lddv12, T *dv2, LENGTH lddv21, LENGTH lddv22, T *dw,
                LENGTH lddw1, LENGTH lddw2, int queue_idx, int config) {
-
 #define LPK(R, C, F)                                                           \
   {                                                                            \
     lpk_reo_1_adaptive_launcher<D, T, R, C, F>(                                \
@@ -471,9 +470,9 @@ void lpk_reo_1(Handle<D, T> &handle, SIZE *shape_h, SIZE *shape_c_h, SIZE *shape
   }
 
   bool profile = false;
-#ifdef MGARD_CUDA_KERNEL_PROFILE
-  profile = true;
-#endif
+  if (handle.profile_kernels) {
+    profile = true;
+  }
   if (D >= 3) {
     if (profile || config == 6) {
       LPK(2, 2, 128)
@@ -662,8 +661,8 @@ _lpk_reo_2(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM processed_n,
   //   blockDim.y; }
   // }
 
-  bool debug = false;
-  if (idx[3] == 0 && r_gl == 0 ) debug = false;
+  // bool debug = false;
+  // if (idx[3] == 0 && r_gl == 0 ) debug = false;
 
   // if (debug) printf("actual_C %d\n", actual_C);
 
@@ -811,9 +810,9 @@ _lpk_reo_2(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM processed_n,
     // }
 
     
-    if (debug) {
-      printf("f_sm(%d) %f %f %f %f %f f_sm_h %f %f %f %f f_sm_r %f %f %f %f, out: %f\n",f_sm, a,b,c,d,e, h1,h2,h3,h4,r1,r2,r3,r4, mass_trans(a, b, c, d, e, h1, h2, h3, h4, r1, r2, r3, r4));
-    }
+    // if (debug) {
+    //   printf("f_sm(%d) %f %f %f %f %f f_sm_h %f %f %f %f f_sm_r %f %f %f %f, out: %f\n",f_sm, a,b,c,d,e, h1,h2,h3,h4,r1,r2,r3,r4, mass_trans(a, b, c, d, e, h1, h2, h3, h4, r1, r2, r3, r4));
+    // }
 
     dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)] =
         mass_trans(a, b, c, d, e, h1, h2, h3, h4, r1, r2, r3, r4);
@@ -860,9 +859,9 @@ void lpk_reo_2_adaptive_launcher(Handle<D, T> &handle, SIZE *shape_h,
   dim3 threadsPerBlock, blockPerGrid;
   size_t sm_size;
 
-  tbz = std::min(R, total_thread_z);
-  tby = std::min(C, total_thread_y);
-  tbx = std::min(F, total_thread_x);
+  tbz = R;
+  tby = C;
+  tbx = F;
   sm_size = (R * (C * 2 + 3) * F + (C * 2 + 3) * 2) * sizeof(T);
   sm_size += (D * 4) * sizeof(SIZE);
   sm_size += (D * 1) * sizeof(DIM);
@@ -891,9 +890,9 @@ void lpk_reo_2_adaptive_launcher(Handle<D, T> &handle, SIZE *shape_h,
       curr_dim_c, curr_dim_f, ddist_c, dratio_c, dv1, lddv11, lddv12, dv2,
       lddv21, lddv22, dw, lddw1, lddw2);
   gpuErrchk(cudaGetLastError());
-#ifdef MGARD_CUDA_DEBUG
-  gpuErrchk(cudaDeviceSynchronize());
-#endif
+  if (handle.sync_and_check_all_kernels) {
+    gpuErrchk(cudaDeviceSynchronize());
+  }
 }
 
 template <DIM D, typename T>
@@ -915,9 +914,9 @@ void lpk_reo_2(Handle<D, T> &handle, SIZE *shape_h, SIZE *shape_c_h, SIZE *shape
   }
 
   bool profile = false;
-#ifdef MGARD_CUDA_KERNEL_PROFILE
-  profile = true;
-#endif
+  if (handle.profile_kernels) {
+    profile = true;
+  }
   if (D >= 3) {
     if (profile || config == 6) {
       LPK(2, 2, 128)
@@ -1081,8 +1080,8 @@ _lpk_reo_3(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM processed_n,
 
   // if (debug) printf("actual_R %d\n", actual_R);
 
-  bool debug = false;
-  if (idx[3] == 0 && idx[2] == 0  && f_gl == 2 && c_gl == 1) debug = false;
+  // bool debug = false;
+  // if (idx[3] == 0 && idx[2] == 0  && f_gl == 2 && c_gl == 1) debug = false;
 
   // if (debug) printf("RCF: %d %d %d\n", R, C, F);
   if (r_gl < nr_c && c_gl < nc_c && f_gl < nf_c) {
@@ -1237,9 +1236,9 @@ _lpk_reo_3(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws, DIM processed_n,
 
     // tc += tb * r1 + td * r4;
 
-    if (debug) {
-      printf("f_sm(%d) %f %f %f %f %f f_sm_h %f %f %f %f f_sm_r %f %f %f %f, out: %f\n",f_sm, a,b,c,d,e, h1,h2,h3,h4,r1,r2,r3,r4, mass_trans(a, b, c, d, e, h1, h2, h3, h4, r1, r2, r3, r4));
-    }
+    // if (debug) {
+    //   printf("f_sm(%d) %f %f %f %f %f f_sm_h %f %f %f %f f_sm_r %f %f %f %f, out: %f\n",f_sm, a,b,c,d,e, h1,h2,h3,h4,r1,r2,r3,r4, mass_trans(a, b, c, d, e, h1, h2, h3, h4, r1, r2, r3, r4));
+    // }
 
     dw[get_idx(lddw1, lddw2, r_gl, c_gl, f_gl)] =
         mass_trans(a, b, c, d, e, h1, h2, h3, h4, r1, r2, r3, r4);
@@ -1294,9 +1293,9 @@ void lpk_reo_3_adaptive_launcher(Handle<D, T> &handle, SIZE *shape_h,
   dim3 threadsPerBlock, blockPerGrid;
   size_t sm_size;
 
-  tbz = std::min(R, total_thread_z);
-  tby = std::min(C, total_thread_y);
-  tbx = std::min(F, total_thread_x);
+  tbz = R;
+  tby = C;
+  tbx = F;
   sm_size = ((R * 2 + 3) * C * F + (R * 2 + 3) * 2) * sizeof(T);
   sm_size += (D * 4) * sizeof(SIZE);
   sm_size += (D * 1) * sizeof(DIM);
@@ -1325,9 +1324,9 @@ void lpk_reo_3_adaptive_launcher(Handle<D, T> &handle, SIZE *shape_h,
       curr_dim_c, curr_dim_f, ddist_r, dratio_r, dv1, lddv11, lddv12, dv2,
       lddv21, lddv22, dw, lddw1, lddw2);
   gpuErrchk(cudaGetLastError());
-#ifdef MGARD_CUDA_DEBUG
-  gpuErrchk(cudaDeviceSynchronize());
-#endif
+  if (handle.sync_and_check_all_kernels) {
+    gpuErrchk(cudaDeviceSynchronize());
+  }
 }
 
 template <DIM D, typename T>
@@ -1348,9 +1347,9 @@ void lpk_reo_3(Handle<D, T> &handle, SIZE *shape_h, SIZE *shape_c_h, SIZE *shape
         lddv21, lddv22, dw, lddw1, lddw2, queue_idx);                          \
   }
   bool profile = false;
-#ifdef MGARD_CUDA_KERNEL_PROFILE
-  profile = true;
-#endif
+  if (handle.profile_kernels) {
+    profile = true;
+  }
   if (D >= 3) {
     if (profile || config == 6) {
       LPK(2, 2, 128)

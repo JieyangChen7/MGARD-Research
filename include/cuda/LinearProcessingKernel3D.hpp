@@ -9,7 +9,7 @@
 #define MGRAD_CUDA_LINEAR_PROCESSSING_KERNEL_3D_TEMPLATE
 
 #include "CommonInternal.h"
-
+#include "LPKFunctor.h"
 #include "LinearProcessingKernel.h"
 namespace mgard_cuda {
 
@@ -228,7 +228,7 @@ __global__ void _lpk_reo_1_3d(SIZE nr, SIZE nc, SIZE nf, SIZE nf_c, SIZE zero_r,
   // if (r_gl == 0 && c_gl == 0) debug = true;
 
   if (r_sm == 0 && c_sm == 0 && f_sm < actual_F) {
-    if (blockId * F * 2 + f_sm < nf - 1) {
+    if (blockId * F * 2 + f_sm < nf) {
       dist_f_sm[2 + f_sm] = ddist_f[blockId * F * 2 + f_sm];
       ratio_f_sm[2 + f_sm] = dratio_f[blockId * F * 2 + f_sm];
       if (debug) printf("load dist[%d] -> sm[%d]: %f\n", blockId * F * 2 + f_sm, 2 + f_sm, ddist_f[blockId * F * 2 + f_sm]);
@@ -237,7 +237,7 @@ __global__ void _lpk_reo_1_3d(SIZE nr, SIZE nc, SIZE nf, SIZE nf_c, SIZE zero_r,
       ratio_f_sm[2 + f_sm] = 0.0;
     }
 
-    if (blockId * F * 2 + actual_F + f_sm < nf - 1) {
+    if (blockId * F * 2 + actual_F + f_sm < nf) {
       dist_f_sm[2 + actual_F + f_sm] =
           ddist_f[blockId * F * 2 + actual_F + f_sm];
       ratio_f_sm[2 + actual_F + f_sm] =
@@ -336,9 +336,9 @@ void lpk_reo_1_3d_adaptive_launcher(Handle<D, T> &handle, SIZE nr, SIZE nc,
   dim3 threadsPerBlock, blockPerGrid;
   size_t sm_size;
 
-  tbz = std::min(R, total_thread_z);
-  tby = std::min(C, total_thread_y);
-  tbx = std::min(F, total_thread_x);
+  tbz = R;
+  tby = C;
+  tbx = F;
   sm_size = (R * C * (F * 2 + 3) + (F * 2 + 3) * 2) * sizeof(T);
   gridz = ceil((float)total_thread_z / tbz);
   gridy = ceil((float)total_thread_y / tby);
@@ -355,9 +355,9 @@ void lpk_reo_1_3d_adaptive_launcher(Handle<D, T> &handle, SIZE nr, SIZE nc,
       nr, nc, nf, nf_c, zero_r, zero_c, zero_f, ddist_f, dratio_f, dv1, lddv11,
       lddv12, dv2, lddv21, lddv22, dw, lddw1, lddw2);
   gpuErrchk(cudaGetLastError());
-#ifdef MGARD_CUDA_DEBUG
-  gpuErrchk(cudaDeviceSynchronize());
-#endif
+  if (handle.sync_and_check_all_kernels) {
+    gpuErrchk(cudaDeviceSynchronize());
+  }
 }
 
 template <DIM D, typename T>
@@ -376,9 +376,9 @@ void lpk_reo_1_3d(Handle<D, T> &handle, SIZE nr, SIZE nc, SIZE nf, SIZE nf_c,
   }
 
   bool profile = false;
-#ifdef MGARD_CUDA_KERNEL_PROFILE
-  profile = true;
-#endif
+  if (handle.profile_kernels) {
+    profile = true;
+  }
   if (D == 3) {
     if (profile || config == 6) {
       LPK(2, 2, 128)
@@ -581,7 +581,7 @@ __global__ void _lpk_reo_2_3d(SIZE nr, SIZE nc, SIZE nf_c, SIZE nc_c, T *ddist_c
   // load dist/ratio using f_sm for better performance
   // assumption F >= C
   if (r_sm == 0 && c_sm == 0 && f_sm < actual_C) {
-    if (blockId * C * 2 + f_sm < nc - 1) {
+    if (blockId * C * 2 + f_sm < nc) {
       dist_c_sm[2 + f_sm] = ddist_c[blockId * C * 2 + f_sm];
       ratio_c_sm[2 + f_sm] = dratio_c[blockId * C * 2 + f_sm];
     } else {
@@ -589,7 +589,7 @@ __global__ void _lpk_reo_2_3d(SIZE nr, SIZE nc, SIZE nf_c, SIZE nc_c, T *ddist_c
       ratio_c_sm[2 + f_sm] = 0.0;
     }
 
-    if (blockId * C * 2 + actual_C + f_sm < nc - 1) {
+    if (blockId * C * 2 + actual_C + f_sm < nc) {
       dist_c_sm[2 + actual_C + f_sm] =
           ddist_c[blockId * C * 2 + actual_C + f_sm];
       ratio_c_sm[2 + actual_C + f_sm] =
@@ -687,9 +687,9 @@ void lpk_reo_2_3d_adaptive_launcher(Handle<D, T> &handle, SIZE nr, SIZE nc,
   dim3 threadsPerBlock, blockPerGrid;
   size_t sm_size;
 
-  tbz = std::min(R, total_thread_z);
-  tby = std::min(C, total_thread_y);
-  tbx = std::min(F, total_thread_x);
+  tbz = R;
+  tby = C;
+  tbx = F;
   sm_size = (R * (C * 2 + 3) * F + (C * 2 + 3) * 2) * sizeof(T);
   gridz = ceil((float)total_thread_z / tbz);
   gridy = ceil((float)total_thread_y / tby);
@@ -706,9 +706,9 @@ void lpk_reo_2_3d_adaptive_launcher(Handle<D, T> &handle, SIZE nr, SIZE nc,
       nr, nc, nf_c, nc_c, ddist_c, dratio_c, dv1, lddv11, lddv12, dv2, lddv21,
       lddv22, dw, lddw1, lddw2);
   gpuErrchk(cudaGetLastError());
-#ifdef MGARD_CUDA_DEBUG
-  gpuErrchk(cudaDeviceSynchronize());
-#endif
+  if (handle.sync_and_check_all_kernels) {
+    gpuErrchk(cudaDeviceSynchronize());
+  }
 }
 
 template <DIM D, typename T>
@@ -725,9 +725,9 @@ void lpk_reo_2_3d(Handle<D, T> &handle, SIZE nr, SIZE nc, SIZE nf_c, SIZE nc_c,
   }
 
   bool profile = false;
-#ifdef MGARD_CUDA_KERNEL_PROFILE
-  profile = true;
-#endif
+  if (handle.profile_kernels) {
+    profile = true;
+  }
   if (D == 3) {
     if (profile || config == 6) {
       LPK(2, 2, 128)
@@ -785,12 +785,12 @@ __global__ void _lpk_reo_3_3d(SIZE nr, SIZE nc_c, SIZE nf_c, SIZE nr_c, T *ddist
                               SIZE lddw2) {
 
   // bool debug = false;
-  // if (blockIdx.z == gridDim.z-1 && blockIdx.y == 0 && blockIdx.x == 0 &&
-  // threadIdx.y == 0 && threadIdx.x == 0 ) debug = false;
+  // if (blockIdx.z == 0 && blockIdx.y == 0 && blockIdx.x == 0 &&
+  // threadIdx.y == 0 && threadIdx.x == 0 ) debug = true;
 
   // bool debug2 = false;
-  // if (blockIdx.z == gridDim.z-1 && blockIdx.y == 1 && blockIdx.x == 16)
-  // debug2 = false;
+  // if (blockIdx.z == 0 && blockIdx.y == 0 && blockIdx.x == 0)
+  // debug2 = true;
 
   bool PADDING = (nr % 2 == 0);
   T *sm = SharedMemory<T>();
@@ -901,8 +901,11 @@ __global__ void _lpk_reo_3_3d(SIZE nr, SIZE nc_c, SIZE nf_c, SIZE nr_c, T *ddist
 
   // load dist/ratio using f_sm for better performance
   // assumption F >= R
+  // if (debug2) printf("actual_R: %u\n", actual_R);
   if (r_sm == 0 && c_sm == 0 && f_sm < actual_R) {
-    if (blockId * R * 2 + f_sm < nr - 1) {
+    // if (debug2) printf(" RCF (%u %u %u)blockid(%u) fsm(%u) nr(%u)\n", R, C, F, blockId, blockId * R * 2 + f_sm, nr);
+    if (blockId * R * 2 + f_sm < nr) {
+
       dist_r_sm[2 + f_sm] = ddist_r[blockId * R * 2 + f_sm];
       // if (debug2 ) printf("load dist 1 [%d]: %f [%d]\n", 2 + f_sm,
       // dist_r_sm[2 + f_sm], blockId * R * 2 + f_sm);
@@ -913,7 +916,7 @@ __global__ void _lpk_reo_3_3d(SIZE nr, SIZE nc_c, SIZE nf_c, SIZE nr_c, T *ddist
       dist_r_sm[2 + f_sm] = 0.0;
       ratio_r_sm[2 + f_sm] = 0.0;
     }
-    if (blockId * R * 2 + actual_R + f_sm < nr - 1) {
+    if (blockId * R * 2 + actual_R + f_sm < nr) {
       dist_r_sm[2 + actual_R + f_sm] =
           ddist_r[blockId * R * 2 + actual_R + f_sm];
       // if (debug2 )printf("load dist 2 [%d]: %f [%d]\n", 2 + actual_R + f_sm,
@@ -970,9 +973,9 @@ __global__ void _lpk_reo_3_3d(SIZE nr, SIZE nc_c, SIZE nf_c, SIZE nr_c, T *ddist
     // }
     // __syncthreads();
 
-    // T tb = a * h1 + b * 2 * (h1+h2) + c * h2;
-    // T tc = b * h2 + c * 2 * (h2+h3) + d * h3;
-    // T td = c * h3 + d * 2 * (h3+h4) + e * h4;
+    // T tb = a * h1/6 + b * 2 * (h1+h2)/6 + c * h2/6;
+    // T tc = b * h2/6 + c * 2 * (h2+h3)/6 + d * h3/6;
+    // T td = c * h3/6 + d * 2 * (h3+h4)/6 + e * h4/6;
 
     // if (debug) printf("f_sm(%d) tb tc td tc: %f %f %f %f\n", f_sm, tb, tc,
     // td, tc+tb * r1 + td * r4);
@@ -1022,9 +1025,9 @@ void lpk_reo_3_3d_adaptive_launcher(Handle<D, T> &handle, SIZE nr, SIZE nc_c,
   dim3 threadsPerBlock, blockPerGrid;
   size_t sm_size;
 
-  tbz = std::min(R, total_thread_z);
-  tby = std::min(C, total_thread_y);
-  tbx = std::min(F, total_thread_x);
+  tbz = R;
+  tby = C;
+  tbx = F;
   sm_size = ((R * 2 + 3) * C * F + (R * 2 + 3) * 2) * sizeof(T);
   gridz = ceil((float)total_thread_z / tbz);
   gridy = ceil((float)total_thread_y / tby);
@@ -1040,9 +1043,9 @@ void lpk_reo_3_3d_adaptive_launcher(Handle<D, T> &handle, SIZE nr, SIZE nc_c,
       nr, nc_c, nf_c, nr_c, ddist_r, dratio_r, dv1, lddv11, lddv12, dv2, lddv21,
       lddv22, dw, lddw1, lddw2);
   gpuErrchk(cudaGetLastError());
-#ifdef MGARD_CUDA_DEBUG
-  gpuErrchk(cudaDeviceSynchronize());
-#endif
+  if (handle.sync_and_check_all_kernels) {
+    gpuErrchk(cudaDeviceSynchronize());
+  }
 }
 
 template <DIM D, typename T>
@@ -1058,9 +1061,9 @@ void lpk_reo_3_3d(Handle<D, T> &handle, SIZE nr, SIZE nc_c, SIZE nf_c, SIZE nr_c
         dv2, lddv21, lddv22, dw, lddw1, lddw2, queue_idx);                     \
   }
   bool profile = false;
-#ifdef MGARD_CUDA_KERNEL_PROFILE
-  profile = true;
-#endif
+  if (handle.profile_kernels) {
+    profile = true;
+  }
   if (D == 3) {
     if (profile || config == 6) {
       LPK(2, 2, 128)

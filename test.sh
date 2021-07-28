@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+#set -e
 make -j8
 
 ###### Necessary CUDA profiler binaries #######
@@ -93,8 +93,8 @@ test_group_l_inf () {
    # $EXEC random $1 3 80 10000 80 $2 0.001 inf $3
    # $EXEC random $1 3 10000 80 80 $2 0.001 inf $3
    # $EXEC random $1 3 64 5 12 $2 0.00001 inf $3
-   $EXEC random $1 5 5 5 5 5 5 $2 0.0001 0 $3
-   # $EXEC random $1 4 10 100 10 100 $2 0.1 inf $3
+   # $EXEC random $1 5 5 5 5 5 5 $2 0.0001 0 $3
+   $EXEC random $1 4 10 100 10 100 $2 0.1 inf $3
 
    # $EXEC random $1 4 70 50 10 30 $2 0.1 inf $3
 
@@ -102,11 +102,31 @@ test_group_l_inf () {
    # $BIN_DOUBLE 0 5 5 5 5 5 5 0.000001 0 1
 }
 
-test_group_l_inf d rel $1
+# test_group_l_inf d rel $1
 
-DATA=../../512x512x512/velocity_x.dat
+# DATA=../../512x512x512/velocity_x.dat
+# $EXEC $DATA s 3 512 512 512 abs 1e5 inf gpu
+DATA=$HOME/dev/data/d3d_coarse_v2_700.bin
+XGC_4D="$EXEC $DATA d 4 8 39 16395 39 abs 1e15 inf gpu"
+XGC_3D="$EXEC $DATA d 3 312 16395 39 abs 1e15 inf gpu"
+# BIN="$EXEC random d 3 10 5 5 rel 0.00001 inf gpu"
+# BIN2="$EXEC random d 3 10 5 5 rel 0.0001 inf gpu"
+# BIN3="$EXEC random d 3 10 5 5 rel 0.001 inf gpu"
+# BIN4="$EXEC random d 3 10 5 5 rel 0.01 inf gpu"
+# BIN5="$EXEC random d 3 10 5 5 rel 0.1 inf gpu"
+# BIN="$EXEC $DATA d 2 12168 16395 abs 1e15 inf gpu"
+
+# BIN="$EXEC $DATA d 1 100 abs 1e15 inf gpu"
 # DATA=/home/jieyang/dev/data/pk.data
 # DATA=/home/jieyang/dev/data/enst.dat
+
+$XGC_4D
+$XGC_3D
+# $BIN
+# $BIN2
+# $BIN3
+# $BIN4
+# $BIN5
 
 test_real_data() {
    $BIN_FLOAT_REL 1 ../../512x512x512/velocity_x.dat 3 512 512 512 0.000001 0 1
@@ -152,7 +172,7 @@ NPROC=2
 # "sudo" is requred to access low level performance counters
 # KERNEL=gpk_reo
 # KERNEL=lpk_reo_1
-KERNEL=ipk_1
+KERNEL=ipk
 # KERNEL=lpk_reo_2
 # KERNEL=ipk_2
 # KERNEL=lpk_reo_3

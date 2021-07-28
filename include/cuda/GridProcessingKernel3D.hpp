@@ -9,7 +9,7 @@
 #define MGRAD_CUDA_GRID_PROCESSING_KERNEL_3D_TEMPLATE
 
 #include "CommonInternal.h"
-
+#include "GPKFunctor.h"
 #include "GridProcessingKernel3D.h"
 
 namespace mgard_cuda {
@@ -1869,9 +1869,9 @@ void gpk_reo_3d_adaptive_launcher(
           dwr, lddwr1, lddwr2, dwcf, lddwcf1, lddwcf2, dwrf, lddwrf1, lddwrf2,
           dwrc, lddwrc1, lddwrc2, dwrcf, lddwrcf1, lddwrcf2);
   gpuErrchk(cudaGetLastError());
-#ifdef MGARD_CUDA_DEBUG
-  gpuErrchk(cudaDeviceSynchronize());
-#endif
+  if (handle.sync_and_check_all_kernels) {
+    gpuErrchk(cudaDeviceSynchronize());
+  }
 }
 
 template <DIM D, typename T>
@@ -1892,9 +1892,9 @@ void gpk_reo_3d(Handle<D, T> &handle, SIZE nr, SIZE nc, SIZE nf, T *dratio_r,
         lddwrc1, lddwrc2, dwrcf, lddwrcf1, lddwrcf2, queue_idx);               \
   }
   bool profile = false;
-#ifdef MGARD_CUDA_KERNEL_PROFILE
-  profile = true;
-#endif
+  if (handle.profile_kernels) {
+    profile = true;
+  }
   if (D == 3) {
     if (profile || config == 6) {
       GPK(2, 2, 128)
@@ -4089,9 +4089,9 @@ void gpk_rev_3d_adaptive_launcher(
           dwrc, lddwrc1, lddwrc2, dwrcf, lddwrcf1, lddwrcf2, svr, svc, svf, nvr,
           nvc, nvf);
   gpuErrchk(cudaGetLastError());
-#ifdef MGARD_CUDA_DEBUG
-  gpuErrchk(cudaDeviceSynchronize());
-#endif
+  if (handle.sync_and_check_all_kernels) {
+    gpuErrchk(cudaDeviceSynchronize());
+  }
 }
 
 template <DIM D, typename T>
@@ -4116,9 +4116,9 @@ void gpk_rev_3d(Handle<D, T> &handle, SIZE nr, SIZE nc, SIZE nf, T *dratio_r,
         svr, svc, svf, nvr, nvc, nvf, queue_idx);                              \
   }
   bool profile = false;
-#ifdef MGARD_CUDA_KERNEL_PROFILE
-  profile = true;
-#endif
+  if (handle.profile_kernels) {
+    profile = true;
+  }
   if (D == 3) {
     if (profile || config == 6) {
       GPK(2, 2, 128)

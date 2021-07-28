@@ -533,7 +533,7 @@ void calc_correction_3d(Handle<D, T> &handle, SubArray<D, T> dcoeff,
         dw_out.dv, dw_out.ldvs_h[0], dw_out.ldvs_h[1], queue_idx,
         handle.auto_tuning_mr1[handle.arch][handle.precision][range_lp1]);
 
-    // //handle.sync(0);
+    // handle.sync(0);
     verify_matrix_cuda(
         handle.dofs[2][l], handle.dofs[1][l + 1], handle.dofs[0][l + 1],
         dw_out.dv, dw_out.ldvs_h[0], dw_out.ldvs_h[1], dw_out.ldvs_h[0],
@@ -597,22 +597,22 @@ void calc_correction_3d(Handle<D, T> &handle, SubArray<D, T> dcoeff,
     }
   }
 
-  // ipk_1<D, T>(handle,
-  //             handle.shapes_h[l], handle.shapes_h[l+1],
-  //             handle.shapes_d[l], handle.shapes_d[l+1],
-  //             handle.ldws_d, handle.ldws_d,
-  //             handle.processed_n[0], handle.processed_dims_h[0],
-  //             handle.processed_dims_d[0], 2, 1, 0, handle.am[0][l+1],
-  //             handle.bm[0][l+1], handle.dist[0][l+1], handle.dw,
-  //             handle.ldws_h[0], handle.ldws_h[1], 0,
-  //             handle.auto_tuning_ts1[handle.arch][handle.precision][range_lp1]);
+  ipk_1<D, T>(handle,
+              handle.shapes_h[l], handle.shapes_h[l+1],
+              handle.shapes_d[l], handle.shapes_d[l+1],
+              handle.ldws_d, handle.ldws_d,
+              handle.processed_n[0], handle.processed_dims_h[0],
+              handle.processed_dims_d[0], 2, 1, 0, handle.am[0][l+1],
+              handle.bm[0][l+1], handle.dist[0][l+1], handle.dw,
+              handle.ldws_h[0], handle.ldws_h[1], 0,
+              handle.auto_tuning_ts1[handle.arch][handle.precision][range_lp1]);
 
   if (D >= 1) {
-    ipk_1_3d(
-        handle, handle.dofs[2][l+1], handle.dofs[1][l+1], handle.dofs[0][l + 1],
-        handle.am[0][l + 1], handle.bm[0][l + 1], handle.dist[0][l + 1],
-        dw_out.dv, dw_out.ldvs_h[0], dw_out.ldvs_h[1], queue_idx,
-        handle.auto_tuning_ts1[handle.arch][handle.precision][range_lp1]);
+    // ipk_1_3d(
+    //     handle, handle.dofs[2][l+1], handle.dofs[1][l+1], handle.dofs[0][l + 1],
+    //     handle.am[0][l + 1], handle.bm[0][l + 1], handle.dist[0][l + 1],
+    //     dw_out.dv, dw_out.ldvs_h[0], dw_out.ldvs_h[1], queue_idx,
+    //     handle.auto_tuning_ts1[handle.arch][handle.precision][range_lp1]);
 
     // //handle.sync(0);
     verify_matrix_cuda(

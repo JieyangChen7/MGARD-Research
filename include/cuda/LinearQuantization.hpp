@@ -401,10 +401,9 @@ void levelwise_linear_quantize_adaptive_launcher(
   }
 
   gpuErrchk(cudaGetLastError());
-#ifdef MGARD_CUDA_DEBUG
-  // printf("DEBUG ON\n");
-  gpuErrchk(cudaDeviceSynchronize());
-#endif
+  if (handle.sync_and_check_all_kernels) {
+    gpuErrchk(cudaDeviceSynchronize());
+  }
 }
 
 template <DIM D, typename T>
@@ -474,10 +473,10 @@ _levelwise_linear_dequantize(SIZE *shapes, SIZE l_target, T *quantizers, T * vol
 
   __syncthreads();
 
-  bool debug = false;
-  if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 &&
-      threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0) {
-    debug = true;
+  // bool debug = false;
+  // if (blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0 &&
+  //     threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0) {
+  //   debug = true;
     // for (int d = 0; d < D; d ++) {
     //   printf("shapes_sm[%d]\n", d);
     //   for (int l = 0; l < l_target + 1; l++) {
@@ -485,8 +484,8 @@ _levelwise_linear_dequantize(SIZE *shapes, SIZE l_target, T *quantizers, T * vol
     //   }
     //   printf("\n");
     // }
-  }
-  __syncthreads();
+  // }
+  // __syncthreads();
 
   // determine global idx
   SIZE idx[D]; //thread global idx
@@ -809,9 +808,9 @@ void levelwise_linear_dequantize_adaptive_launcher(
     }
   } 
   gpuErrchk(cudaGetLastError());
-#ifdef MGARD_CUDA_DEBUG
-  gpuErrchk(cudaDeviceSynchronize());
-#endif
+  if (handle.sync_and_check_all_kernels) {
+    gpuErrchk(cudaDeviceSynchronize());
+  }
 }
 
 template <DIM D, typename T>

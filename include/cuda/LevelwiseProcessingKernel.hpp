@@ -95,9 +95,9 @@ void lwpk_adaptive_launcher(Handle<D, T> &handle, SIZE *shape_h, SIZE *shape_d,
       shape_d, dv, ldvs, dwork, ldws);
 
   gpuErrchk(cudaGetLastError());
-#ifdef MGARD_CUDA_DEBUG
-  gpuErrchk(cudaDeviceSynchronize());
-#endif
+  if (handle.sync_and_check_all_kernels) {
+    gpuErrchk(cudaDeviceSynchronize());
+  }
 }
 
 template <DIM D, typename T, int OP>

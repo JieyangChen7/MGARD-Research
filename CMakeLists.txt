@@ -30,10 +30,6 @@ mgard_option(MGARD_ENABLE_CUDA_FMA "Enable Cuda support with fused multpily-add 
 mgard_option(MGARD_ENABLE_CUDA_OPTIMIZE_VOLTA "Optimized for Volta GPUs" OFF)
 mgard_option(MGARD_ENABLE_CUDA_OPTIMIZE_TURING "Optimized for Turing GPUs" OFF)
 
-#For debug only
-mgard_option(MGARD_ENABLE_CUDA_DEBUG "Enable Cuda support with debug" OFF )
-mgard_option(MGARD_ENABLE_CUDA_KERNEL_PROFILE "Profile kernel configuration" OFF)
-
 # Some boilerplate to setup nice output directories
 include(GNUInstallDirs)
 if(WIN32 AND NOT CYGWIN)
@@ -83,114 +79,10 @@ if(MGARD_ENABLE_CUDA)
   find_package(NVCOMP)
   find_package(CUDAToolkit)
   set (CMAKE_CXX_STANDARD 14)
-  set(MGARD_CUDA_SRC
-      src/cuda/API.cu
-      src/cuda/Array.cu
-      src/cuda/SubArray.cu
-      src/cuda/Message.cpp
-      src/cuda/CompressionWorkflow.cu
-      src/cuda/Handle.cu
-      src/cuda/MemoryManagement.cu                 
-      src/cuda/CommonInternal.cu    
-      src/cuda/PrecomputeKernels.cu  
-      src/cuda/DataRefactoring.cu   
-      #src/cuda/DataRefactoring_AMR.cu   
-      src/cuda/GridProcessingKernels/InterpCalcCoeff.cu
-      src/cuda/GridProcessingKernels/InterpCalcCoeff_3D.cu
-      src/cuda/GridProcessingKernels/Interpolation.cu
-      src/cuda/GridProcessingKernels/CalcCoefficients.cu
-      src/cuda/GridProcessingKernels/Reorder.cu
-      src/cuda/GridProcessingKernels/InterpCoeffRestore.cu
-      src/cuda/GridProcessingKernels/InterpCoeffRestore_3D.cu
-      src/cuda/GridProcessingKernels/InterpolationRev.cu
-      src/cuda/GridProcessingKernels/CoefficientRestore.cu
-      src/cuda/GridProcessingKernels/ReorderRestore.cu
-      src/cuda/LinearProcessingKernels/MassTrans1.cu
-      src/cuda/LinearProcessingKernels/MassTrans2.cu
-      src/cuda/LinearProcessingKernels/MassTrans3.cu
-      src/cuda/LinearProcessingKernels/MassTrans1_3D.cu
-      src/cuda/LinearProcessingKernels/MassTrans2_3D.cu
-      src/cuda/LinearProcessingKernels/MassTrans3_3D.cu
-      src/cuda/IterativeProcessingKernels/SolveTridiag1.cu
-      src/cuda/IterativeProcessingKernels/SolveTridiag2.cu
-      src/cuda/IterativeProcessingKernels/SolveTridiag3.cu
-      src/cuda/IterativeProcessingKernels/SolveTridiag1_3D.cu
-      src/cuda/IterativeProcessingKernels/SolveTridiag2_3D.cu
-      src/cuda/IterativeProcessingKernels/SolveTridiag3_3D.cu
-      #src/cuda/IterativeProcessingKernels/SolveTridiag1_3D_AMR.cu
-      src/cuda/LevelwiseProcessingKernels/CopyLevel.cu
-      src/cuda/LevelwiseProcessingKernels/AddLevel.cu
-      src/cuda/LevelwiseProcessingKernels/SubtractLevel.cu
-      src/cuda/LinearQuantization/LevelwiseLinearQuantization.cu
-      src/cuda/LinearQuantization/LevelwiseLinearDequantization.cu
-      src/cuda/LosslessCompression.cu
-      src/cuda/ErrorCalculator.cu
-      src/cuda/ParallelHuffman/canonical.cu
-      src/cuda/ParallelHuffman/constants.cc
-      src/cuda/ParallelHuffman/cuda_mem.cu
-      src/cuda/ParallelHuffman/format.cc
-      src/cuda/ParallelHuffman/histogram.cu
-      src/cuda/ParallelHuffman/huffman_codec.cu
-      src/cuda/ParallelHuffman/huffman_workflow.cu
-      src/cuda/ParallelHuffman/huffman.cu
-      src/cuda/ParallelHuffman/par_huffman.cu
-      src/cuda/ParallelHuffman/par_huffman_sortbyfreq.cu
-      src/cuda/ParallelHuffman/par_merge.cu
-      src/cuda/ParallelHuffman/types.cc
-      src/cuda/Testing/ReorderToolsGPU.cu
-      #src/cuda/Testing/ReorderToolsCPU.cpp
-      )
-
-  set(MGARD_CUDA_HEADER
-      include/mgard_cuda_api.h
-      include/cuda/Array.h
-      include/cuda/SubArray.h
-      include/cuda/Message.h
-      include/cuda/Handle.h
-      include/cuda/MemoryManagement.h                 
-      include/cuda/Common.h
-      include/cuda/CommonInternal.h   
-      include/cuda/PrecomputeKernels.h   
-      include/cuda/DataRefactoring.h   
-      #include/cuda/DataRefactoring_AMR.h
-      include/cuda/GridProcessingKernel.hpp   
-      include/cuda/GridProcessingKernel.h
-      include/cuda/GridProcessingKernel3D.hpp   
-      include/cuda/GridProcessingKernel3D.h
-      include/cuda/LinearProcessingKernel.hpp   
-      include/cuda/LinearProcessingKernel.h
-      include/cuda/LinearProcessingKernel3D.hpp   
-      include/cuda/LinearProcessingKernel3D.h
-      include/cuda/IterativeProcessingKernel.hpp   
-      include/cuda/IterativeProcessingKernel.h
-      include/cuda/IterativeProcessingKernel3D.hpp   
-      include/cuda/IterativeProcessingKernel3D.h
-      #include/cuda/IterativeProcessingKernel3D_AMR.hpp   
-      #include/cuda/IterativeProcessingKernel3D_AMR.h
-      include/cuda/LevelwiseProcessingKernel.hpp   
-      include/cuda/LevelwiseProcessingKernel.h
-      include/cuda/LinearQuantization.hpp
-      include/cuda/LinearQuantization.h
-      include/cuda/LosslessCompression.h
-      include/cuda/ErrorCalculator.h
-      include/cuda/ParallelHuffman/canonical.cuh
-      include/cuda/ParallelHuffman/constants.hh
-      include/cuda/ParallelHuffman/cuda_error_handling.cuh
-      include/cuda/ParallelHuffman/cuda_mem.cuh
-      include/cuda/ParallelHuffman/dbg_gpu_printing.cuh
-      include/cuda/ParallelHuffman/format.hh
-      include/cuda/ParallelHuffman/histogram.cuh
-      include/cuda/ParallelHuffman/huffman_codec.cuh
-      include/cuda/ParallelHuffman/huffman_workflow.cuh
-      include/cuda/ParallelHuffman/io.hh
-      include/cuda/ParallelHuffman/par_huffman.cuh
-      include/cuda/ParallelHuffman/par_merge.cuh
-      include/cuda/ParallelHuffman/timer.hh
-      include/cuda/ParallelHuffman/types.hh
-      include/cuda/Testing/ReorderToolsCPU.h
-      include/cuda/Testing/ReorderToolsCPU.hpp
-      include/cuda/Testing/ReorderToolsGPU.h
-      include/cuda/Testing/ReorderToolsGPU.hpp)
+  set (CMAKE_CXX_STANDARD_REQUIRED ON)
+  add_subdirectory (src/cuda)
+  add_subdirectory (include/cuda)
+  add_subdirectory (include/cuda/MDR)
 
   SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -DMGARD_CUDA")
   SET(CMAKE_CUDA_FLAGS  "${CMAKE_CUDA_FLAGS} -DMGARD_CUDA")
@@ -199,18 +91,11 @@ if(MGARD_ENABLE_CUDA)
 
   SET(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr -w")
 
-  if(MGARD_ENABLE_CUDA_DEBUG)
-    SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -DMGARD_CUDA_DEBUG")
-    SET(CMAKE_CUDA_FLAGS  "${CMAKE_CUDA_FLAGS} -DMGARD_CUDA_DEBUG")
-  endif()
   if(MGARD_ENABLE_CUDA_FMA)
     SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -DMGARD_CUDA_FMA")
     SET(CMAKE_CUDA_FLAGS  "${CMAKE_CUDA_FLAGS} -DMGARD_CUDA_FMA")
   endif()
-  if(MGARD_ENABLE_CUDA_KERNEL_PROFILE)
-    SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -DMGARD_CUDA_KERNEL_PROFILE")
-    SET(CMAKE_CUDA_FLAGS  "${CMAKE_CUDA_FLAGS} -DMGARD_CUDA_KERNEL_PROFILE")
-  endif()
+
   if(MGARD_ENABLE_CUDA_OPTIMIZE_TURING)
     SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -DMGARD_CUDA_OPTIMIZE_TURING")
     SET(CMAKE_CUDA_FLAGS  "${CMAKE_CUDA_FLAGS} -DMGARD_CUDA_OPTIMIZE_TURING")
@@ -427,6 +312,9 @@ if(MGARD_ENABLE_CUDA)
     add_executable(BatchTests ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/Testing/BatchTests.cpp)
     target_link_libraries(BatchTests mgard-library  ${CMAKE_DL_LIBS})
     target_include_directories(BatchTests PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+    add_executable(test_refactor ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/Testing/MDR/test_refactor.cpp)
+    target_link_libraries(test_refactor mgard-library  ${CMAKE_DL_LIBS})
+    target_include_directories(test_refactor PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
     # add_executable(TestDoubleRelativeError ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/TestDoubleRelativeError.cpp)
     # target_link_libraries(TestDoubleRelativeError mgard-library  ${CMAKE_DL_LIBS})
     # target_include_directories(TestDoubleRelativeError PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
@@ -539,9 +427,7 @@ message("  Shared Lib: ${BUILD_SHARED_LIBS}")
 message("     Testing: ${BUILD_TESTING}")
 message("      OpenMP: ${OpenMP_FOUND}")
 message("        CUDA: ${MGARD_ENABLE_CUDA}")
-message("  CUDA-Debug: ${MGARD_ENABLE_CUDA_DEBUG}")
 message("    CUDA-FMA: ${MGARD_ENABLE_CUDA_FMA}")
-message("   CUDA-PROF: ${MGARD_ENABLE_CUDA_KERNEL_PROFILE}")
 message("  CUDA-VOLTA: ${MGARD_ENABLE_CUDA_OPTIMIZE_VOLTA}")
 message(" CUDA-TURING: ${MGARD_ENABLE_CUDA_OPTIMIZE_TURING}")
 message("        MOAB: ${MOAB_FOUND}")

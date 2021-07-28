@@ -110,7 +110,9 @@ void Handle<D, T>::calc_am_bm(SIZE dof, T * dist, T * am, T * bm) {
   T w = a_j / h_bm[dof-2];
   h_bm[dof-1] = 2 * h_dist[dof-2] / 6 - w * a_j;
   h_am[dof-1] = a_j;
-
+#ifdef MGARD_CUDA_FMA
+  for (int i = 0; i < dof+1; i ++) { h_am[i] = -1 * h_am[i]; h_bm[i] = 1 / h_bm[i]; }
+#endif
   cudaMemcpyAsyncHelper(*this, am, h_am, dof * sizeof(T), AUTO, 0);
   cudaMemcpyAsyncHelper(*this, bm+1, h_bm, dof * sizeof(T), AUTO, 0); //add offset
   T one = 1;
@@ -458,6 +460,9 @@ void Handle<D, T>::init(std::vector<SIZE> shape, std::vector<T *> coords,
   lz4_block_size = config.lz4_block_size;
   gpu_lossless = config.gpu_lossless;
   reduce_memory_footprint = config.reduce_memory_footprint;
+  profile_kernels = config.profile_kernels;
+  sync_and_check_all_kernels = config.sync_and_check_all_kernels;
+
   initialized = true;
 }
 
@@ -580,14 +585,14 @@ template <DIM D, typename T> void Handle<D, T>::init_auto_tuning_table() {
 
   arch = 1; // default optimized for Volta
 
-  if (prop.major == 6) {
+  if (prop.major == 7 && prop.minor == 0) {
     arch = 1;
-    // printf("Optimized: Volta\n");
+    printf("Optimized: Volta\n");
   }
 
-  if (prop.major == 7) {
+  if (prop.major == 7 && (prop.minor == 2 || prop.minor == 5)) {
     arch = 2;
-    // printf("Optimized: Turing\n");
+    printf("Optimized: Turing\n");
   }
   cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
   cudaDeviceSetCacheConfig(cudaFuncCachePreferShared);
@@ -640,9 +645,9 @@ template <DIM D, typename T> void Handle<D, T>::init_auto_tuning_table() {
   }
 
   // Volta-Single
-  this->auto_tuning_cc[1][0][0] = 0;
-  this->auto_tuning_cc[1][0][1] = 0;
-  this->auto_tuning_cc[1][0][2] = 0;
+  this->auto_tuning_cc[1][0][0] = 1;
+  this->auto_tuning_cc[1][0][1] = 1;
+  this->auto_tuning_cc[1][0][2] = 1;
   this->auto_tuning_cc[1][0][3] = 1;
   this->auto_tuning_cc[1][0][4] = 1;
   this->auto_tuning_cc[1][0][5] = 5;
@@ -650,15 +655,15 @@ template <DIM D, typename T> void Handle<D, T>::init_auto_tuning_table() {
   this->auto_tuning_cc[1][0][7] = 5;
   this->auto_tuning_cc[1][0][8] = 5;
 
-  this->auto_tuning_mr1[1][0][0] = 0;
-  this->auto_tuning_mr2[1][0][0] = 0;
-  this->auto_tuning_mr3[1][0][0] = 0;
-  this->auto_tuning_mr1[1][0][1] = 0;
+  this->auto_tuning_mr1[1][0][0] = 1;
+  this->auto_tuning_mr2[1][0][0] = 1;
+  this->auto_tuning_mr3[1][0][0] = 1;
+  this->auto_tuning_mr1[1][0][1] = 1;
   this->auto_tuning_mr2[1][0][1] = 1;
   this->auto_tuning_mr3[1][0][1] = 1;
   this->auto_tuning_mr1[1][0][2] = 1;
-  this->auto_tuning_mr2[1][0][2] = 0;
-  this->auto_tuning_mr3[1][0][2] = 0;
+  this->auto_tuning_mr2[1][0][2] = 1;
+  this->auto_tuning_mr3[1][0][2] = 1;
   this->auto_tuning_mr1[1][0][3] = 3;
   this->auto_tuning_mr2[1][0][3] = 3;
   this->auto_tuning_mr3[1][0][3] = 3;
@@ -678,10 +683,10 @@ template <DIM D, typename T> void Handle<D, T>::init_auto_tuning_table() {
   this->auto_tuning_mr2[1][0][8] = 4;
   this->auto_tuning_mr3[1][0][8] = 4;
 
-  this->auto_tuning_ts1[1][0][0] = 0;
-  this->auto_tuning_ts2[1][0][0] = 0;
-  this->auto_tuning_ts3[1][0][0] = 0;
-  this->auto_tuning_ts1[1][0][1] = 0;
+  this->auto_tuning_ts1[1][0][0] = 1;
+  this->auto_tuning_ts2[1][0][0] = 1;
+  this->auto_tuning_ts3[1][0][0] = 1;
+  this->auto_tuning_ts1[1][0][1] = 1;
   this->auto_tuning_ts2[1][0][1] = 1;
   this->auto_tuning_ts3[1][0][1] = 1;
   this->auto_tuning_ts1[1][0][2] = 2;
@@ -707,20 +712,20 @@ template <DIM D, typename T> void Handle<D, T>::init_auto_tuning_table() {
   this->auto_tuning_ts3[1][0][8] = 5;
   // Volta-Double
 
-  this->auto_tuning_cc[1][1][0] = 0;
-  this->auto_tuning_cc[1][1][1] = 0;
-  this->auto_tuning_cc[1][1][2] = 0;
-  this->auto_tuning_cc[1][1][3] = 0;
+  this->auto_tuning_cc[1][1][0] = 1;
+  this->auto_tuning_cc[1][1][1] = 1;
+  this->auto_tuning_cc[1][1][2] = 1;
+  this->auto_tuning_cc[1][1][3] = 1;
   this->auto_tuning_cc[1][1][4] = 4;
   this->auto_tuning_cc[1][1][5] = 5;
   this->auto_tuning_cc[1][1][6] = 6;
   this->auto_tuning_cc[1][1][7] = 6;
   this->auto_tuning_cc[1][1][8] = 5;
 
-  this->auto_tuning_mr1[1][1][0] = 0;
-  this->auto_tuning_mr2[1][1][0] = 0;
-  this->auto_tuning_mr3[1][1][0] = 0;
-  this->auto_tuning_mr1[1][1][1] = 0;
+  this->auto_tuning_mr1[1][1][0] = 1;
+  this->auto_tuning_mr2[1][1][0] = 1;
+  this->auto_tuning_mr3[1][1][0] = 1;
+  this->auto_tuning_mr1[1][1][1] = 1;
   this->auto_tuning_mr2[1][1][1] = 1;
   this->auto_tuning_mr3[1][1][1] = 1;
   this->auto_tuning_mr1[1][1][2] = 1;
@@ -745,10 +750,10 @@ template <DIM D, typename T> void Handle<D, T>::init_auto_tuning_table() {
   this->auto_tuning_mr2[1][1][8] = 6;
   this->auto_tuning_mr3[1][1][8] = 5;
 
-  this->auto_tuning_ts1[1][1][0] = 0;
-  this->auto_tuning_ts2[1][1][0] = 0;
-  this->auto_tuning_ts3[1][1][0] = 0;
-  this->auto_tuning_ts1[1][1][1] = 0;
+  this->auto_tuning_ts1[1][1][0] = 1;
+  this->auto_tuning_ts2[1][1][0] = 1;
+  this->auto_tuning_ts3[1][1][0] = 1;
+  this->auto_tuning_ts1[1][1][1] = 1;
   this->auto_tuning_ts2[1][1][1] = 1;
   this->auto_tuning_ts3[1][1][1] = 1;
   this->auto_tuning_ts1[1][1][2] = 2;
@@ -774,24 +779,24 @@ template <DIM D, typename T> void Handle<D, T>::init_auto_tuning_table() {
   this->auto_tuning_ts3[1][1][8] = 6;
 
   // Turing-Single
-  this->auto_tuning_cc[2][0][0] = 0;
-  this->auto_tuning_cc[2][0][1] = 0;
-  this->auto_tuning_cc[2][0][2] = 0;
-  this->auto_tuning_cc[2][0][3] = 0;
+  this->auto_tuning_cc[2][0][0] = 1;
+  this->auto_tuning_cc[2][0][1] = 1;
+  this->auto_tuning_cc[2][0][2] = 1;
+  this->auto_tuning_cc[2][0][3] = 1;
   this->auto_tuning_cc[2][0][4] = 3;
   this->auto_tuning_cc[2][0][5] = 5;
   this->auto_tuning_cc[2][0][6] = 5;
   this->auto_tuning_cc[2][0][7] = 5;
   this->auto_tuning_cc[2][0][8] = 4;
 
-  this->auto_tuning_mr1[2][0][0] = 0;
-  this->auto_tuning_mr2[2][0][0] = 0;
-  this->auto_tuning_mr3[2][0][0] = 0;
-  this->auto_tuning_mr1[2][0][1] = 0;
+  this->auto_tuning_mr1[2][0][0] = 1;
+  this->auto_tuning_mr2[2][0][0] = 1;
+  this->auto_tuning_mr3[2][0][0] = 1;
+  this->auto_tuning_mr1[2][0][1] = 1;
   this->auto_tuning_mr2[2][0][1] = 1;
   this->auto_tuning_mr3[2][0][1] = 1;
   this->auto_tuning_mr1[2][0][2] = 1;
-  this->auto_tuning_mr2[2][0][2] = 0;
+  this->auto_tuning_mr2[2][0][2] = 1;
   this->auto_tuning_mr3[2][0][2] = 1;
   this->auto_tuning_mr1[2][0][3] = 1;
   this->auto_tuning_mr2[2][0][3] = 1;
@@ -812,10 +817,10 @@ template <DIM D, typename T> void Handle<D, T>::init_auto_tuning_table() {
   this->auto_tuning_mr2[2][0][8] = 4;
   this->auto_tuning_mr3[2][0][8] = 4;
 
-  this->auto_tuning_ts1[2][0][0] = 0;
-  this->auto_tuning_ts2[2][0][0] = 0;
-  this->auto_tuning_ts3[2][0][0] = 0;
-  this->auto_tuning_ts1[2][0][1] = 0;
+  this->auto_tuning_ts1[2][0][0] = 1;
+  this->auto_tuning_ts2[2][0][0] = 1;
+  this->auto_tuning_ts3[2][0][0] = 1;
+  this->auto_tuning_ts1[2][0][1] = 1;
   this->auto_tuning_ts2[2][0][1] = 1;
   this->auto_tuning_ts3[2][0][1] = 1;
   this->auto_tuning_ts1[2][0][2] = 2;
@@ -851,15 +856,15 @@ template <DIM D, typename T> void Handle<D, T>::init_auto_tuning_table() {
   this->auto_tuning_cc[2][1][7] = 6;
   this->auto_tuning_cc[2][1][8] = 3;
 
-  this->auto_tuning_mr1[2][1][0] = 0;
-  this->auto_tuning_mr2[2][1][0] = 0;
-  this->auto_tuning_mr3[2][1][0] = 0;
-  this->auto_tuning_mr1[2][1][1] = 0;
-  this->auto_tuning_mr2[2][1][1] = 0;
+  this->auto_tuning_mr1[2][1][0] = 1;
+  this->auto_tuning_mr2[2][1][0] = 1;
+  this->auto_tuning_mr3[2][1][0] = 1;
+  this->auto_tuning_mr1[2][1][1] = 1;
+  this->auto_tuning_mr2[2][1][1] = 1;
   this->auto_tuning_mr3[2][1][1] = 1;
-  this->auto_tuning_mr1[2][1][2] = 0;
-  this->auto_tuning_mr2[2][1][2] = 0;
-  this->auto_tuning_mr3[2][1][2] = 0;
+  this->auto_tuning_mr1[2][1][2] = 1;
+  this->auto_tuning_mr2[2][1][2] = 1;
+  this->auto_tuning_mr3[2][1][2] = 1;
   this->auto_tuning_mr1[2][1][3] = 1;
   this->auto_tuning_mr2[2][1][3] = 1;
   this->auto_tuning_mr3[2][1][3] = 1;
@@ -879,10 +884,10 @@ template <DIM D, typename T> void Handle<D, T>::init_auto_tuning_table() {
   this->auto_tuning_mr2[2][1][8] = 1;
   this->auto_tuning_mr3[2][1][8] = 1;
 
-  this->auto_tuning_ts1[2][1][0] = 0;
-  this->auto_tuning_ts2[2][1][0] = 0;
-  this->auto_tuning_ts3[2][1][0] = 0;
-  this->auto_tuning_ts1[2][1][1] = 0;
+  this->auto_tuning_ts1[2][1][0] = 1;
+  this->auto_tuning_ts2[2][1][0] = 1;
+  this->auto_tuning_ts3[2][1][0] = 1;
+  this->auto_tuning_ts1[2][1][1] = 1;
   this->auto_tuning_ts2[2][1][1] = 1;
   this->auto_tuning_ts3[2][1][1] = 1;
   this->auto_tuning_ts1[2][1][2] = 2;

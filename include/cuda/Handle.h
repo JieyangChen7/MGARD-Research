@@ -21,6 +21,8 @@ struct Config {
   SIZE lz4_block_size;
   bool gpu_lossless;
   bool reduce_memory_footprint;
+  bool profile_kernels;
+  bool sync_and_check_all_kernels;
 
   Config() {
     dev_id = 0;
@@ -31,6 +33,8 @@ struct Config {
     lz4_block_size = 1 << 15;
     gpu_lossless = true;
     reduce_memory_footprint = false;
+    profile_kernels = false;
+    sync_and_check_all_kernels = false;
   }
 };
 
@@ -83,6 +87,8 @@ template <DIM D, typename T> struct Handle {
   SIZE lz4_block_size;
   bool gpu_lossless;
   bool reduce_memory_footprint;
+  bool profile_kernels;
+  bool sync_and_check_all_kernels;
 
   DIM *processed_n;
   DIM **processed_dims_h;
