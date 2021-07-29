@@ -63,7 +63,7 @@ template <typename T>
 void readfile(char * input_file, size_t num_bytes, bool check_size, T * in_buff) {
   if (strcmp(input_file, "random") == 0) {
     srand (7117);
-    for (int i = 0; i < num_bytes/sizeof(T); i++) {
+    for (size_t i = 0; i < num_bytes/sizeof(T); i++) {
       in_buff[i] = rand() % 100 + 1;
     }
   } else {
@@ -105,12 +105,19 @@ void compression(std::vector<mgard_cuda::SIZE> shape, enum device dev,
   std::cout << mgard_cuda::log::log_info << "Start compressing\n";
   high_resolution_clock::time_point t1, t2;
   duration<double> time_span;
+  size_t original_size = 1;
+  for (mgard_cuda::DIM i = 0; i < D; i++) original_size *= shape[i];
   std::array<std::size_t, D> array_shape;
   std::copy(shape.begin(), shape.end(), array_shape.begin());
   if (dev == CPU) {
     if (mode == mgard_cuda::REL) tol *= norm;
     const mgard::TensorMeshHierarchy<D, T> hierarchy(array_shape);
+    t1 = high_resolution_clock::now();
     mgard::CompressedDataset<D, T> compressed_dataset = mgard::compress(hierarchy, original_data, s, tol);
+    t2 = high_resolution_clock::now();
+    time_span = duration_cast<duration<double>>(t2 - t1);
+    std::cout << mgard_cuda::log::log_time << "Compression API time: "<< time_span.count() << " s (" << 
+            (double)(original_size * sizeof(T))/time_span.count()/1e9 << " GB/s)\n";
     compressed_size = compressed_dataset.size();
     compressed_data = (unsigned char *)malloc(compressed_size);
     memcpy(compressed_data, compressed_dataset.data(), compressed_size);
@@ -126,8 +133,7 @@ void compression(std::vector<mgard_cuda::SIZE> shape, enum device dev,
     t2 = high_resolution_clock::now();
     time_span = duration_cast<duration<double>>(t2 - t1);
     std::cout << mgard_cuda::log::log_time << "Compression API time: "<< time_span.count() << " s (" << 
-            (double)(handle.dofs[0][0] * handle.dofs[1][0] *handle.linearized_depth
-            *sizeof(T))/time_span.count()/1e9 << " GB/s)\n";
+            (double)(original_size * sizeof(T))/time_span.count()/1e9 << " GB/s)\n";
     compressed_size = compressed_array.getShape()[0];
     compressed_data = (unsigned char *)malloc(compressed_size);
     memcpy(compressed_data, compressed_array.getDataHost(),
@@ -146,7 +152,7 @@ void decompression(std::vector<mgard_cuda::SIZE> shape, enum device dev,
   high_resolution_clock::time_point t1, t2;
   duration<double> time_span;
   size_t original_size = 1;
-  for (int i = 0; i < D; i++) original_size *= shape[i];
+  for (mgard_cuda::DIM i = 0; i < D; i++) original_size *= shape[i];
   decompressed_data = (T*)malloc(original_size * sizeof(T));
   if (dev == CPU) {
     if (mode == mgard_cuda::REL) tol *= norm;
@@ -155,7 +161,12 @@ void decompression(std::vector<mgard_cuda::SIZE> shape, enum device dev,
     const mgard::TensorMeshHierarchy<D, T> hierarchy(array_shape);
     mgard::CompressedDataset<D, T> compressed_dataset(hierarchy, s,
                     tol, compressed_data, compressed_size);
+    t1 = high_resolution_clock::now();
     mgard::DecompressedDataset<D, T> decompressed_dataset = mgard::decompress(compressed_dataset);
+    t2 = high_resolution_clock::now();
+    time_span = duration_cast<duration<double>>(t2 - t1);
+    std::cout << mgard_cuda::log::log_time << "Decompression API time: "<< time_span.count() << " s (" << 
+            (double)(original_size * sizeof(T))/time_span.count()/1e9 << " GB/s)\n";
     memcpy(decompressed_data, decompressed_dataset.data(), original_size * sizeof(T));
   } else { // GPU
     mgard_cuda::Handle<D, T> handle(shape, config);
@@ -171,8 +182,7 @@ void decompression(std::vector<mgard_cuda::SIZE> shape, enum device dev,
     t2 = high_resolution_clock::now();
     time_span = duration_cast<duration<double>>(t2 - t1);
     std::cout << mgard_cuda::log::log_time << "Decompression API time: "<< time_span.count() << " s (" << 
-            (double)(handle.dofs[0][0] * handle.dofs[1][0] *handle.linearized_depth
-            *sizeof(T))/time_span.count()/1e9 << " GB/s)\n";
+            (double)(original_size * sizeof(T))/time_span.count()/1e9 << " GB/s)\n";
     memcpy(decompressed_data, out_array.getDataHost(),
            original_size * sizeof(T));
   }
@@ -182,7 +192,7 @@ template <typename T>
 int test(int D, char * input_file, enum data_type dtype, std::vector<mgard_cuda::SIZE> shape, enum device dev, double tol, double s, enum mgard_cuda::error_bound_type mode) {
 
   size_t original_size = 1;
-  for (int i = 0; i < D; i++) original_size *= shape[i];
+  for (mgard_cuda::DIM i = 0; i < D; i++) original_size *= shape[i];
   T * original_data = (T*)malloc(original_size * sizeof(T));
   readfile(input_file, original_size * sizeof(T), false, original_data);
 
