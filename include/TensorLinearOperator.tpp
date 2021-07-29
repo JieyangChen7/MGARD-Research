@@ -119,9 +119,9 @@ void TensorLinearOperator<N, Real>::operator()(Real *const v) const {
     //   unshuffle(hierarchy, v, uv);
     //   printf("after TR[%lli]:\n", i);
     //   for (int i =0; i < 1; i++) {
-    //     for (int j =0; j < 3; j++) {
+    //     for (int j =0; j < 1; j++) {
     //       printf(ANSI_RED "i, j = %d, %d\n" ANSI_RESET,i, j);
-    //       mgard_cuda::print_matrix(3, 3, 3, uv + i * 3*3*3*3 + j * 3*3*3, 3, 3);
+    //       mgard_cuda::print_matrix(1, 5, 5, uv + i * 3*3*3*3 + j * 3*3*3, 5, 5);
     //     }
     //   }
     // }

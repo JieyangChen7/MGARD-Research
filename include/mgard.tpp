@@ -141,6 +141,21 @@ void decompose(const TensorMeshHierarchy<N, Real> &hierarchy, Real *const v) {
     // We start with `Q_{l}u` on `nodes(l)` of `v`. First we copy the values on
     // `old_nodes(l)` to `buffer`. At the same time, we zero the values on
     // `new_nodes(l)` of `buffer` in preparation for the interpolation routine.
+
+    // printf ("cjy3113\n");
+    // { //debug
+    //     Real * uv = new Real[hierarchy.ndof()];
+    //     unshuffle(hierarchy, v, uv);
+    //     printf("after coeff\n");
+    //     for (int i =0; i < 1; i++) {
+    //       for (int j =0; j < 1; j++) {
+    //         printf(ANSI_RED "i, j = %d, %d\n" ANSI_RESET,i, j);
+    //         mgard_cuda::print_matrix(1, 5, 5, uv + i * 3*3*3*3 + j * 3*3*3, 5, 5);
+    //       }
+    //     }
+    //   }
+
+      
     copy_on_old_zero_on_new(hierarchy, v, buffer, l);
     // Now we have `Π_{l - 1}Q_{l}u` on `old_nodes(l)` of `buffer` and zeros on
     // `new_nodes(l)` of `buffer`. Time to interpolate.
@@ -159,18 +174,7 @@ void decompose(const TensorMeshHierarchy<N, Real> &hierarchy, Real *const v) {
     zero_on_old_subtract_and_copy_back_on_new(hierarchy, v, buffer, l);
     // Now we have `(I - Π_{l - 1})Q_{l}u` on `nodes(l)` of `buffer`. Time to
     // project.
-    // printf ("cjy3113\n");
-    // { //debug
-    //     Real * uv = new Real[hierarchy.ndof()];
-    //     unshuffle(hierarchy, v, uv);
-    //     printf("after coeff\n");
-    //     for (int i =0; i < 1; i++) {
-    //       for (int j =0; j < 3; j++) {
-    //         printf(ANSI_RED "i, j = %d, %d\n" ANSI_RESET,i, j);
-    //         mgard_cuda::print_matrix(3, 3, 3, uv + i * 3*3*3*3 + j * 3*3*3, 3, 3);
-    //       }
-    //     }
-    //   }
+    
 
     {
       const TensorMassMatrix<N, Real> M(hierarchy, l);
@@ -207,9 +211,9 @@ void decompose(const TensorMeshHierarchy<N, Real> &hierarchy, Real *const v) {
       //   unshuffle(hierarchy, buffer, uv);
       //   printf("after R\n");
       //   for (int i =0; i < 1; i++) {
-      //     for (int j =0; j < 3; j++) {
+      //     for (int j =0; j < 1; j++) {
       //       printf(ANSI_RED "i, j = %d, %d\n" ANSI_RESET,i, j);
-      //       mgard_cuda::print_matrix(3, 3, 3, uv + i * 3*3*3*3 + j * 3*3*3, 3, 3);
+      //       mgard_cuda::print_matrix(1, 5, 5, uv + i * 3*3*3*3 + j * 3*3*3, 5, 5);
       //     }
       //   }
       // }
@@ -224,9 +228,9 @@ void decompose(const TensorMeshHierarchy<N, Real> &hierarchy, Real *const v) {
       //   unshuffle(hierarchy, buffer, uv);
       //   printf("after TR\n");
       //   for (int i =0; i < 1; i++) {
-      //     for (int j =0; j < 3; j++) {
+      //     for (int j =0; j < 1; j++) {
       //       printf(ANSI_RED "i, j = %d, %d\n" ANSI_RESET,i, j);
-      //       mgard_cuda::print_matrix(3, 3, 3, uv + i * 3*3*3*3 + j * 3*3*3, 3, 3);
+      //       mgard_cuda::print_matrix(1, 5, 5, uv + i * 3*3*3*3 + j * 3*3*3, 5, 5);
       //     }
       //   }
       // }

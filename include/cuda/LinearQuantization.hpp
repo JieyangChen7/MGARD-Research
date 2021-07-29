@@ -314,7 +314,8 @@ _levelwise_linear_quantize(SIZE *shapes, SIZE l_target, T *quantizers, T * volum
     //   quantizers_sm[level],
     //   (quantizers_sm[level] / volume), t, (int)copysign(0.5 + fabs(t /( quantizers_sm[level] / volume)), t));
 
-    QUANTIZED_INT quantized_data = copysign(0.5 + fabs(t / (quantizers_sm[level] / volume) ), t);
+    QUANTIZED_INT quantized_data = copysign(0.5 + fabs(t / (quantizers_sm[level] * volume) ), t);
+    // QUANTIZED_INT quantized_data = copysign(0.5 + fabs(t / (quantizers_sm[level] / volume) ), t);
     // printf("dv[%llu] %f quantizers[%d]%f -> dw[%llu]%d \n",
     //       get_idx<D>(ldvs, idx), t,
     //       level, quantizers_sm[level],
@@ -624,7 +625,8 @@ _levelwise_linear_dequantize(SIZE *shapes, SIZE l_target, T *quantizers, T * vol
     // printf("%d %d %d %d %d %d vol %f (%f * %f * %f), dequantizers: %f, before: %d, dequantized: %f\n", blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z, threadIdx.y, threadIdx.x, volume, 
     //   volumes_0[level * blockDim.x + threadIdx.x], volumes_1[level * blockDim.y + threadIdx.y], volumes_2[level * blockDim.z + threadIdx.z],
     //   quantizers_sm[level] / volume, quantized_data, (quantizers_sm[level] / volume) * (T)quantized_data);
-    dwork[get_idx<D>(ldws, idx)] = (quantizers_sm[level] / volume) * (T)quantized_data;
+    dwork[get_idx<D>(ldws, idx)] = (quantizers_sm[level] * volume) * (T)quantized_data;
+    // dwork[get_idx<D>(ldws, idx)] = (quantizers_sm[level] / volume) * (T)quantized_data;
     // dwork[get_idx<D>(ldws, idx)] = (T)dv[get_idx<D>(ldvs, idx)];
 
     // printf("dw[%llu] %d dequantizers[%d]%f -> dw[%llu]%f \n",
@@ -732,7 +734,8 @@ __global__ void _levelwise_linear_dequantize_outliers(
       if (sizeof(T) == sizeof(double)) volume = sqrt(volume);
       else if (sizeof(T) == sizeof(float)) volume = sqrtf(volume);
     }
-    dwork[get_idx<D>(ldws, idx)] = (quantizers_sm[level] / volume) * (T)outliter;
+    dwork[get_idx<D>(ldws, idx)] = (quantizers_sm[level] * volume) * (T)outliter;
+    // dwork[get_idx<D>(ldws, idx)] = (quantizers_sm[level] / volume) * (T)outliter;
 
     // printf("outliter: dw[%llu] %d dequantizers[%d]%f -> dw[%llu]%f \n",
     // get_idx<D>(ldvs, idx),

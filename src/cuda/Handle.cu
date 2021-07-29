@@ -152,6 +152,8 @@ void Handle<D, T>::calc_volume(SIZE dof, T * dist, T * volume) {
       h_volume[node_coeff_div-1] = h_dist[dof-1] / 2;
     }
   }
+
+  for (int i = 0; i < dof; i ++) { h_volume[i] = 1.0/h_volume[i]; }
   cudaMemcpyAsyncHelper(*this, volume, h_volume, dof * sizeof(T), AUTO, 0);
   this->sync(0);
   delete [] h_dist;
@@ -462,7 +464,8 @@ void Handle<D, T>::init(std::vector<SIZE> shape, std::vector<T *> coords,
   reduce_memory_footprint = config.reduce_memory_footprint;
   profile_kernels = config.profile_kernels;
   sync_and_check_all_kernels = config.sync_and_check_all_kernels;
-
+  timing = config.timing;
+  
   initialized = true;
 }
 
@@ -587,12 +590,12 @@ template <DIM D, typename T> void Handle<D, T>::init_auto_tuning_table() {
 
   if (prop.major == 7 && prop.minor == 0) {
     arch = 1;
-    printf("Optimized: Volta\n");
+    // printf("Optimized: Volta\n");
   }
 
   if (prop.major == 7 && (prop.minor == 2 || prop.minor == 5)) {
     arch = 2;
-    printf("Optimized: Turing\n");
+    // printf("Optimized: Turing\n");
   }
   cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
   cudaDeviceSetCacheConfig(cudaFuncCachePreferShared);
@@ -1040,13 +1043,13 @@ Handle<D, T>::Handle(std::vector<SIZE> shape) {
   std::reverse(shape.begin(), shape.end());
   int ret = check_shape<D>(shape);
   if (ret == -1) {
-    std::cerr << log_err
+    std::cerr << log::log_err
               << "Number of dimensions mismatch. mgard_cuda::Hanlde not "
                  "initialized!\n";
     return;
   }
   if (ret == -2) {
-    std::cerr << log_err
+    std::cerr << log::log_err
               << "Size of any dimensions cannot be smaller than 3. "
                  "mgard_cuda::Hanlde not "
                  "initialized!\n";
@@ -1067,13 +1070,13 @@ Handle<D, T>::Handle(std::vector<SIZE> shape, std::vector<T *> coords) {
   std::reverse(coords.begin(), coords.end());
   int ret = check_shape<D>(shape);
   if (ret == -1) {
-    std::cerr << log_err
+    std::cerr << log::log_err
               << "Number of dimensions mismatch. mgard_cuda::Hanlde not "
                  "initialized!\n";
     return;
   }
   if (ret == -2) {
-    std::cerr << log_err
+    std::cerr << log::log_err
               << "Size of any dimensions cannot be smaller than 3. "
                  "mgard_cuda::Hanlde not "
                  "initialized!\n";
@@ -1094,13 +1097,13 @@ Handle<D, T>::Handle(std::vector<SIZE> shape, Config config) {
   std::vector<T *> coords = create_uniform_coords(shape);
   int ret = check_shape<D>(shape);
   if (ret == -1) {
-    std::cerr << log_err
+    std::cerr << log::log_err
               << "Number of dimensions mismatch. mgard_cuda::Hanlde not "
                  "initialized!\n";
     return;
   }
   if (ret == -2) {
-    std::cerr << log_err
+    std::cerr << log::log_err
               << "Size of any dimensions cannot be smaller than 3. "
                  "mgard_cuda::Hanlde not "
                  "initialized!\n";
@@ -1120,13 +1123,13 @@ Handle<D, T>::Handle(std::vector<SIZE> shape, std::vector<T *> coords,
   std::reverse(coords.begin(), coords.end());
   int ret = check_shape<D>(shape);
   if (ret == -1) {
-    std::cerr << log_err
+    std::cerr << log::log_err
               << "Number of dimensions mismatch. mgard_cuda::Hanlde not "
                  "initialized!\n";
     return;
   }
   if (ret == -2) {
-    std::cerr << log_err
+    std::cerr << log::log_err
               << "Size of any dimensions cannot be smaller than 3. "
                  "mgard_cuda::Hanlde not "
                  "initialized!\n";

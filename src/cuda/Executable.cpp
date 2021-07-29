@@ -102,7 +102,7 @@ void compression(std::vector<mgard_cuda::SIZE> shape, enum device dev,
                 T tol, T s, enum mgard_cuda::error_bound_type mode, T norm, 
                 T * original_data, 
                 unsigned char * &compressed_data, size_t &compressed_size, mgard_cuda::Config config) {
-  printf("Start compressing\n");
+  std::cout << mgard_cuda::log::log_info << "Start compressing\n";
   high_resolution_clock::time_point t1, t2;
   duration<double> time_span;
   std::array<std::size_t, D> array_shape;
@@ -118,14 +118,16 @@ void compression(std::vector<mgard_cuda::SIZE> shape, enum device dev,
     mgard_cuda::Array<D, T> in_array(shape);
     in_array.loadData(original_data);
     mgard_cuda::Handle<D, T> handle(shape, config);
+    if (handle.arch == 1) std::cout << mgard_cuda::log::log_info << "Optimized for Volta.\n";
+    if (handle.arch == 2) std::cout << mgard_cuda::log::log_info << "Optimized for Turing.\n";
     t1 = high_resolution_clock::now();
     mgard_cuda::Array<1, unsigned char> compressed_array =
         mgard_cuda::compress(handle, in_array, mode, tol, s);
     t2 = high_resolution_clock::now();
     time_span = duration_cast<duration<double>>(t2 - t1);
-    printf("Compression API time: %.6f s (%.6f GB/s)\n", time_span.count(),
-    (double)(handle.dofs[0][0] * handle.dofs[1][0] *handle.linearized_depth
-    *sizeof(T))/time_span.count()/1e9);
+    std::cout << mgard_cuda::log::log_time << "Compression API time: "<< time_span.count() << " s (" << 
+            (double)(handle.dofs[0][0] * handle.dofs[1][0] *handle.linearized_depth
+            *sizeof(T))/time_span.count()/1e9 << " GB/s)\n";
     compressed_size = compressed_array.getShape()[0];
     compressed_data = (unsigned char *)malloc(compressed_size);
     memcpy(compressed_data, compressed_array.getDataHost(),
@@ -140,7 +142,7 @@ void decompression(std::vector<mgard_cuda::SIZE> shape, enum device dev,
                 unsigned char * compressed_data, size_t compressed_size,
                 T *& decompressed_data, mgard_cuda::Config config) {
 
-  printf("Start decompressing\n");
+  std::cout << mgard_cuda::log::log_info << "Start decompressing\n";
   high_resolution_clock::time_point t1, t2;
   duration<double> time_span;
   size_t original_size = 1;
@@ -157,6 +159,8 @@ void decompression(std::vector<mgard_cuda::SIZE> shape, enum device dev,
     memcpy(decompressed_data, decompressed_dataset.data(), original_size * sizeof(T));
   } else { // GPU
     mgard_cuda::Handle<D, T> handle(shape, config);
+    if (handle.arch == 1) std::cout << mgard_cuda::log::log_info << "Optimized for Volta.\n";
+    if (handle.arch == 2) std::cout << mgard_cuda::log::log_info << "Optimized for Turing.\n";
     std::vector<mgard_cuda::SIZE> compressed_shape(1);
     compressed_shape[0] = compressed_size;
     mgard_cuda::Array<1, unsigned char> compressed_array (compressed_shape);
@@ -166,9 +170,9 @@ void decompression(std::vector<mgard_cuda::SIZE> shape, enum device dev,
         mgard_cuda::decompress(handle, compressed_array);
     t2 = high_resolution_clock::now();
     time_span = duration_cast<duration<double>>(t2 - t1);
-    printf("Decompression API time: %.6f s (%.6f GB/s)\n", time_span.count(),
-    (double)(handle.dofs[0][0] * handle.dofs[1][0] *handle.linearized_depth
-    *sizeof(T))/time_span.count()/1e9);
+    std::cout << mgard_cuda::log::log_time << "Decompression API time: "<< time_span.count() << " s (" << 
+            (double)(handle.dofs[0][0] * handle.dofs[1][0] *handle.linearized_depth
+            *sizeof(T))/time_span.count()/1e9 << " GB/s)\n";
     memcpy(decompressed_data, out_array.getDataHost(),
            original_size * sizeof(T));
   }
@@ -197,7 +201,7 @@ int test(int D, char * input_file, enum data_type dtype, std::vector<mgard_cuda:
   config.lz4_block_size = 1 << 15;
   config.reduce_memory_footprint = true;
   config.sync_and_check_all_kernels = true;
-
+  config.timing = true;
 
   unsigned char * compressed_data;
   size_t compressed_size;
@@ -348,7 +352,7 @@ int main(int argc, char *argv[]) {
   // }
   // range = max - min;
   // mse = error_sum / num_double;
-  // psnr = 20*log10(range)-10*log10(mse);
+  // psnr = 20*log::log10(range)-10*log::log10(mse);
   
   // mgard_cuda::cudaFreeHostHelper(in_buff);
 

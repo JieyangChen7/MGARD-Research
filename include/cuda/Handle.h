@@ -23,6 +23,7 @@ struct Config {
   bool reduce_memory_footprint;
   bool profile_kernels;
   bool sync_and_check_all_kernels;
+  bool timing;
 
   Config() {
     dev_id = 0;
@@ -35,6 +36,7 @@ struct Config {
     reduce_memory_footprint = false;
     profile_kernels = false;
     sync_and_check_all_kernels = false;
+    timing = false;
   }
 };
 
@@ -89,6 +91,7 @@ template <DIM D, typename T> struct Handle {
   bool reduce_memory_footprint;
   bool profile_kernels;
   bool sync_and_check_all_kernels;
+  bool timing;
 
   DIM *processed_n;
   DIM **processed_dims_h;

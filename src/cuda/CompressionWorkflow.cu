@@ -50,7 +50,7 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
 
   for (DIM i = 0; i < D; i++) {
     if (handle.shapes_h[0][i] != in_array.getShape()[i]) {
-      std::cout << log_err
+      std::cout << log::log_err
                 << "The shape of input array does not match the shape "
                    "initilized in handle!\n";
       std::vector<SIZE> empty_shape;
@@ -67,12 +67,12 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
   // cudaMemGetInfo(&free, &total); 
   // printf("Mem: %f/%f\n", (double)(total-free)/1e9, (double)total/1e9); 
 
-
+  if (handle.timing) start = high_resolution_clock::now();
   T norm = (T)1.0;
 
   if (type == REL) {
     // printf("Calculate norm\n");
-    t1 = high_resolution_clock::now();
+    if (handle.timing) t1 = high_resolution_clock::now();
     thrust::device_vector<T> v_vec(handle.dofs[0][0] * handle.dofs[1][0] *
                                    handle.linearized_depth);
     cudaMemcpy3DAsyncHelper(
@@ -83,11 +83,6 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
         handle.dofs[1][0], handle.dofs[0][0] * sizeof(T), handle.dofs[1][0],
         handle.linearized_depth, AUTO, 0);
     handle.sync(0);
-    t2 = high_resolution_clock::now();
-    time_span = duration_cast<duration<double>>(t2 - t1);
-    // printf("copy time: %.6f s \n", time_span.count());
-
-    t1 = high_resolution_clock::now();
     if (s == std::numeric_limits<T>::infinity()) {
       norm = thrust::reduce(v_vec.begin(), v_vec.end(), (T)0, linf_norm<T>());
     } else {
@@ -95,9 +90,11 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
       norm = thrust::reduce(v_vec.begin(), v_vec.end(), (T)0);
       norm = std::sqrt(norm);
     }
-    // printf("norm: %f\n", norm);
-    t2 = high_resolution_clock::now();
-    time_span = duration_cast<duration<double>>(t2 - t1);
+    if (handle.timing) {
+      t2 = high_resolution_clock::now();
+      time_span = duration_cast<duration<double>>(t2 - t1);
+      std::cout << log::log_time << "Calculating norm using NVIDIA::Thrust: " << time_span.count() <<" s\n";
+    }
   }
   // cudaMemGetInfo(&free, &total); printf("Mem: %f/%f\n",
   // (double)(total-free)/1e9, (double)total/1e9);
@@ -105,15 +102,17 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
   // cudaMemGetInfo(&free, &total); printf("Mem: %f/%f\n",
   // (double)(total-free)/1e9, (double)total/1e9);
 
-  start = high_resolution_clock::now();
+  
   // Decomposition
-  t1 = high_resolution_clock::now();
+  if (handle.timing) t1 = high_resolution_clock::now();
   decompose<D, T>(handle, in_array.get_dv(), in_array.get_ldvs_h(), in_array.get_ldvs_d(),
                   handle.l_target, 0);
   handle.sync_all();
-  t2 = high_resolution_clock::now();
-  time_span = duration_cast<duration<double>>(t2 - t1);
-  printf("Decomposition time: %.6f s\n", time_span.count());
+  if (handle.timing) {
+    t2 = high_resolution_clock::now();
+    time_span = duration_cast<duration<double>>(t2 - t1);
+    std::cout << log::log_time << "decomposition time: " << time_span.count() <<" s\n";
+  }
 
   // /////test
   // if (0){
@@ -179,7 +178,7 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
   // cudaMemGetInfo(&free, &total); printf("Mem: %f/%f\n",
   // (double)(total-free)/1e9, (double)total/1e9);
   // printf("sync_all 2\n");
-  handle.sync_all();
+  // handle.sync_all();
   handle.free_workspace();
 
   // cudaMemGetInfo(&free, &total); printf("Mem: %f/%f\n",
@@ -196,7 +195,7 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
   //       handle.dofs[1][0], handle.linearized_depth, D2H, 0);
 
   // Quantization
-  t1 = high_resolution_clock::now();
+  if (handle.timing) t1 = high_resolution_clock::now();
   bool prep_huffman = handle.gpu_lossless; //Disable preparation for huffman when we do lossless on CPU
   SIZE dict_size = handle.huff_dict_size, block_size = handle.huff_block_size;
   LENGTH quantized_count =
@@ -211,8 +210,6 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
   for (int i = 1; i < handle.D_padded; i++) {
     ldqvs[i] = handle.dofs[i][0];
   }
-
-  
 
   LENGTH estimate_outlier_count = (double)handle.dofs[0][0] *
                                   handle.dofs[1][0] * handle.linearized_depth *
@@ -261,9 +258,11 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
 
   std::vector<size_t> outlier_idx;
 
-  t2 = high_resolution_clock::now();
-  time_span = duration_cast<duration<double>>(t2 - t1);
-  printf("Quantization time: %.6f s\n", time_span.count());
+  if (handle.timing) {
+    t2 = high_resolution_clock::now();
+    time_span = duration_cast<duration<double>>(t2 - t1);
+    std::cout << log::log_time << "Quantization time: " << time_span.count() <<" s\n";
+  }
 
   // cudaFreeHelper(dv);
 
@@ -272,7 +271,7 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
   if (handle.gpu_lossless) {
     // printf("gpu lossless\n");
     // Huffman compression
-    t1 = high_resolution_clock::now();
+    if (handle.timing) t1 = high_resolution_clock::now();
     uint64_t *hufmeta;
     uint64_t *hufdata;
     size_t hufmeta_size;
@@ -282,11 +281,12 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
         hufdata_size, block_size, dict_size, 0);
     // printf("sync_all 3\n");
     handle.sync_all();
-    t2 = high_resolution_clock::now();
-    time_span = duration_cast<duration<double>>(t2 - t1);
-    printf("Parallel Huffman time: %.6f s\n", time_span.count());
-
     cudaFreeHelper(dqv);
+    if (handle.timing) {
+      t2 = high_resolution_clock::now();
+      time_span = duration_cast<duration<double>>(t2 - t1);
+      std::cout << log::log_time << "GPU Huffman encoding time: " << time_span.count() <<" s\n";
+    }
 
     // cudaMemGetInfo(&free, &total); printf("Mem: %f/%f\n",
     // (double)(total-free)/1e9, (double)total/1e9);
@@ -298,7 +298,7 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
     size_t lz4_hufdata_size;
 
     if (handle.enable_lz4) {
-      t1 = high_resolution_clock::now();
+      if (handle.timing) t1 = high_resolution_clock::now();
       lz4_compress(handle, hufdata, hufdata_size / sizeof(uint64_t), lz4_hufdata,
                    lz4_hufdata_size, handle.lz4_block_size, 0);
       // printf("sync_all 4\n");
@@ -306,22 +306,26 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
       cudaFreeHelper(hufdata);
       hufdata = (uint64_t *)lz4_hufdata;
       hufdata_size = lz4_hufdata_size;
-      t2 = high_resolution_clock::now();
-      time_span = duration_cast<duration<double>>(t2 - t1);
-      printf("NVComp::LZ4 time: %.6f s\n", time_span.count());
+      if (handle.timing) {
+        t2 = high_resolution_clock::now();
+        time_span = duration_cast<duration<double>>(t2 - t1);
+        std::cout << log::log_time << "NVComp::LZ4 compression time: " << time_span.count() <<" s\n";
+      }
 
       // cudaMemGetInfo(&free, &total); printf("Mem: %f/%f\n",
       // (double)(total-free)/1e9, (double)total/1e9);
     }
 
-    end = high_resolution_clock::now();
-    time_span = duration_cast<duration<double>>(end - start);
-    printf("Overall compression time: %.6f s (%.6f GB/s)\n", time_span.count(),
-    (double)(handle.dofs[0][0] * handle.dofs[1][0] *handle.linearized_depth
-    *sizeof(T))/time_span.count()/1e9);
+    if (handle.timing) {
+      end = high_resolution_clock::now();
+      time_span = duration_cast<duration<double>>(end - start);
+      std::cout << log::log_time << "Overall compression time: " << time_span.count() <<" s (" <<
+        (double)(handle.dofs[0][0] * handle.dofs[1][0] *handle.linearized_depth
+            *sizeof(T))/time_span.count()/1e9 << " GB/s)\n";
+    }
 
     // Output serilization
-    t1 = high_resolution_clock::now();
+    if (handle.timing) t1 = high_resolution_clock::now();
 
     SIZE outsize = 0;
     outsize += sizeof(quant_meta<T>);
@@ -333,15 +337,9 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
     std::vector<SIZE> out_shape(1);
     out_shape[0] = outsize;
     Array<1, unsigned char> compressed_array(out_shape);
-
     unsigned char *buffer = compressed_array.get_dv();
-    // cudaMallocHostHelper((void**)&buffer, outsize);
-    // else cudaMallocHelper((void**)&buffer, outsize);
-    // unsigned char *buffer = (unsigned char *)malloc(outsize);
-
     void *buffer_p = (void *)buffer;
 
-    // memcpy(buffer_p, &m, sizeof(quant_meta<T>));
     cudaMemcpyAsyncHelper(handle, buffer_p, &m, sizeof(quant_meta<T>), AUTO, 0);
     buffer_p = buffer_p + sizeof(quant_meta<T>);
 
@@ -362,21 +360,20 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
     buffer_p = buffer_p + sizeof(size_t);
     cudaMemcpyAsyncHelper(handle, buffer_p, hufmeta, hufmeta_size, AUTO, 0);
     buffer_p = buffer_p + hufmeta_size;
-    // memcpy(buffer_p, &lz4_hufmeta_size, sizeof(size_t));
-    // buffer_p = buffer_p + sizeof(size_t);
-    // memcpy(buffer_p, &hufdata_size, sizeof(size_t));
+
     cudaMemcpyAsyncHelper(handle, buffer_p, &hufdata_size, sizeof(size_t), AUTO,
                           0);
     buffer_p = buffer_p + sizeof(size_t);
-    // cudaMemcpyAsyncHelper(handle, buffer_p, lz4_hufmeta, lz4_hufmeta_size, D2H,
-    // 0); buffer_p = buffer_p + lz4_hufmeta_size;
+ 
     cudaMemcpyAsyncHelper(handle, buffer_p, hufdata, hufdata_size, AUTO, 0);
     buffer_p = buffer_p + hufdata_size;
     // printf("sync_all 5\n");
     handle.sync_all();
-    t2 = high_resolution_clock::now();
-    time_span = duration_cast<duration<double>>(t2 - t1);
-    // printf("seralization time: %.6f\n", time_span.count());
+    if (handle.timing) {
+      t2 = high_resolution_clock::now();
+      time_span = duration_cast<duration<double>>(t2 - t1);
+      std::cout << log::log_time << "Compressed output seralization time: " << time_span.count() <<" s\n";
+    }
 
     cudaFreeHelper(outlier_count_d);
     cudaFreeHelper(outlier_idx_d);
@@ -389,15 +386,26 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
     return compressed_array;
   } else { //cpu lossless
     // printf("cpu lossless\n");
-    t1 = high_resolution_clock::now();
+    if (handle.timing) t1 = high_resolution_clock::now();
     unsigned char * cpu_lossless_data; // on GPU memory
     size_t cpu_lossless_size;
     cpu_lossless_compression(handle, dqv, quantized_count,
         cpu_lossless_data, cpu_lossless_size);
-    t2 = high_resolution_clock::now();
-    time_span = duration_cast<duration<double>>(t2 - t1);
-    printf("CPU lossless time: %.6f s\n", time_span.count());
+    if (handle.timing) {
+      t2 = high_resolution_clock::now();
+      time_span = duration_cast<duration<double>>(t2 - t1);
+      std::cout << log::log_time << "CPU lossless compression time: " << time_span.count() <<" s\n";
+    }
 
+    if (handle.timing) {
+      end = high_resolution_clock::now();
+      time_span = duration_cast<duration<double>>(end - start);
+      std::cout << log::log_time << "Overall compression time: " << time_span.count() <<" s (" <<
+        (double)(handle.dofs[0][0] * handle.dofs[1][0] *handle.linearized_depth
+            *sizeof(T))/time_span.count()/1e9 << " GB/s)\n";
+    }
+
+    if (handle.timing) t1 = high_resolution_clock::now();
     SIZE outsize = 0;
     outsize += sizeof(quant_meta<T>);
     outsize += sizeof(size_t) + cpu_lossless_size;
@@ -420,6 +428,11 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
     cudaMemcpyAsyncHelper(handle, buffer_p, cpu_lossless_data, cpu_lossless_size, AUTO, 0);
     buffer_p = buffer_p + cpu_lossless_size;
 
+    if (handle.timing) {
+      t2 = high_resolution_clock::now();
+      time_span = duration_cast<duration<double>>(t2 - t1);
+      std::cout << log::log_time << "Compressed data serialization time: " << time_span.count() <<" s\n";
+    }
 
     return compressed_array;
   }
@@ -445,18 +458,22 @@ Array<D, T> decompress(Handle<D, T> &handle,
   LENGTH *outlier_idx_d;
   QUANTIZED_INT *outliers;
 
+
+  
+
   void *data_p = compressed_array.get_dv(); //(void *)data;
   cudaMemcpyAsyncHelper(handle, &m, data_p, sizeof(quant_meta<T>), AUTO, 0);
   data_p = data_p + sizeof(quant_meta<T>);
 
   if (strcmp(m.signature, SIGNATURE) != 0) {
-    printf("Error: This data was not compressed with MGARD-CUDA or corrupted!\n");
+    std::cout << log::log_err << "This data was not compressed with MGARD-CUDA or corrupted!\n";
     exit(-1);
   }
 
   // printf("m.cpu_lossless: %d\n", m.cpu_lossless);
   if (m.gpu_lossless) {
     // printf("gpu lossless\n");
+    if (handle.timing) t1 = high_resolution_clock::now();
     void *lz4_hufmeta;
     size_t lz4_hufmeta_size;
     void *lz4_hufdata;
@@ -500,13 +517,19 @@ Array<D, T> decompress(Handle<D, T> &handle,
     // cudaMemGetInfo(&free, &total); printf("Mem: %f/%f\n",
     // (double)(total-free)/1e9, (double)total/1e9);
 
-    start = high_resolution_clock::now();
+    if (handle.timing) {
+      t2 = high_resolution_clock::now();
+      time_span = duration_cast<duration<double>>(t2 - t1);
+      std::cout << log::log_time << "Compressed data deserialization time: " << time_span.count() <<" s\n";
+    }
+
+    if (handle.timing) start = high_resolution_clock::now();
 
     if (m.enable_lz4) {
       if (!handle.enable_lz4)
-        printf("Warning: This data was compressed with LZ4, but handler is "
-               "configed to disable LZ4!\n");
-      t1 = high_resolution_clock::now();
+        std::cout << log::log_warn << "Warning: This data was compressed with LZ4, but handler is "
+               "configed to disable LZ4! Enabling LZ4 decompressor.\n";
+      if (handle.timing) t1 = high_resolution_clock::now();
 
       uint64_t *lz4_decompressed_hufdata;
       size_t lz4_decompressed_hufdata_size;
@@ -519,34 +542,34 @@ Array<D, T> decompress(Handle<D, T> &handle,
       hufdata_size = lz4_decompressed_hufdata_size;
       t2 = high_resolution_clock::now();
       time_span = duration_cast<duration<double>>(t2 - t1);
-      // printf("NVComp::LZ4 time: %.6f s \n", time_span.count());
-      // cudaMemGetInfo(&free, &total); printf("Mem: %f/%f\n",
-      // (double)(total-free)/1e9, (double)total/1e9);
+      if (handle.timing) {
+        std::cout << log::log_time << "NVComp::LZ4 decompression time: " << time_span.count() <<" s\n";
+      }
     }
 
-    
-    
-
-    t1 = high_resolution_clock::now();
+    if (handle.timing) t1 = high_resolution_clock::now();
     huffman_decompress<D, T, int, DIM, uint64_t>(
         handle, (uint64_t *)hufmeta, hufmeta_size, hufdata, hufdata_size, dqv,
         outsize, 0);
-    // printf("sync_all 7\n");
     handle.sync_all();
-    t2 = high_resolution_clock::now();
-    time_span = duration_cast<duration<double>>(t2 - t1);
-    // printf("Parallel Huffman time: %.6f s\n", time_span.count());
-
     cudaFreeHelper(hufmeta);
     cudaFreeHelper(hufdata);
+    if (handle.timing) {
+      t2 = high_resolution_clock::now();
+      time_span = duration_cast<duration<double>>(t2 - t1);
+      std::cout << log::log_time << "GPU Huffman decoding time: " << time_span.count() <<" s\n";
+    }
+
+    
     // cudaMemGetInfo(&free, &total); printf("Mem: %f/%f\n",
     // (double)(total-free)/1e9, (double)total/1e9);
 
   } else { //cpu lossless
     // printf("cpu lossless\n");
     if (handle.gpu_lossless)
-        printf("Warning: This data was compressed with CPU lossless compressors, but handler is "
-               "configed to use GPU lossless compressors!\n");
+        std::cout << log::log_warn <<  "This data was compressed with CPU lossless compressors, but handler is "
+               "configed to use GPU lossless compressors! Switching to GPU lossless decompressor.\n";
+    if (handle.timing) t1 = high_resolution_clock::now();
     unsigned char * cpu_lossless_data; // on GPU memory
     size_t cpu_lossless_size;
     cudaMemcpyAsyncHelper(handle, &cpu_lossless_size, data_p, sizeof(size_t), AUTO,
@@ -560,8 +583,14 @@ Array<D, T> decompress(Handle<D, T> &handle,
 
     cpu_lossless_decompression(handle, cpu_lossless_data, cpu_lossless_size,
     dqv, quantized_count);
+    if (handle.timing) {
+      t2 = high_resolution_clock::now();
+      time_span = duration_cast<duration<double>>(t2 - t1);
+      std::cout << log::log_time << "CPU lossless decompression time: " << time_span.count() <<" s\n";
+    }
   }
 
+  if (handle.timing) t1 = high_resolution_clock::now();
   thrust::device_vector<SIZE> ldqvs(handle.D_padded);
   ldqvs[0] = handle.dofs[0][0];
   for (int i = 1; i < handle.D_padded; i++) {
@@ -581,8 +610,6 @@ Array<D, T> decompress(Handle<D, T> &handle,
   // print_matrix_cuda(1, quantized_count, dqv, quantized_count);
 
   bool prep_huffman = m.gpu_lossless;
-
-  t1 = high_resolution_clock::now();
   levelwise_linear_dequantize<D, T>(handle, handle.ranges_d, handle.l_target, handle.volumes, handle.ldvolumes, m, dqv,
                                     thrust::raw_pointer_cast(ldqvs.data()),
                                     decompressed_data.get_dv(),
@@ -590,13 +617,16 @@ Array<D, T> decompress(Handle<D, T> &handle,
                                     outlier_count, outlier_idx_d, outliers, 0);
   // printf("sync_all 8\n");
   handle.sync_all();
-  t2 = high_resolution_clock::now();
-  time_span = duration_cast<duration<double>>(t2 - t1);
-  // printf("Dequantization time: %.6f s\n", time_span.count());
-
   cudaFreeHelper(dqv);
   cudaFreeHelper(outlier_idx_d);
   cudaFreeHelper(outliers);
+  if (handle.timing) {
+    t2 = high_resolution_clock::now();
+    time_span = duration_cast<duration<double>>(t2 - t1);
+    std::cout << log::log_time << "Dequantization time: " << time_span.count() <<" s\n";
+  }
+
+
 
   // cudaMemGetInfo(&free, &total);
   // printf("Mem: %f/%f\n", (double)(total-free)/1e9, (double)total/1e9);
@@ -617,7 +647,7 @@ Array<D, T> decompress(Handle<D, T> &handle,
   // cudaMemGetInfo(&free, &total); printf("Mem: %f/%f\n",
   // (double)(total-free)/1e9, (double)total/1e9);
 
-  t1 = high_resolution_clock::now();
+  if (handle.timing) t1 = high_resolution_clock::now();
   recompose<D, T>(handle, decompressed_data.get_dv(),
                   decompressed_data.get_ldvs_h(), decompressed_data.get_ldvs_d(), m.l_target, 0);
 
@@ -654,19 +684,23 @@ Array<D, T> decompress(Handle<D, T> &handle,
 
   // printf("sync_all 9\n");
   handle.sync_all();
-  t2 = high_resolution_clock::now();
-  time_span = duration_cast<duration<double>>(t2 - t1);
-  // printf("Recomposition time: %.6f s\n", time_span.count());
+  if (handle.timing) {
+    t2 = high_resolution_clock::now();
+    time_span = duration_cast<duration<double>>(t2 - t1);
+    std::cout << log::log_time << "Recomposition time: " << time_span.count() <<" s\n";
+  }
 
   handle.free_workspace();
 
   // printf("sync_all 10\n");
   handle.sync_all();
-  end = high_resolution_clock::now();
-  time_span = duration_cast<duration<double>>(end - start);
-  // printf("Overall decompression time: %.6f s (%.6f GB/s)\n",
-  // time_span.count(), (double)(handle.dofs[0][0] * handle.dofs[1][0]
-  // *handle.linearized_depth *sizeof(T))/time_span.count()/1e9);
+  if (handle.timing) {
+    end = high_resolution_clock::now();
+    time_span = duration_cast<duration<double>>(end - start);
+    std::cout << log::log_time << "Overall decompression time: " << time_span.count() <<" s (" <<
+              (double)(handle.dofs[0][0] * handle.dofs[1][0]
+      *handle.linearized_depth *sizeof(T))/time_span.count()/1e9 << " GB/s)\n";
+  }
 
   // cudaMemGetInfo(&free, &total); printf("Mem: %f/%f\n",
   // (double)(total-free)/1e9, (double)total/1e9);

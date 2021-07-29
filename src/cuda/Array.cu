@@ -21,7 +21,7 @@ Array<D, T>::Array(std::vector<SIZE> shape) {
   this->shape = shape;
   int ret = check_shape<D>(shape);
   if (ret == -1) {
-    std::cerr << log_err
+    std::cerr << log::log_err
               << "Number of dimensions mismatch. mgard_cuda::Array not "
                  "initialized!\n";
     return;
