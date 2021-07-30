@@ -29,7 +29,12 @@ struct Config {
     dev_id = 0;
     l_target = -1; // no limit
     huff_dict_size = 8192;
+#ifdef MGARD_CUDA_OPTIMIZE_TURING
     huff_block_size = 1024 * 30;
+#endif
+#ifdef MGARD_CUDA_OPTIMIZE_VOLTA
+    huff_block_size = 1024 * 20;
+#endif
     enable_lz4 = true;
     lz4_block_size = 1 << 15;
     gpu_lossless = true;

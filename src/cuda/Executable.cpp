@@ -206,11 +206,16 @@ int test(int D, char * input_file, enum data_type dtype, std::vector<mgard_cuda:
   mgard_cuda::Config config;
   config.gpu_lossless = true;
   config.huff_dict_size = 8192;
-  config.huff_block_size = 1024 * 30;
+#ifdef MGARD_CUDA_OPTIMIZE_TURING
+    config.huff_block_size = 1024 * 30;
+#endif
+#ifdef MGARD_CUDA_OPTIMIZE_VOLTA
+    config.huff_block_size = 1024 * 20;
+#endif  
   config.enable_lz4 = false;
   config.lz4_block_size = 1 << 15;
   config.reduce_memory_footprint = true;
-  config.sync_and_check_all_kernels = true;
+  config.sync_and_check_all_kernels = false;
   config.timing = true;
 
   unsigned char * compressed_data;
