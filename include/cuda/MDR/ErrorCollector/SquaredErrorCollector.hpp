@@ -2,7 +2,7 @@
 #define _MDR_SQUARED_ERROR_COLLECTOR_HPP
 
 #include "ErrorCollectorInterface.hpp"
-
+namespace mgard_cuda {
 namespace MDR {
     union FloatingInt32{
         float f;
@@ -13,7 +13,7 @@ namespace MDR {
         uint64_t i;
     };
     // s-norm error collector: collecting sum of squared errors
-    template<class T>
+    template<typename T>
     class SquaredErrorCollector : public concepts::ErrorCollectorInterface<T> {
     public:
         SquaredErrorCollector(){
@@ -67,5 +67,6 @@ namespace MDR {
             std::cout << "Squared error collector." << std::endl;
         }
     };
+}
 }
 #endif

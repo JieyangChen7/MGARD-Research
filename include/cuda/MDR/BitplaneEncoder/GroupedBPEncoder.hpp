@@ -3,12 +3,13 @@
 
 #include "BitplaneEncoderInterface.hpp"
 #include <string.h>
+namespace mgard_cuda {
 namespace MDR {
     // general bitplane encoder that encodes data by block using T_stream type buffer
-    template<class T_data, class T_stream>
-    class GroupedBPEncoder : public concepts::BitplaneEncoderInterface<T_data> {
+    template<DIM D, typename T_data, typename T_stream>
+    class GroupedBPEncoder : public concepts::BitplaneEncoderInterface<D, T_data> {
     public:
-        GroupedBPEncoder(){
+        GroupedBPEncoder(Handle<D, T_data> &handle): _handle(handle) {
             std::cout <<  "GroupedBPEncoder\n";
             static_assert(std::is_floating_point<T_data>::value, "GeneralBPEncoder: input data must be floating points.");
             static_assert(!std::is_same<T_data, long double>::value, "GeneralBPEncoder: long double is not supported.");
@@ -378,8 +379,10 @@ namespace MDR {
             return merged_array;
         }
 
+        Handle<D, T_data> &_handle;
         std::vector<std::vector<bool>> level_signs;
         std::vector<std::vector<uint8_t>> level_recording_bitplanes;
     };
+}
 }
 #endif

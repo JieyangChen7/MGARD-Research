@@ -4,7 +4,7 @@
 #include "LevelCompressorInterface.hpp"
 #include "LosslessCompressor.hpp"
 #include "../RefactorUtils.hpp"
-
+namespace mgard_cuda {
 namespace MDR {
     // compress all layers
     class DefaultLevelCompressor : public concepts::LevelCompressorInterface {
@@ -47,5 +47,6 @@ namespace MDR {
     private:
         std::vector<uint8_t*> buffer;
     };
+}
 }
 #endif

@@ -2,7 +2,7 @@
 #define _MDR_BASIC_REORGANIZER_HPP
 
 #include "ReorganizerInterface.hpp"
-
+namespace mgard_cuda {
 namespace MDR {
     // direct in-order bit-plane placement
     class InOrderReorganizer : public concepts::ReorganizerInterface {
@@ -65,5 +65,6 @@ namespace MDR {
             std::cout << "Round-robin reorganizer." << std::endl;
         }
     };
+}
 }
 #endif

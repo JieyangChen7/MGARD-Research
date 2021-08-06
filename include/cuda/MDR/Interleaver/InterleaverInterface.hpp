@@ -1,11 +1,11 @@
 #ifndef _MDR_INTERLEAVER_INTERFACE_HPP
 #define _MDR_INTERLEAVER_INTERFACE_HPP
-
+namespace mgard_cuda {
 namespace MDR {
     namespace concepts {
 
         // level data interleaver: interleave level coefficients
-        template<class T>
+        template<DIM D, typename T>
         class InterleaverInterface {
         public:
 
@@ -18,5 +18,6 @@ namespace MDR {
             virtual void print() const = 0;
         };
     }
+}
 }
 #endif

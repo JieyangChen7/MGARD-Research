@@ -46,15 +46,15 @@ Array<D, T> decompress(Handle<D, T> &handle,
 void compress(std::vector<SIZE> shape, data_type T,
                 double tol, double s, enum error_bound_type mode, 
                 const void * original_data, 
-                void * compressed_data, size_t &compressed_size, Config config);
+                void *& compressed_data, size_t &compressed_size, Config config, bool isAllocated);
 
-void decompress(std::vector<SIZE> shape, data_type T,
-                  const void * compressed_data, size_t compressed_size, 
-                  void * decompressed_data);
+void decompress(const void * compressed_data, size_t compressed_size, 
+                void *& decompressed_data, Config config, bool isAllocated);
 
 
-bool verify(data_type T, const void * compressed_data, size_t compressed_size);
-
+bool verify(const void * compressed_data, size_t compressed_size);
+enum data_type infer_type(const void * compressed_data, size_t compressed_size);
+std::vector<SIZE> infer_shape(const void * compressed_data, size_t compressed_size);
 } // namespace mgard_cuda
 
 #endif

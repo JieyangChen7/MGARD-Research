@@ -5,7 +5,7 @@
 #include <vector>
 #include <cmath>
 #include <ctime>
-
+namespace mgard_cuda {
 namespace MDR {
 
     // MDR utility functions
@@ -169,5 +169,6 @@ namespace MDR {
         struct timespec start_time, end_time;
     };
 
+}
 }
 #endif

@@ -52,13 +52,54 @@ T L_2_error(size_t n, T * original_data, T * decompressed_data) {
   return std::sqrt(error_L_2_norm);
 }
 
+template <typename T>
+T MSE(size_t n, T * original_data, T * decompressed_data) {
+  T mse = 0;
+  for (int i = 0; i < n; ++i) {
+    T temp = fabs(original_data[i] - decompressed_data[i]);
+    mse += temp * temp;
+  }
+  return mse / n;
+}
+
+template <typename T>
+T PSNR(size_t n, T * original_data, T * decompressed_data) {
+  T mse = MSE(n, original_data, decompressed_data);
+  T max = 0, min = std::numeric_limits<T>::max();
+  for (int i = 0; i < n; ++i) {
+    if (max < original_data[i]) max = original_data[i];
+    if (min > original_data[i]) min = original_data[i];
+  }
+  T range = max - min;
+  return 20*std::log10(range)-10*std::log10(mse);
+}
+
+
+
+  // double max = 0, min = std::numeric_limits<double>::max(), range = 0;
+  // double error_sum = 0, mse = 0, psnr = 0;
+  // for (int i = 0; i < num_double; ++i) {
+  //   if (max < in_buff[i]) max = in_buff[i];
+  //   if (min > in_buff[i]) min = in_buff[i];
+  //   double err = fabs(in_buff[i] - mgard_out_buff[i]);
+  //   error_sum += err * err;
+  // }
+  // range = max - min;
+  // mse = error_sum / num_double;
+  // psnr = 20*log::log10(range)-10*log::log10(mse);
+
 template float L_inf_norm<float>(size_t n, float * data);
 template double L_inf_norm<double>(size_t n, double * data);
 template float L_2_norm<float>(size_t n, float * data);
 template double L_2_norm<double>(size_t n, double * data);
 
+
 template float L_inf_error<float>(size_t n, float * original_data, float * decompressed_data);
 template double L_inf_error<double>(size_t n, double * original_data, double * decompressed_data);
 template float L_2_error<float>(size_t n, float * original_data, float * decompressed_data);
 template double L_2_error<double>(size_t n, double * original_data, double * decompressed_data);
+template float MSE<float>(size_t n, float * original_data, float * decompressed_data);
+template double MSE<double>(size_t n, double * original_data, double * decompressed_data);
+template float PSNR<float>(size_t n, float * original_data, float * decompressed_data);
+template double PSNR<double>(size_t n, double * original_data, double * decompressed_data);
 }

@@ -3,10 +3,10 @@
 
 #include "SizeInterpreterInterface.hpp"
 #include <queue>
-#include "RefactorUtils.hpp"
+#include "../RefactorUtils.hpp"
 
 // inorder and round-robin size interpreter
-
+namespace mgard_cuda {
 namespace MDR {
     struct UnitErrorGain{
         double unit_error_gain;
@@ -247,5 +247,6 @@ namespace MDR {
         ErrorEstimator error_estimator;
     };
 
+}
 }
 #endif

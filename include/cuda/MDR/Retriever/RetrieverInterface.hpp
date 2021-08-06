@@ -2,7 +2,7 @@
 #define _MDR_RETRIEVER_INTERFACE_HPP
 
 #include <cassert>
-
+namespace mgard_cuda {
 namespace MDR {
     namespace concepts {
 
@@ -21,5 +21,6 @@ namespace MDR {
             virtual void print() const = 0;
         };
     }
+}
 }
 #endif

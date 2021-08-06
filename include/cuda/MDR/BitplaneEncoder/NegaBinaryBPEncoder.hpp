@@ -2,13 +2,13 @@
 #define _MDR_NEGABINARY_BP_ENCODER_HPP
 
 #include "BitplaneEncoderInterface.hpp"
-
+namespace mgard_cuda {
 namespace MDR {
     // general bitplane encoder that encodes data by block using T_stream type buffer
-    template<class T_data, class T_stream>
-    class NegaBinaryBPEncoder : public concepts::BitplaneEncoderInterface<T_data> {
+    template<DIM D, typename T_data, typename T_stream>
+    class NegaBinaryBPEncoder : public concepts::BitplaneEncoderInterface<D, T_data> {
     public:
-        NegaBinaryBPEncoder(){
+        NegaBinaryBPEncoder(Handle<D, T_data> &handle): _handle(handle) {
             std::cout <<  "NegaBinaryBPEncoder\n";
             static_assert(std::is_floating_point<T_data>::value, "NegaBinaryBPEncoder: input data must be floating points.");
             static_assert(!std::is_same<T_data, long double>::value, "NegaBinaryBPEncoder: long double is not supported.");
@@ -260,6 +260,9 @@ namespace MDR {
                 }
             }
         }
+
+        Handle<D, T_data> &_handle;
     };
+}
 }
 #endif

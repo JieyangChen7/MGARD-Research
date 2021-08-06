@@ -22,6 +22,12 @@ T L_inf_error(size_t n, T * original_data, T * decompressed_data);
 template <typename T>
 T L_2_error(size_t n, T * original_data, T * decompressed_data);
 
+template <typename T>
+T MSE(size_t n, T * original_data, T * decompressed_data);
+
+template <typename T>
+T PSNR(size_t n, T * original_data, T * decompressed_data);
+
 }
 
 #endif

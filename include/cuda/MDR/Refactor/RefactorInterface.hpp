@@ -1,11 +1,11 @@
 #ifndef _MDR_REFACTOR_INTERFACE_HPP
 #define _MDR_REFACTOR_INTERFACE_HPP
-
+namespace mgard_cuda {
 namespace MDR {
     namespace concepts {
 
         // refactor: a general interface for scnetific data refactor
-        template<class T>
+        template<typename T>
         class RefactorInterface {
         public:
 
@@ -18,5 +18,6 @@ namespace MDR {
             virtual void print() const = 0;
         };
     }
+}
 }
 #endif

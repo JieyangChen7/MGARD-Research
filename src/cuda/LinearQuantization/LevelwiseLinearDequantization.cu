@@ -14,7 +14,7 @@ namespace mgard_cuda {
 
 #define KERNELS(D, T)                                                          \
   template void levelwise_linear_dequantize<D, T>(                             \
-      Handle<D, T> & handle, SIZE *shapes, SIZE l_target, T * volumes, SIZE ldvolumes, quant_meta<T> m,       \
+      Handle<D, T> & handle, SIZE *shapes, SIZE l_target, T * volumes, SIZE ldvolumes, Metadata m,       \
       QUANTIZED_INT *dv, SIZE *ldvs, T *dwork, SIZE *ldws, bool prep_huffman, LENGTH outlier_count,           \
       LENGTH *outlier_idx, QUANTIZED_INT *outliers, int queue_idx);
 

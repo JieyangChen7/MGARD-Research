@@ -1,6 +1,6 @@
 #ifndef _MDR_LEVEL_COMPRESSOR_INTERFACE_HPP
 #define _MDR_LEVEL_COMPRESSOR_INTERFACE_HPP
-
+namespace mgard_cuda {
 namespace MDR {
     namespace concepts {
 
@@ -22,5 +22,6 @@ namespace MDR {
             virtual void print() const = 0;
         };
     }
+}
 }
 #endif

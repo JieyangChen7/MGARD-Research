@@ -3,6 +3,7 @@
 
 #include "BitplaneEncoderInterface.hpp"
 #include <bitset>
+namespace mgard_cuda {
 namespace MDR {
     class BitEncoder
     {
@@ -70,10 +71,10 @@ namespace MDR {
 
     #define PER_BIT_BLOCK_SIZE 1
     // per bit bitplane encoder that encodes data by bit using T_stream type buffer
-    template<class T_data, class T_stream>
-    class PerBitBPEncoderGPU : public concepts::BitplaneEncoderInterface<T_data> {
+    template<DIM D, typename T_data, typename T_stream>
+    class PerBitBPEncoderGPU : public concepts::BitplaneEncoderInterface<D, T_data> {
     public:
-        PerBitBPEncoderGPU(){
+        PerBitBPEncoderGPU(Handle<D, T_data> &handle): _handle(handle) {
             std::cout <<  "PerBitBPEncoder\n";
             static_assert(std::is_floating_point<T_data>::value, "PerBitBPEncoderGPU: input data must be floating points.");
             static_assert(!std::is_same<T_data, long double>::value, "PerBitBPEncoderGPU: long double is not supported.");
@@ -81,8 +82,6 @@ namespace MDR {
             static_assert(std::is_integral<T_stream>::value, "PerBitBPEncoderGPU: streams must be unsigned integers.");
         }
 
-        template<typename T, mgard_cuda::SIZE B>
-        __global__ void _PerBitBPEncoder
 
         std::vector<uint8_t *> encode(T_data const * data, int32_t n, int32_t exp, uint8_t num_bitplanes, std::vector<uint32_t>& stream_sizes) const {
             
@@ -410,8 +409,10 @@ namespace MDR {
             }
             level_errors[0] += data * data;
         }
+        Handle<D, T_data> _handle;
         std::vector<std::vector<bool>> level_signs;
         std::vector<std::vector<bool>> sign_flags;
     };
+}
 }
 #endif

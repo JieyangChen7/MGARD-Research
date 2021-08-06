@@ -1,11 +1,11 @@
 #ifndef _MDR_RECONSTRUCTOR_INTERFACE_HPP
 #define _MDR_RECONSTRUCTOR_INTERFACE_HPP
-
+namespace mgard_cuda {
 namespace MDR {
     namespace concepts {
 
         // reconstructor: a general interface for scientific data reconstructor
-        template<class T>
+        template<typename T>
         class ReconstructorInterface {
         public:
 
@@ -20,5 +20,6 @@ namespace MDR {
             virtual void print() const = 0;
         };
     }
+}
 }
 #endif

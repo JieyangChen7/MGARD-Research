@@ -1,11 +1,13 @@
 #ifndef _MDR_DECOMPOSER_INTERFACE_HPP
 #define _MDR_DECOMPOSER_INTERFACE_HPP
+#include "../../Common.h"
+namespace mgard_cuda {
 
 namespace MDR {
     namespace concepts {
 
         // inplace data decomposer: de-correlates and overwrites original data
-        template<class T>
+        template<DIM D, typename T>
         class DecomposerInterface {
         public:
 
@@ -18,5 +20,6 @@ namespace MDR {
             virtual void print() const = 0;
         };
     }
+}
 }
 #endif

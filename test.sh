@@ -94,9 +94,9 @@ test_group_l_inf () {
    # $EXEC random $1 3 10000 80 80 $2 0.001 inf $3
    # $EXEC random $1 3 64 5 12 $2 0.00001 inf $3
    # $EXEC random $1 5 5 5 5 5 5 $2 0.0001 0 $3
-   $EXEC random $1 4 10 100 10 100 $2 0.1 inf $3
+   # $EXEC random $1 4 10 100 10 100 $2 0.1 inf $3
 
-   # $EXEC random $1 4 70 50 10 30 $2 0.1 inf $3
+   $EXEC random $1 2 5 5 $2 0.1 inf $3
 
    #NO TEST YET
    # $BIN_DOUBLE 0 5 5 5 5 5 5 0.000001 0 1
@@ -107,8 +107,13 @@ test_group_l_inf () {
 # DATA=../../512x512x512/velocity_x.dat
 # $EXEC $DATA s 3 512 512 512 abs 1e5 inf gpu
 DATA=$HOME/dev/data/d3d_coarse_v2_700.bin
-XGC_4D="$EXEC $DATA d 4 8 39 16395 39 abs 1e15 inf gpu"
-XGC_3D="$EXEC $DATA d 3 312 16395 39 abs 1e15 inf gpu"
+XGC_4D="$EXEC $DATA $DATA.mgard $DATA.out d 4 8 39 16395 39 abs $1 0 gpu"
+XGC_3D="$EXEC $DATA $DATA.mgard $DATA.out d 3 312 16395 39 abs $1 0 gpu"
+XGC_4D_CPU="$EXEC $DATA $DATA.mgard $DATA.out d 4 8 39 16395 39 abs $1 0 cpu"
+XGC_3D_CPU="$EXEC $DATA $DATA.mgard $DATA.out d 3 312 16395 39 abs $1 0 cpu"
+
+XGC_3D="$EXEC $DATA $DATA.mgard $DATA.out d 3 39 16395 39 abs $1 0 gpu"
+XGC_3D_CPU="$EXEC $DATA $DATA.mgard $DATA.out d 3 39 16395 39 abs $1 0 cpu"
 # BIN="$EXEC random d 3 10 5 5 rel 0.00001 inf gpu"
 # BIN2="$EXEC random d 3 10 5 5 rel 0.0001 inf gpu"
 # BIN3="$EXEC random d 3 10 5 5 rel 0.001 inf gpu"
@@ -121,7 +126,9 @@ XGC_3D="$EXEC $DATA d 3 312 16395 39 abs 1e15 inf gpu"
 # DATA=/home/jieyang/dev/data/enst.dat
 
 $XGC_4D
-$XGC_3D
+# $XGC_3D
+# $XGC_4D_CPU
+# $XGC_3D_CPU
 # $BIN
 # $BIN2
 # $BIN3

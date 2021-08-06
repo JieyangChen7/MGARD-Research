@@ -2,13 +2,13 @@
 #define _MDR_BLOCKED_INTERLEAVER_HPP
 
 #include "InterleaverInterface.hpp"
-
+namespace mgard_cuda {
 namespace MDR {
     // direct interleaver with in-order recording
-    template<class T>
-    class BlockedInterleaver : public concepts::InterleaverInterface<T> {
+    template<DIM D, typename T>
+    class BlockedInterleaver : public concepts::InterleaverInterface<D, T> {
     public:
-        BlockedInterleaver(){}
+        BlockedInterleaver(Handle<D, T> &handle): _handle(handle) {}
         void interleave(T const * data, const std::vector<uint32_t>& dims, const std::vector<uint32_t>& dims_fine, const std::vector<uint32_t>& dims_coasre, T * buffer) const {
             size_t n1_nodal = dims_coasre[0];
             size_t n2_nodal = dims_coasre[1];
@@ -141,6 +141,9 @@ namespace MDR {
             }
             return index;
         }
+
+        Handle<D, T> &_handle;
     };
+}
 }
 #endif

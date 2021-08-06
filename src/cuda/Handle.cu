@@ -320,74 +320,18 @@ void Handle<D, T>::init(std::vector<SIZE> shape, std::vector<T *> coords,
     cudaMallocHelper(*this, (void **)&curr_dratio0, dofs[i][0] * sizeof(T));
     curr_ddist_l.push_back(curr_ddist0);
     curr_dratio_l.push_back(curr_dratio0);
-
-    // calc_cpt_dist(*this, dofs[i][0], this->coords[i], curr_ddist_l[0], 0);
     coord_to_dist(dofs[i][0], this->coords[i], curr_ddist_l[0]);
-
-    // dist_to_ratio(*this, last_dist, curr_ddist_l[0], curr_dratio_l[0], 0);
     dist_to_ratio(dofs[i][0], curr_ddist_l[0], curr_dratio_l[0]);
-
-    // if (dofs[i][0] % 2 == 0) {
-    //   // padding
-    //   T temp_dist = 0;
-    //   cudaMemcpyAsyncHelper(*this, &temp_dist,
-    //                         curr_ddist_l[0] + dofs[i][0] - 2, sizeof(T),
-    //                         mgard_cuda::AUTO, 0);
-    //   temp_dist /= 2.0;
-    //   cudaMemcpyAsyncHelper(*this, curr_ddist_l[0] + dofs[i][0] - 2,
-    //                         &temp_dist, sizeof(T),
-    //                         mgard_cuda::AUTO, 0);
-    //   cudaMemcpyAsyncHelper(*this, curr_ddist_l[0] + dofs[i][0] - 1,
-    //                         &temp_dist, sizeof(T),
-    //                         mgard_cuda::AUTO, 0);
-    //   last_dist += 1;
-
-    //   T extra_ratio = 0.5;
-    //   cudaMemcpyAsyncHelper(*this, curr_dratio_l[0] + dofs[i][0] - 2,
-    //                         &extra_ratio, sizeof(T), mgard_cuda::H2D, 0);
-    // }
 
     // for l = 1 ... l_target
     for (int l = 1; l < l_target + 1; l++) {
       T *curr_ddist, *curr_dratio;
       cudaMallocHelper(*this, (void **)&curr_ddist, dofs[i][l] * sizeof(T));
       cudaMallocHelper(*this, (void **)&curr_dratio, dofs[i][l] * sizeof(T));
-      // cudaMemsetHelper((void **)&curr_ddist, dofs[i][0] * sizeof(T), 0);
-      // cudaMemsetHelper((void **)&curr_dratio, dofs[i][0] * sizeof(T), 0);
       curr_ddist_l.push_back(curr_ddist);
       curr_dratio_l.push_back(curr_dratio);
-      // reduce_two_dist(*this, last_dist, curr_ddist_l[l - 1], curr_ddist_l[l],
-      //                 0);
       reduce_dist(dofs[i][l-1], curr_ddist_l[l - 1], curr_ddist_l[l]);
-
-
-      // last_dist /= 2;
-      // // dist_to_ratio(*this, last_dist, curr_ddist_l[l], curr_dratio_l[l], 0);
       dist_to_ratio(dofs[i][l], curr_ddist_l[l], curr_dratio_l[l]);
-
-      // // printf("last_dist: %d\n", last_dist);
-      // if (last_dist != 1 && last_dist % 2 != 0) {
-      //   T temp_dist = 0;
-      //   cudaMemcpyAsyncHelper(*this, &temp_dist,
-      //                         curr_ddist_l[l] + last_dist - 1, sizeof(T),
-      //                         mgard_cuda::AUTO, 0);
-      //   temp_dist /= 2.0;
-      //   cudaMemcpyAsyncHelper(*this, curr_ddist_l[l] + last_dist - 1,
-      //                         &temp_dist, sizeof(T),
-      //                         mgard_cuda::AUTO, 0);
-      //   cudaMemcpyAsyncHelper(*this, curr_ddist_l[l] + last_dist,
-      //                         &temp_dist, sizeof(T),
-      //                         mgard_cuda::AUTO, 0);
-
-      //   // cudaMemcpyAsyncHelper(*this, curr_ddist_l[l] + last_dist,
-      //   //                       curr_ddist_l[l] + last_dist - 1, sizeof(T),
-      //   //                       mgard_cuda::D2D, 0);
-      //   last_dist += 1;
-
-      //   T extra_ratio = 0.5;
-      //   cudaMemcpyAsyncHelper(*this, curr_dratio_l[l] + last_dist - 2,
-      //                         &extra_ratio, sizeof(T), mgard_cuda::H2D, 0);
-      // }
     }
     dist.push_back(curr_ddist_l);
     ratio.push_back(curr_dratio_l);
@@ -405,26 +349,16 @@ void Handle<D, T>::init(std::vector<SIZE> shape, std::vector<T *> coords,
 
   //volume for quantization
   SIZE volumes_width = 0;
-  
   for (int d = 0; d < D; d++) {
     volumes_width = std::max(volumes_width, dofs[d][0]); 
   }
-  // cudaMallocHelper(*this, (void**)&volumes, volumes_size*sizeof(T));
   size_t volumes_pitch;
   cudaMallocPitchHelper(*this, (void**)&volumes, &volumes_pitch, volumes_width * sizeof(T),
                            D * (l_target+1));
   ldvolumes = (SIZE)volumes_pitch / sizeof(T);
-
   for (int d = 0; d < D; d++) {
     for (int l = 0; l < l_target + 1; l++) {
-      // if (l < l_target) {
-        // dist_to_volume(*this, dofs[d][l], dist[d][l], volumes+ldvolumes*(d*(l_target + 1) + (l_target-l)),
-        //              0);
-        calc_volume(dofs[d][l], dist[d][l], volumes+ldvolumes*(d*(l_target + 1) + (l_target-l)));
-      // } else {
-      //   dist_to_volume(*this, 2, dist[d][l], volumes+ldvolumes*(d*(l_target + 1) + (l_target-l)),
-      //                0);
-      // }
+      calc_volume(dofs[d][l], dist[d][l], volumes+ldvolumes*(d*(l_target + 1) + (l_target-l)));
     }
   }
 
@@ -439,10 +373,8 @@ void Handle<D, T>::init(std::vector<SIZE> shape, std::vector<T *> coords,
       cudaMallocHelper(*this, (void **)&curr_bm, (dofs[i][l]+1) * sizeof(T));
       cudaMemsetHelper((void **)&curr_am, (dofs[i][l]+1) * sizeof(T), 0);
       cudaMemsetHelper((void **)&curr_bm, (dofs[i][l]+1) * sizeof(T), 0);
-
       curr_am_l.push_back(curr_am);
       curr_bm_l.push_back(curr_bm);
-      // calc_am_bm(*this, dofs[i][l], dist[i][l], curr_am_l[l], curr_bm_l[l], 0);
       calc_am_bm(dofs[i][l], dist[i][l], curr_am_l[l], curr_bm_l[l]);
       // printf("d: %d, l: %d\n", i, l);
       // printf("am: ");
@@ -452,7 +384,6 @@ void Handle<D, T>::init(std::vector<SIZE> shape, std::vector<T *> coords,
     }
     am.push_back(curr_am_l);
     bm.push_back(curr_bm_l);
-    
   }
 
 

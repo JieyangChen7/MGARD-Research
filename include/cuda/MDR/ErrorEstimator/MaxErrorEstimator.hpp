@@ -2,7 +2,7 @@
 #define _MDR_MAX_ERROR_ESTIMATOR_HPP
 
 #include "ErrorEstimatorInterface.hpp"
-
+namespace mgard_cuda {
 namespace MDR {
     template<class T>
     class MaxErrorEstimator : public concepts::ErrorEstimatorInterface<T>{
@@ -66,5 +66,6 @@ namespace MDR {
             std::cout << "Max absolute error estimator for hierarchical basis." << std::endl;
         }
     };
+}
 }
 #endif

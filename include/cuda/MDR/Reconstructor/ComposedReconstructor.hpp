@@ -2,19 +2,19 @@
 #define _MDR_COMPOSED_RECONSTRUCTOR_HPP
 
 #include "ReconstructorInterface.hpp"
-#include "Decomposer/Decomposer.hpp"
-#include "Interleaver/Interleaver.hpp"
-#include "BitplaneEncoder/BitplaneEncoder.hpp"
-#include "Retriever/Retriever.hpp"
-#include "ErrorEstimator/ErrorEstimator.hpp"
-#include "ErrorCollector/ErrorCollector.hpp"
-#include "SizeInterpreter/SizeInterpreter.hpp"
-#include "LosslessCompressor/LevelCompressor.hpp"
-#include "RefactorUtils.hpp"
-
+#include "../Decomposer/Decomposer.hpp"
+#include "../Interleaver/Interleaver.hpp"
+#include "../BitplaneEncoder/BitplaneEncoder.hpp"
+#include "../Retriever/Retriever.hpp"
+#include "../ErrorEstimator/ErrorEstimator.hpp"
+#include "../ErrorCollector/ErrorCollector.hpp"
+#include "../SizeInterpreter/SizeInterpreter.hpp"
+#include "../LosslessCompressor/LevelCompressor.hpp"
+#include "../RefactorUtils.hpp"
+namespace mgard_cuda {
 namespace MDR {
     // a decomposition-based scientific data reconstructor: inverse operator of composed refactor
-    template<class T, class Decomposer, class Interleaver, class Encoder, class Compressor, class SizeInterpreter, class ErrorEstimator, class Retriever>
+    template<typename T, class Decomposer, class Interleaver, class Encoder, class Compressor, class SizeInterpreter, class ErrorEstimator, class Retriever>
     class ComposedReconstructor : public concepts::ReconstructorInterface<T> {
     public:
         ComposedReconstructor(Decomposer decomposer, Interleaver interleaver, Encoder encoder, Compressor compressor, SizeInterpreter interpreter, Retriever retriever)
@@ -181,6 +181,7 @@ namespace MDR {
         std::vector<uint32_t> level_num;
         std::vector<std::vector<double>> level_squared_errors;
     };
+}
 }
 #endif
 

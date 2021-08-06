@@ -15,7 +15,7 @@
 namespace mgard_cuda {
 
 template <DIM D, typename T>
-void calc_quantizers(Handle<D, T> &handle, T *quantizers, T norm, T tol, T s, SIZE l_target,
+void calc_quantizers(Handle<D, T> &handle, T *quantizers, double norm, double tol, double s, SIZE l_target,
                      bool reciprocal) {
 
 
@@ -93,7 +93,7 @@ void calc_quantizers(Handle<D, T> &handle, T *quantizers, T norm, T tol, T s, SI
     // }
 
     //ben - uniform
-  //   printf("quantizers: ");
+    // printf("quantizers: ");
 
 
     size_t dof = 1;
@@ -106,7 +106,7 @@ void calc_quantizers(Handle<D, T> &handle, T *quantizers, T norm, T tol, T s, SI
 
       // printf("l %d, vol: %f quantizer: %f \n", l, std::pow(2, (l_target - l) * D), quantizers[l]);
 
-      // printf("tol: %f quant: %f ", tol, quantizers[l]);
+      // printf("tol: %f quant: %e \n", tol, quantizers[l]);
       if (reciprocal)
         quantizers[l] = 1.0f / quantizers[l];
     }
@@ -345,7 +345,7 @@ _levelwise_linear_quantize(SIZE *shapes, SIZE l_target, T *quantizers, T * volum
 template <DIM D, typename T, int R, int C, int F>
 void levelwise_linear_quantize_adaptive_launcher(
     Handle<D, T> &handle, SIZE *shapes, SIZE l_target, T * volumes, SIZE ldvolumes, 
-    quant_meta<T> m, T *dv,
+    Metadata m, T *dv,
     SIZE *ldvs, QUANTIZED_INT *dwork, SIZE *ldws, bool prep_huffmam, SIZE *shape,
     LENGTH *outlier_count, LENGTH *outlier_idx, QUANTIZED_INT *outliers,
     int queue_idx) {
@@ -410,7 +410,7 @@ void levelwise_linear_quantize_adaptive_launcher(
 template <DIM D, typename T>
 void levelwise_linear_quantize(Handle<D, T> &handle, SIZE *shapes, SIZE l_target, 
                                T * volumes, SIZE ldvolumes, 
-                               quant_meta<T> m, T *dv, SIZE *ldvs, QUANTIZED_INT *dwork,
+                               Metadata m, T *dv, SIZE *ldvs, QUANTIZED_INT *dwork,
                                SIZE *ldws, bool prep_huffmam, SIZE *shape,
                                LENGTH *outlier_count, LENGTH *outlier_idx,
                                QUANTIZED_INT *outliers, int queue_idx) {
@@ -746,7 +746,7 @@ __global__ void _levelwise_linear_dequantize_outliers(
 
 template <DIM D, typename T, int R, int C, int F>
 void levelwise_linear_dequantize_adaptive_launcher(
-    Handle<D, T> &handle, SIZE *shapes, SIZE l_target, T * volumes, SIZE ldvolumes, quant_meta<T> m, QUANTIZED_INT *dv,
+    Handle<D, T> &handle, SIZE *shapes, SIZE l_target, T * volumes, SIZE ldvolumes, Metadata m, QUANTIZED_INT *dv,
     SIZE *ldvs, T *dwork, SIZE *ldws, bool prep_huffman, LENGTH outlier_count,
     LENGTH *outlier_idx, QUANTIZED_INT *outliers, int queue_idx) {
 
@@ -818,7 +818,7 @@ void levelwise_linear_dequantize_adaptive_launcher(
 
 template <DIM D, typename T>
 void levelwise_linear_dequantize(Handle<D, T> &handle, SIZE *shapes,
-                                 SIZE l_target, T * volumes, SIZE ldvolumes, quant_meta<T> m, QUANTIZED_INT *dv,
+                                 SIZE l_target, T * volumes, SIZE ldvolumes, Metadata m, QUANTIZED_INT *dv,
                                  SIZE *ldvs, T *dwork, SIZE *ldws, bool prep_huffmam,
                                  LENGTH outlier_count,
                                  LENGTH *outlier_idx, QUANTIZED_INT *outliers,

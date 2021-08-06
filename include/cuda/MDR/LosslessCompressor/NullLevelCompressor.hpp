@@ -2,7 +2,7 @@
 #define _MDR_NULL_LEVEL_COMPRESSOR_HPP
 
 #include "LevelCompressorInterface.hpp"
-
+namespace mgard_cuda {
 namespace MDR {
     // Null lossless compressor
     class NullLevelCompressor : public concepts::LevelCompressorInterface {
@@ -15,5 +15,6 @@ namespace MDR {
             std::cout << "Null level compressor" << std::endl;
         }
     };
+}
 }
 #endif

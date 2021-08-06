@@ -23,7 +23,7 @@ void evaluate(const vector<T>& data, const vector<uint32_t>& dims, int target_le
 
 template <class T, class Decomposer, class Interleaver, class Encoder, class Compressor, class ErrorCollector, class Writer>
 void test(string filename, const vector<uint32_t>& dims, int target_level, int num_bitplanes, Decomposer decomposer, Interleaver interleaver, Encoder encoder, Compressor compressor, ErrorCollector collector, Writer writer){
-    auto refactor = MDR::ComposedRefactor<T, Decomposer, Interleaver, Encoder, Compressor, ErrorCollector, Writer>(decomposer, interleaver, encoder, compressor, collector, writer);
+    auto refactor = mgard_cuda::MDR::ComposedRefactor<T, Decomposer, Interleaver, Encoder, Compressor, ErrorCollector, Writer>(decomposer, interleaver, encoder, compressor, collector, writer);
     size_t num_elements = 1;
     
     FILE *pFile;
@@ -63,19 +63,21 @@ int main(int argc, char ** argv){
         num_bitplanes = 32;
         std::cout << "Only less than 32 bitplanes are supported for single-precision floating point" << std::endl;
     }
-    auto decomposer = MDR::MGARDOrthoganalDecomposer<T>();
+    const mgard_cuda::DIM D = 1;
+    mgard_cuda::Handle<D, T> handle;
+    auto decomposer = mgard_cuda::MDR::MGARDOrthoganalDecomposer<D, T>(handle);
     // auto decomposer = MDR::MGARDHierarchicalDecomposer<T>();
-    auto interleaver = MDR::DirectInterleaver<T>();
+    auto interleaver = mgard_cuda::MDR::DirectInterleaver<D, T>(handle);
     // auto interleaver = MDR::SFCInterleaver<T>();
     // auto interleaver = MDR::BlockedInterleaver<T>();
     // auto encoder = MDR::GroupedBPEncoder<T, T_stream>();
     // auto encoder = MDR::NegaBinaryBPEncoder<T, T_stream>();
-    auto encoder = MDR::PerBitBPEncoder<T, T_stream>();
+    auto encoder = mgard_cuda::MDR::PerBitBPEncoder<D, T, T_stream>(handle);
     // auto compressor = MDR::DefaultLevelCompressor();
-    auto compressor = MDR::AdaptiveLevelCompressor(32);
+    auto compressor = mgard_cuda::MDR::AdaptiveLevelCompressor(32);
     // auto compressor = MDR::NullLevelCompressor();
-    auto collector = MDR::SquaredErrorCollector<T>();
-    auto writer = MDR::ConcatLevelFileWriter(metadata_file, files);
+    auto collector = mgard_cuda::MDR::SquaredErrorCollector<T>();
+    auto writer = mgard_cuda::MDR::ConcatLevelFileWriter(metadata_file, files);
     // auto writer = MDR::HPSSFileWriter(metadata_file, files, 2048, 512 * 1024 * 1024);
 
     test<T>(filename, dims, target_level, num_bitplanes, decomposer, interleaver, encoder, compressor, collector, writer);

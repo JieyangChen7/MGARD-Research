@@ -3,7 +3,7 @@
 
 #include "LevelCompressorInterface.hpp"
 #include "LosslessCompressor.hpp"
-
+namespace mgard_cuda {
 namespace MDR {
     #define CR_THRESHOLD 1.05
     // compress all layers
@@ -63,5 +63,6 @@ namespace MDR {
         int latter_index;
         std::vector<uint8_t*> buffer;
     };
+}
 }
 #endif

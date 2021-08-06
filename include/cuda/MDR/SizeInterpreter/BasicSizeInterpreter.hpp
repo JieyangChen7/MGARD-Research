@@ -4,7 +4,7 @@
 #include "SizeInterpreterInterface.hpp"
 
 // inorder and round-robin size interpreter
-
+namespace mgard_cuda {
 namespace MDR {
     // direct in-order bit-plane retrieval
     template<class ErrorEstimator>
@@ -110,5 +110,6 @@ namespace MDR {
     private:
         ErrorEstimator error_estimator;
     };
+}
 }
 #endif

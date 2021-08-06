@@ -18,8 +18,7 @@
 #define ADD 1
 #define SUBTRACT 2
 
-#define SIGNATURE_SIZE 16
-#define SIGNATURE "MGARD_CUDA_V010"
+
 
 #include <algorithm>
 #include <cstdio>
@@ -29,7 +28,7 @@
 #include <thrust/host_vector.h>
 
 #include "Common.h"
-
+#include "Metadata.h"
 
 
 
@@ -54,16 +53,19 @@ inline void gpuAssert(cudaError_t code, const char *file, int line,
 
 namespace mgard_cuda {
 
-template <typename T> struct quant_meta {
-  char signature[SIGNATURE_SIZE] = SIGNATURE;
-  SIZE l_target;
-  bool gpu_lossless;
-  bool enable_lz4;
-  SIZE dict_size;
-  T norm;
-  T tol;
-  T s;
-};
+// template <DIM D, typename T> struct Metadata {
+//   char signature[SIGNATURE_SIZE] = SIGNATURE;
+//   enum data_type dtype;
+//   DIM total_dims = D;
+//   SIZE shape[D];
+//   SIZE l_target;
+//   bool gpu_lossless;
+//   bool enable_lz4;
+//   SIZE dict_size;
+//   T norm;
+//   T tol;
+//   T s;
+// };
 
 template <DIM D> int check_shape(std::vector<SIZE> shape);
 

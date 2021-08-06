@@ -1,11 +1,11 @@
 #ifndef _MDR_ERROR_COLLECTOR_INTERFACE_HPP
 #define _MDR_ERROR_COLLECTOR_INTERFACE_HPP
-
+namespace mgard_cuda {
 namespace MDR {
     namespace concepts {
 
         // Error estimator: estimate impact of level errors on the final error
-        template<class T>
+        template<typename T>
         class ErrorCollectorInterface {
         public:
 
@@ -16,5 +16,6 @@ namespace MDR {
             virtual void print() const = 0;
         };
     }
+}
 }
 #endif

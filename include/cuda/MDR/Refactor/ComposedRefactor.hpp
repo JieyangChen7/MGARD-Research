@@ -11,10 +11,10 @@
 #include "../RefactorUtils.hpp"
 #include <algorithm>
 #include <iostream>
-
+namespace mgard_cuda {
 namespace MDR {
     // a decomposition-based scientific data refactor: compose a refactor using decomposer, interleaver, encoder, and error collector
-    template<class T, class Decomposer, class Interleaver, class Encoder, class Compressor, class ErrorCollector, class Writer>
+    template<typename T, class Decomposer, class Interleaver, class Encoder, class Compressor, class ErrorCollector, class Writer>
     class ComposedRefactor : public concepts::RefactorInterface<T> {
     public:
         ComposedRefactor(Decomposer decomposer, Interleaver interleaver, Encoder encoder, Compressor compressor, ErrorCollector collector, Writer writer)
@@ -154,6 +154,7 @@ namespace MDR {
         std::vector<uint32_t> level_num;
         std::vector<std::vector<double>> level_squared_errors;
     };
+}
 }
 #endif
 

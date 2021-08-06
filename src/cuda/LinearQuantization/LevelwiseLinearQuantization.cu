@@ -14,7 +14,7 @@ namespace mgard_cuda {
 
 #define KERNELS(D, T)                                                          \
   template void levelwise_linear_quantize<D, T>(                               \
-      Handle<D, T> & handle, SIZE *shapes, SIZE l_target, T * volumes, SIZE ldvolumes, quant_meta<T> m,       \
+      Handle<D, T> & handle, SIZE *shapes, SIZE l_target, T * volumes, SIZE ldvolumes, Metadata m,       \
       T *dv, SIZE *ldvs,\ 
          int *dwork,                                                           \
       SIZE *ldws,\ 

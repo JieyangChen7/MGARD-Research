@@ -3,7 +3,7 @@
 
 #include "RetrieverInterface.hpp"
 #include <cstdio>
-
+namespace mgard_cuda {
 namespace MDR {
     // Data retriever for files
     class ConcatLevelFileRetriever : public concepts::RetrieverInterface {
@@ -76,5 +76,6 @@ namespace MDR {
         std::vector<uint32_t> offsets;
         std::vector<uint8_t*> concated_level_components;
     };
+}
 }
 #endif

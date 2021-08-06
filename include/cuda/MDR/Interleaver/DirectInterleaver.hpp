@@ -2,13 +2,13 @@
 #define _MDR_DIRECT_INTERLEAVER_HPP
 
 #include "InterleaverInterface.hpp"
-
+namespace mgard_cuda {
 namespace MDR {
     // direct interleaver with in-order recording
-    template<class T>
-    class DirectInterleaver : public concepts::InterleaverInterface<T> {
+    template<DIM D, typename T>
+    class DirectInterleaver : public concepts::InterleaverInterface<D, T> {
     public:
-        DirectInterleaver(){}
+        DirectInterleaver(Handle<D, T> &handle): _handle(handle) {}
         void interleave(T const * data, const std::vector<uint32_t>& dims, const std::vector<uint32_t>& dims_fine, const std::vector<uint32_t>& dims_coasre, T * buffer) const {
             uint32_t dim0_offset = dims[1] * dims[2];
             uint32_t dim1_offset = dims[2];
@@ -40,6 +40,9 @@ namespace MDR {
         void print() const {
             std::cout << "Direct interleaver" << std::endl;
         }
+    private:
+        Handle<D, T> &_handle;
     };
+}
 }
 #endif

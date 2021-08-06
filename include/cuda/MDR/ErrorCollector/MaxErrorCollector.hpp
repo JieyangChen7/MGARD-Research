@@ -2,13 +2,13 @@
 #define _MDR_MAX_ERROR_COLLECTOR_HPP
 
 #include "ErrorCollectorInterface.hpp"
-
+namespace mgard_cuda {
 namespace MDR {
     // max error collector: computing according to bit-plane definition
-    template<class T>
+    template<typename T>
     class MaxErrorCollector : public concepts::ErrorCollectorInterface<T> {
     public:
-        MaxErrorCollector(){
+        MaxErrorCollector() {
             static_assert(std::is_floating_point<T>::value, "MaxErrorCollector: input data must be floating points.");
         }
         std::vector<double> collect_level_error(T const * data, size_t n, int num_bitplanes, T max_level_error) const {
@@ -27,5 +27,6 @@ namespace MDR {
             std::cout << "Max error collector." << std::endl;
         }
     };
+}
 }
 #endif

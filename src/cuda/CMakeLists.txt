@@ -5,7 +5,8 @@ set(MGARD_CUDA_SRC
       ${CMAKE_CURRENT_SOURCE_DIR}/Message.cpp
       ${CMAKE_CURRENT_SOURCE_DIR}/CompressionWorkflow.cu
       ${CMAKE_CURRENT_SOURCE_DIR}/Handle.cu
-      ${CMAKE_CURRENT_SOURCE_DIR}/MemoryManagement.cu                 
+      ${CMAKE_CURRENT_SOURCE_DIR}/MemoryManagement.cu   
+      ${CMAKE_CURRENT_SOURCE_DIR}/Metadata.cpp               
       ${CMAKE_CURRENT_SOURCE_DIR}/CommonInternal.cu    
       ${CMAKE_CURRENT_SOURCE_DIR}/PrecomputeKernels.cu  
       ${CMAKE_CURRENT_SOURCE_DIR}/DataRefactoring.cu   

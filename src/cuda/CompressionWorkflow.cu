@@ -225,7 +225,11 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
   LENGTH zero = 0, outlier_count, *outlier_idx_h;
   cudaMemcpyAsyncHelper(handle, outlier_count_d, &zero, sizeof(LENGTH), H2D, 0);
 
-  quant_meta<T> m;
+  Metadata m;
+  m.total_dims = D;
+  m.shape = new SIZE[D];
+  for (int d = 0; d < D; d++) m.shape[d] = handle.dofs[D-1-d][0];
+  m.dtype = std::is_same<T, double>::value ? Double : Float;
   m.norm = norm;
   m.s = s;
   m.tol = tol;
@@ -327,22 +331,24 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
     // Output serilization
     if (handle.timing) t1 = high_resolution_clock::now();
 
+    SIZE meta_size;
+    SERIALIZED_TYPE * serizalied_meta = m.Serialize(meta_size);
     SIZE outsize = 0;
-    outsize += sizeof(quant_meta<T>);
+    outsize += meta_size;
     outsize += sizeof(LENGTH) + outlier_count * sizeof(LENGTH) +
                outlier_count * sizeof(QUANTIZED_INT);
     outsize += sizeof(size_t) + hufmeta_size;
     outsize += sizeof(size_t) + hufdata_size;
-
+    
     std::vector<SIZE> out_shape(1);
     out_shape[0] = outsize;
+    gpuErrchk(cudaDeviceSynchronize());
     Array<1, unsigned char> compressed_array(out_shape);
-    unsigned char *buffer = compressed_array.get_dv();
+    SERIALIZED_TYPE *buffer = compressed_array.get_dv();
     void *buffer_p = (void *)buffer;
 
-    cudaMemcpyAsyncHelper(handle, buffer_p, &m, sizeof(quant_meta<T>), AUTO, 0);
-    buffer_p = buffer_p + sizeof(quant_meta<T>);
-
+    cudaMemcpyAsyncHelper(handle, buffer_p, serizalied_meta, meta_size, AUTO, 0);
+    buffer_p = buffer_p + meta_size;
     cudaMemcpyAsyncHelper(handle, buffer_p, outlier_count_d, sizeof(LENGTH), AUTO,
                           0);
     buffer_p = buffer_p + sizeof(LENGTH);
@@ -375,6 +381,7 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
       std::cout << log::log_time << "Compressed output seralization time: " << time_span.count() <<" s\n";
     }
 
+    delete serizalied_meta;
     cudaFreeHelper(outlier_count_d);
     cudaFreeHelper(outlier_idx_d);
     cudaFreeHelper(outliers);
@@ -391,6 +398,7 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
     size_t cpu_lossless_size;
     cpu_lossless_compression(handle, dqv, quantized_count,
         cpu_lossless_data, cpu_lossless_size);
+    cudaFreeHelper(dqv);
     if (handle.timing) {
       t2 = high_resolution_clock::now();
       time_span = duration_cast<duration<double>>(t2 - t1);
@@ -406,8 +414,12 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
     }
 
     if (handle.timing) t1 = high_resolution_clock::now();
+
+    SIZE meta_size;
+    SERIALIZED_TYPE * serizalied_meta = m.Serialize(meta_size);
+
     SIZE outsize = 0;
-    outsize += sizeof(quant_meta<T>);
+    outsize += sizeof(meta_size);
     outsize += sizeof(size_t) + cpu_lossless_size;
     // printf("cpu_lossless_size: %llu\n", cpu_lossless_size);
     std::vector<SIZE> out_shape(1);
@@ -420,14 +432,16 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
     // unsigned char *buffer = (unsigned char *)malloc(outsize);
 
     void *buffer_p = (void *)buffer;
-    cudaMemcpyAsyncHelper(handle, buffer_p, &m, sizeof(quant_meta<T>), AUTO, 0);
-    buffer_p = buffer_p + sizeof(quant_meta<T>);
+    cudaMemcpyAsyncHelper(handle, buffer_p, serizalied_meta, meta_size, AUTO, 0);
+    buffer_p = buffer_p + meta_size;
     cudaMemcpyAsyncHelper(handle, buffer_p, &cpu_lossless_size, sizeof(size_t), AUTO,
                           0);
     buffer_p = buffer_p + sizeof(size_t);
     cudaMemcpyAsyncHelper(handle, buffer_p, cpu_lossless_data, cpu_lossless_size, AUTO, 0);
     buffer_p = buffer_p + cpu_lossless_size;
 
+    delete [] serizalied_meta;
+    cudaFreeHelper(cpu_lossless_data);
     if (handle.timing) {
       t2 = high_resolution_clock::now();
       time_span = duration_cast<duration<double>>(t2 - t1);
@@ -451,7 +465,9 @@ Array<D, T> decompress(Handle<D, T> &handle,
 
   size_t free, total;
 
-  quant_meta<T> m;
+  
+
+
   QUANTIZED_INT *dqv;
   LENGTH quantized_count =
         handle.dofs[0][0] * handle.dofs[1][0] * handle.linearized_depth;
@@ -462,11 +478,16 @@ Array<D, T> decompress(Handle<D, T> &handle,
 
 	//cudaMemGetInfo(&free, &total); printf("Mem: %f/%f\n",
   //   (double)(total-free)/1e9, (double)total/1e9);
-  
 
   void *data_p = compressed_array.get_dv(); //(void *)data;
-  cudaMemcpyAsyncHelper(handle, &m, data_p, sizeof(quant_meta<T>), AUTO, 0);
-  data_p = data_p + sizeof(quant_meta<T>);
+
+  Metadata m;
+  SIZE meta_size;
+  cudaMemcpyAsyncHelper(handle, &meta_size, data_p, sizeof(SIZE), AUTO, 0);  
+  SERIALIZED_TYPE * serizalied_meta = (SERIALIZED_TYPE *)std::malloc(meta_size);
+  cudaMemcpyAsyncHelper(handle, serizalied_meta, data_p, meta_size, AUTO, 0);
+  data_p = data_p + meta_size;
+  m.Deserialize(serizalied_meta, meta_size);
 
   if (strcmp(m.signature, SIGNATURE) != 0) {
     std::cout << log::log_err << "This data was not compressed with MGARD-CUDA or corrupted!\n";

@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
 
   size_t out_size;
   double *mgard_out_buff = new double[num_double];
-  unsigned char *compressed_data = new unsigned char[num_double*sizeof(double)];
+  SERIALIZED_TYPE *compressed_data = new SERIALIZED_TYPE[num_double*sizeof(double)];
 
   mgard_cuda::Config config;
   mgard_cuda::compress(shape, mgard_cuda::Double, tol, s, mgard_cuda::REL, 
@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
   //   in_array.loadData(in_buff);
   //   mgard_cuda::Array<1, double> test = in_array;
   //   mgard_cuda::Handle<1, double> handle(shape);
-  //   mgard_cuda::Array<1, unsigned char> compressed_array =
+  //   mgard_cuda::Array<1, SERIALIZED_TYPE> compressed_array =
   //       mgard_cuda::compress(handle, in_array, mgard_cuda::REL, tol, s);
   //   out_size = compressed_array.getShape()[0];
   //   mgard_cuda::Array<1, double> out_array =
@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
   //   mgard_cuda::Array<2, double> in_array(shape);
   //   in_array.loadData(in_buff);
   //   mgard_cuda::Handle<2, double> handle(shape);
-  //   mgard_cuda::Array<1, unsigned char> compressed_array =
+  //   mgard_cuda::Array<1, SERIALIZED_TYPE> compressed_array =
   //       mgard_cuda::compress(handle, in_array, mgard_cuda::REL, tol, s);
   //   out_size = compressed_array.getShape()[0];
   //   mgard_cuda::Array<2, double> out_array =
@@ -163,7 +163,7 @@ int main(int argc, char *argv[]) {
   //   mgard_cuda::Array<3, double> in_array(shape);
   //   in_array.loadData(in_buff);
   //   mgard_cuda::Handle<3, double> handle(shape);
-  //   mgard_cuda::Array<1, unsigned char> compressed_array =
+  //   mgard_cuda::Array<1, SERIALIZED_TYPE> compressed_array =
   //       mgard_cuda::compress(handle, in_array, mgard_cuda::REL, tol, s);
   //   out_size = compressed_array.getShape()[0];
   //   mgard_cuda::Array<3, double> out_array =
@@ -175,7 +175,7 @@ int main(int argc, char *argv[]) {
   //   mgard_cuda::Array<4, double> in_array(shape);
   //   in_array.loadData(in_buff);
   //   mgard_cuda::Handle<4, double> handle(shape);
-  //   mgard_cuda::Array<1, unsigned char> compressed_array =
+  //   mgard_cuda::Array<1, SERIALIZED_TYPE> compressed_array =
   //       mgard_cuda::compress(handle, in_array, mgard_cuda::REL, tol, s);
   //   out_size = compressed_array.getShape()[0];
   //   mgard_cuda::Array<4, double> out_array =

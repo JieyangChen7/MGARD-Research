@@ -19,6 +19,7 @@ using SIZE = unsigned int;
 // using SIZE = int;
 using DIM = uint32_t;
 using QUANTIZED_INT = int;
+using SERIALIZED_TYPE = unsigned char;
 
 }
 

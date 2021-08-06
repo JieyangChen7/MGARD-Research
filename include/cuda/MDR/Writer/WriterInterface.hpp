@@ -1,6 +1,6 @@
 #ifndef _MDR_WRITER_INTERFACE_HPP
 #define _MDR_WRITER_INTERFACE_HPP
-
+namespace mgard_cuda {
 namespace MDR {
     namespace concepts {
 
@@ -17,5 +17,6 @@ namespace MDR {
             virtual void print() const = 0;
         };
     }
+}
 }
 #endif

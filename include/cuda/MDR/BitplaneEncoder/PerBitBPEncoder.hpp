@@ -3,6 +3,7 @@
 
 #include "BitplaneEncoderInterface.hpp"
 #include <bitset>
+namespace mgard_cuda {
 namespace MDR {
     class BitEncoder{
     public:
@@ -69,10 +70,10 @@ namespace MDR {
 
     #define PER_BIT_BLOCK_SIZE 1
     // per bit bitplane encoder that encodes data by bit using T_stream type buffer
-    template<class T_data, class T_stream>
-    class PerBitBPEncoder : public concepts::BitplaneEncoderInterface<T_data> {
+    template<DIM D, typename T_data, typename T_stream>
+    class PerBitBPEncoder : public concepts::BitplaneEncoderInterface<D, T_data> {
     public:
-        PerBitBPEncoder(){
+        PerBitBPEncoder(Handle<D, T_data> &handle): _handle(handle) {
             std::cout <<  "PerBitBPEncoder\n";
             static_assert(std::is_floating_point<T_data>::value, "PerBitBPEncoder: input data must be floating points.");
             static_assert(!std::is_same<T_data, long double>::value, "PerBitBPEncoder: long double is not supported.");
@@ -406,8 +407,10 @@ namespace MDR {
             }
             level_errors[0] += data * data;
         }
+        Handle<D, T_data> &_handle;
         std::vector<std::vector<bool>> level_signs;
         std::vector<std::vector<bool>> sign_flags;
     };
+}
 }
 #endif

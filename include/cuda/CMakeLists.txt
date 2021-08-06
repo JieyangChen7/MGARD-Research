@@ -4,7 +4,8 @@ set(MGARD_CUDA_HEADER
       ${CMAKE_CURRENT_SOURCE_DIR}/SubArray.h
       ${CMAKE_CURRENT_SOURCE_DIR}/Message.h
       ${CMAKE_CURRENT_SOURCE_DIR}/Handle.h
-      ${CMAKE_CURRENT_SOURCE_DIR}/MemoryManagement.h                 
+      ${CMAKE_CURRENT_SOURCE_DIR}/MemoryManagement.h  
+      ${CMAKE_CURRENT_SOURCE_DIR}/Metadata.h               
       ${CMAKE_CURRENT_SOURCE_DIR}/Common.h
       ${CMAKE_CURRENT_SOURCE_DIR}/CommonInternal.h   
       ${CMAKE_CURRENT_SOURCE_DIR}/PrecomputeKernels.h   
