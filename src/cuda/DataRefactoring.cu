@@ -9,9 +9,12 @@
 #include <thrust/host_vector.h>
 
 #include "cuda/CommonInternal.h"
+#include "cuda/SubArray.h"
+#include "cuda/DeviceAdapters/DeviceAdapterCuda.h"
 
 #include "cuda/GridProcessingKernel.h"
 #include "cuda/GridProcessingKernel3D.h"
+ #include "cuda/GridProcessingKernel3D.hpp"
 #include "cuda/IterativeProcessingKernel.h"
 #include "cuda/IterativeProcessingKernel3D.h"
 #include "cuda/LevelwiseProcessingKernel.h"
@@ -151,132 +154,48 @@ void calc_coefficients_3d(Handle<D, T> &handle, SubArray<D, T> dinput,
   dcoeff_rcf.offset({ff, cc, rr});
   dcoeff_rcf.resize({f-ff, c-cc, r-rr});
 
-  T *null = NULL;
-  // gpk_reo<D, T, D, true, true, 1>(handle,
-  //           handle.shapes_h[l], handle.shapes_d[l], handle.shapes_d[l+1],
-  //           handle.ldws_d, ldvs_d, unprocessed_n, unprocessed_dims, 2, 1,
-  //           0, handle.ratio[2][l], handle.ratio[1][l],
-  //           handle.ratio[0][l], handle.dw, handle.ldws_h[0],
-  //           handle.ldws_h[1], dv, ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           dv+get_idx(ldvs_h[0], ldvs_h[1], 0, 0, handle.dofs[0][l+1]),
-  //           ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           dv+get_idx(ldvs_h[0], ldvs_h[1], 0, handle.dofs[1][l+1], 0),
-  //           ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           dv+get_idx(ldvs_h[0], ldvs_h[1], handle.dofs[2][l+1], 0, 0),
-  //           ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           dv+get_idx(ldvs_h[0], ldvs_h[1], 0, handle.dofs[1][l+1],
-  //           handle.dofs[0][l+1]), ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           dv+get_idx(ldvs_h[0], ldvs_h[1], handle.dofs[2][l+1], 0,
-  //           handle.dofs[0][l+1]), ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           dv+get_idx(ldvs_h[0], ldvs_h[1], handle.dofs[2][l+1],
-  //           handle.dofs[1][l+1], 0), ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           dv+get_idx(ldvs_h[0], ldvs_h[1], handle.dofs[2][l+1],
-  //           handle.dofs[1][l+1], handle.dofs[0][l+1]), ldvs_h[0],
-  //           ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           0,
-  //           handle.auto_tuning_cc[handle.arch][handle.precision][range_l]);
+  SubArray<1, T> ratio_r({handle.dofs[2][l]}, handle.ratio[2][l]);
+  SubArray<1, T> ratio_c({handle.dofs[1][l]}, handle.ratio[1][l]);
+  SubArray<1, T> ratio_f({handle.dofs[0][l]}, handle.ratio[0][l]);
 
-  gpk_reo_3d(
-      handle, handle.dofs[2][l], handle.dofs[1][l], handle.dofs[0][l],
-      handle.ratio[2][l], handle.ratio[1][l], handle.ratio[0][l], 
-      dinput.dv, dinput.lddv1, dinput.lddv2, 
-      dcoarse.dv, dcoarse.lddv1, dcoarse.lddv2, 
-      // null, ldvs_h[0], ldvs_h[1],
-      dcoeff_f.dv, dcoeff_f.lddv1, dcoeff_f.lddv2, 
-      // null, ldvs_h[0], ldvs_h[1],
-      dcoeff_c.dv, dcoeff_c.lddv1, dcoeff_c.lddv2, 
-      // null, ldvs_h[0], ldvs_h[1],
-      dcoeff_r.dv, dcoeff_r.lddv1, dcoeff_r.lddv2, 
-      // null, ldvs_h[0], ldvs_h[1],
-      dcoeff_cf.dv, dcoeff_cf.lddv1, dcoeff_cf.lddv2, 
-      // null, ldvs_h[0], ldvs_h[1],
-      dcoeff_rf.dv, dcoeff_rf.lddv1, dcoeff_rf.lddv2, 
-      // null, ldvs_h[0], ldvs_h[1],
-      dcoeff_rc.dv, dcoeff_rc.lddv1, dcoeff_rc.lddv2,
-      // null, ldvs_h[0], ldvs_h[1],
-      dcoeff_rcf.dv, dcoeff_rcf.lddv1, dcoeff_rcf.lddv2,
-      // null, ldvs_h[0], ldvs_h[1],
-      queue_idx, handle.auto_tuning_cc[handle.arch][handle.precision][range_l]);
+  T *null = NULL;
+  GPK_REO_3D_AutoTuner<D, T, CUDA>(handle).Execute(
+      handle.dofs[2][l], handle.dofs[1][l], handle.dofs[0][l],
+      handle.dofs[2][l+1], handle.dofs[1][l+1], handle.dofs[0][l+1],
+      ratio_r, ratio_c, ratio_f,
+      dinput, dcoarse,
+      dcoeff_f, dcoeff_c, dcoeff_r,
+      dcoeff_cf, dcoeff_rf, dcoeff_rc,
+      dcoeff_rcf,
+      queue_idx);
+
+
+  // gpk_reo_3d(
+  //     handle, handle.dofs[2][l], handle.dofs[1][l], handle.dofs[0][l],
+  //     handle.ratio[2][l], handle.ratio[1][l], handle.ratio[0][l], 
+  //     dinput.dv, dinput.lddv1, dinput.lddv2, 
+  //     dcoarse.dv, dcoarse.lddv1, dcoarse.lddv2, 
+  //     // null, ldvs_h[0], ldvs_h[1],
+  //     dcoeff_f.dv, dcoeff_f.lddv1, dcoeff_f.lddv2, 
+  //     // null, ldvs_h[0], ldvs_h[1],
+  //     dcoeff_c.dv, dcoeff_c.lddv1, dcoeff_c.lddv2, 
+  //     // null, ldvs_h[0], ldvs_h[1],
+  //     dcoeff_r.dv, dcoeff_r.lddv1, dcoeff_r.lddv2, 
+  //     // null, ldvs_h[0], ldvs_h[1],
+  //     dcoeff_cf.dv, dcoeff_cf.lddv1, dcoeff_cf.lddv2, 
+  //     // null, ldvs_h[0], ldvs_h[1],
+  //     dcoeff_rf.dv, dcoeff_rf.lddv1, dcoeff_rf.lddv2, 
+  //     // null, ldvs_h[0], ldvs_h[1],
+  //     dcoeff_rc.dv, dcoeff_rc.lddv1, dcoeff_rc.lddv2,
+  //     // null, ldvs_h[0], ldvs_h[1],
+  //     dcoeff_rcf.dv, dcoeff_rcf.lddv1, dcoeff_rcf.lddv2,
+  //     // null, ldvs_h[0], ldvs_h[1],
+  //     queue_idx, handle.auto_tuning_cc[handle.arch][handle.precision][range_l]);
 
   verify_matrix_cuda(handle.dofs[2][l], handle.dofs[1][l], handle.dofs[0][l], 
                      doutput.dv, doutput.ldvs_h[0], doutput.ldvs_h[1], doutput.ldvs_h[0],
                      prefix + "gpk_reo_3d" + "_level_" + std::to_string(l),
                      store, verify);
-
-  // gpk_reo<D, T, D, true, false, 1>(handle,
-  //           shape, shape_c, handle.ldws_h, ldvs_h, unprocessed_dims,
-  //           2, 1, 0,
-  //           handle.ratio[2][l], handle.ratio[1][l], handle.ratio[0][l],
-  //           handle.dw, handle.ldws_h[0], handle.ldws_h[1],
-  //           dv, ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           dv+get_idx(ldvs_h[0], ldvs_h[1], 0, 0, handle.dofs[0][l+1]),
-  //           ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           dv+get_idx(ldvs_h[0], ldvs_h[1], 0, handle.dofs[1][l+1], 0),
-  //           ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           dv+get_idx(ldvs_h[0], ldvs_h[1], handle.dofs[2][l+1], 0, 0),
-  //           ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           dv+get_idx(ldvs_h[0], ldvs_h[1], 0, handle.dofs[1][l+1],
-  //           handle.dofs[0][l+1]), ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           dv+get_idx(ldvs_h[0], ldvs_h[1], handle.dofs[2][l+1], 0,
-  //           handle.dofs[0][l+1]), ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           dv+get_idx(ldvs_h[0], ldvs_h[1], handle.dofs[2][l+1],
-  //           handle.dofs[1][l+1], 0), ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           dv+get_idx(ldvs_h[0], ldvs_h[1], handle.dofs[2][l+1],
-  //           handle.dofs[1][l+1], handle.dofs[0][l+1]), ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           0,
-  //           handle.auto_tuning_cc[handle.arch][handle.precision][range_l]);
-
-  // printf("after interpolate\n");
-  // print_matrix_cuda(handle.dofs[2][l], handle.dofs[1][l],
-  // handle.dofs[0][l],
-  //                     dv, ldvs_h[0], ldvs_h[1], ldvs_h[0]);
-
-  // gpk_reo<D, T, D, false, true, 1>(handle,
-  //           shape, shape_c, handle.ldws_h, ldvs_h, unprocessed_dims,
-  //           2, 1, 0,
-  //           handle.ratio[2][l], handle.ratio[1][l], handle.ratio[0][l],
-  //           handle.dw, handle.ldws_h[0], handle.ldws_h[1],
-  //           dv, ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           dv+get_idx(ldvs_h[0], ldvs_h[1], 0, 0, handle.dofs[0][l+1]),
-  //           ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           dv+get_idx(ldvs_h[0], ldvs_h[1], 0, handle.dofs[1][l+1], 0),
-  //           ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           dv+get_idx(ldvs_h[0], ldvs_h[1], handle.dofs[2][l+1], 0, 0),
-  //           ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           dv+get_idx(ldvs_h[0], ldvs_h[1], 0, handle.dofs[1][l+1],
-  //           handle.dofs[0][l+1]), ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           dv+get_idx(ldvs_h[0], ldvs_h[1], handle.dofs[2][l+1], 0,
-  //           handle.dofs[0][l+1]), ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           dv+get_idx(ldvs_h[0], ldvs_h[1], handle.dofs[2][l+1],
-  //           handle.dofs[1][l+1], 0), ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           dv+get_idx(ldvs_h[0], ldvs_h[1], handle.dofs[2][l+1],
-  //           handle.dofs[1][l+1], handle.dofs[0][l+1]), ldvs_h[0], ldvs_h[1],
-  //           //null, ldvs_h[0], ldvs_h[1],
-  //           0,
-  //           handle.auto_tuning_cc[handle.arch][handle.precision][range_l]);
 
   if (debug_print) {  
     printf("after pi_Ql_reo\n");

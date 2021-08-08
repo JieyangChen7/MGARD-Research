@@ -25,8 +25,8 @@ SubArray<D, T>::SubArray(Array<D, T> &array) {
   this->dv     = array.get_dv();
   this->ldvs_h = array.get_ldvs_h();
   this->ldvs_d = array.get_ldvs_d();
-  lddv1 = 1;
-  lddv2 = 1;
+  lddv1 = ldvs_h[0];
+  lddv2 = ldvs_h[1];
 }
 
 template <DIM D, typename T>
@@ -35,9 +35,16 @@ SubArray<D, T>::SubArray(std::vector<SIZE> shape, T * dv, std::vector<SIZE> ldvs
   this->dv     = dv;
   this->ldvs_h = ldvs_h;
   this->ldvs_d = ldvs_d;
-  lddv1 = 1;
-  lddv2 = 1;
+  lddv1 = ldvs_h[0];
+  lddv2 = ldvs_h[1];
 }
+
+template <DIM D, typename T>
+SubArray<D, T>::SubArray(std::vector<SIZE> shape, T * dv) {
+  this->shape  = shape;
+  this->dv     = dv;
+}
+
 
 template <DIM D, typename T> SubArray<D, T>::SubArray(SubArray<D, T> &subArray) {
   this->shape  = subArray.shape;
@@ -84,6 +91,25 @@ template <DIM D, typename T> void SubArray<D, T>::project(DIM dim0, DIM dim1, DI
     lddv2 *= ldvs_h[d];
   }
 }
+
+
+// template <DIM D, typename T> 
+// MGARDm_EXEC 
+// T* SubArray<D, T>::operator()(IDX z, IDX y, IDX x) {
+//   return dv + lddv2 * lddv1 * z + lddv1 * y + x;
+// }
+
+// template <DIM D> __forceinline__ __device__ LENGTH get_idx(SIZE *lds, SIZE *idx) {
+//   LENGTH curr_stride = 1;
+//   LENGTH ret_idx = 0;
+//   for (DIM i = 0; i < D; i++) {
+//     ret_idx += idx[i] * curr_stride;
+//     curr_stride *= lds[i];
+//   }
+//   return ret_idx;
+// }
+
+
 
 template <DIM D, typename T> SubArray<D, T>::~SubArray() {
   // nothing needs to be released

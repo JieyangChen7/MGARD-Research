@@ -8,13 +8,13 @@
 #ifndef MGRAD_CUDA_METADATA
 #define MGRAD_CUDA_METADATA
 
-#define SIGNATURE_SIZE 16
-#define SIGNATURE "MGARD_CUDA_V010"
+#define SIGNATURE_SIZE 19
+#define SIGNATURE "COMPRESSED_BY_MGARD"
 
 namespace mgard_cuda {
 
 struct Metadata {
-  char signature[SIGNATURE_SIZE] = SIGNATURE;
+  char signature[SIGNATURE_SIZE+1] = SIGNATURE;
   enum data_type dtype;
   DIM total_dims = 0;
   SIZE * shape;

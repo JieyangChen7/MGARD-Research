@@ -10,6 +10,7 @@ set(MGARD_CUDA_SRC
       ${CMAKE_CURRENT_SOURCE_DIR}/CommonInternal.cu    
       ${CMAKE_CURRENT_SOURCE_DIR}/PrecomputeKernels.cu  
       ${CMAKE_CURRENT_SOURCE_DIR}/DataRefactoring.cu   
+      ${CMAKE_CURRENT_SOURCE_DIR}/DeviceAdapters/DeviceAdapterCuda.cu   
       #${CMAKE_CURRENT_SOURCE_DIR}/DataRefactoring_AMR.cu   
       ${CMAKE_CURRENT_SOURCE_DIR}/GridProcessingKernels/InterpCalcCoeff.cu
       ${CMAKE_CURRENT_SOURCE_DIR}/GridProcessingKernels/InterpCalcCoeff_3D.cu

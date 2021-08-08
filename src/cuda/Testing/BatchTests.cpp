@@ -156,7 +156,7 @@ struct Result test(int D, T * original_data, enum data_type dtype, std::vector<m
 
   mgard_cuda::Config config;
   config.gpu_lossless = true;
-
+  config.sync_and_check_all_kernels = true;
 
   unsigned char * compressed_data;
   size_t compressed_size;
@@ -274,32 +274,33 @@ int main(int argc, char *argv[]) {
   shapes.push_back({100, 10, 1000});
   shapes.push_back({10, 1000, 100});
 
-  shapes.push_back({5, 5, 5, 5});
-  shapes.push_back({3, 3, 3, 4});
-  shapes.push_back({65, 65, 65, 65});
-  shapes.push_back({100, 10, 100, 10});
-  shapes.push_back({10, 100, 10, 100});
-  shapes.push_back({1000, 10, 10, 10});
-  shapes.push_back({10, 1000, 10, 10});
-  shapes.push_back({10, 10, 1000, 10});
-  shapes.push_back({10, 10, 10, 1000});
+  // shapes.push_back({5, 5, 5, 5});
+  // shapes.push_back({3, 3, 3, 4});
+  // shapes.push_back({65, 65, 65, 65});
+  // shapes.push_back({100, 10, 100, 10});
+  // shapes.push_back({10, 100, 10, 100});
+  // shapes.push_back({1000, 10, 10, 10});
+  // shapes.push_back({10, 1000, 10, 10});
+  // shapes.push_back({10, 10, 1000, 10});
+  // shapes.push_back({10, 10, 10, 1000});
 
   //XGC
   // shapes.push_back({8, 16395, 39, 39});
 
-  shapes.push_back({5, 5, 5, 5, 5});
-  shapes.push_back({17, 17, 17, 17, 17});
-  shapes.push_back({10, 10, 10, 10, 100});
-  shapes.push_back({10, 10, 10, 100, 10});
-  shapes.push_back({10, 10, 100, 10, 10});
-  shapes.push_back({10, 100, 10, 10, 10});
-  shapes.push_back({100, 10, 10, 10, 10});
-  shapes.push_back({10, 10, 10, 100, 100});
-  shapes.push_back({10, 10, 100, 10, 100});
-  shapes.push_back({10, 100, 10, 100, 10});
-  shapes.push_back({100, 10, 100, 10, 10});
+  // shapes.push_back({5, 5, 5, 5, 5});
+  // shapes.push_back({17, 17, 17, 17, 17});
+  // shapes.push_back({10, 10, 10, 10, 100});
+  // shapes.push_back({10, 10, 10, 100, 10});
+  // shapes.push_back({10, 10, 100, 10, 10});
+  // shapes.push_back({10, 100, 10, 10, 10});
+  // shapes.push_back({100, 10, 10, 10, 10});
+  // shapes.push_back({10, 10, 10, 100, 100});
+  // shapes.push_back({10, 10, 100, 10, 100});
+  // shapes.push_back({10, 100, 10, 100, 10});
+  // shapes.push_back({100, 10, 100, 10, 10});
 
-  std::vector<enum data_type> dtypes = {data_type::SINGLE, data_type::DOUBLE};
+  // std::vector<enum data_type> dtypes = {data_type::SINGLE, data_type::DOUBLE};
+  std::vector<enum data_type> dtypes = {data_type::SINGLE};
   // std::vector<enum mgard_cuda::error_bound_type> ebtypes = {mgard_cuda::ABS, mgard_cuda::REL};
   std::vector<enum mgard_cuda::error_bound_type> ebtypes = {mgard_cuda::REL};
 

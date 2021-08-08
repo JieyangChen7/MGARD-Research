@@ -229,7 +229,7 @@ Array<1, unsigned char> compress(Handle<D, T> &handle, Array<D, T> &in_array,
   m.total_dims = D;
   m.shape = new SIZE[D];
   for (int d = 0; d < D; d++) m.shape[d] = handle.dofs[D-1-d][0];
-  m.dtype = std::is_same<T, double>::value ? Double : Float;
+  m.dtype = std::is_same<T, double>::value ? data_type::Double : data_type::Float;
   m.norm = norm;
   m.s = s;
   m.tol = tol;

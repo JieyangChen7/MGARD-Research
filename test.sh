@@ -1,5 +1,5 @@
 #!/bin/bash
-#set -e
+set -e
 make -j8
 
 ###### Necessary CUDA profiler binaries #######
@@ -14,7 +14,7 @@ BIN_DOUBLE_REL="./bin/TestDoubleRelativeError"
 BIN_FLOAT_REL="./bin/TestFloatRelativeError"
 BIN_DOUBLE_ABS="./bin/TestDoubleAbsoluteError"
 BIN_FLOAT_ABS="./bin/TestFloatAbsoluteError"
-EXEC="./bin/mgard_cuda"
+EXEC="./bin/MgardCudaExec"
 CPU=0
 GPU=1
 
@@ -104,16 +104,15 @@ test_group_l_inf () {
 
 # test_group_l_inf d rel $1
 
-# DATA=../../512x512x512/velocity_x.dat
+DATA=../../512x512x512/velocity_x.dat
+$EXEC -z -i $DATA -c $DATA.mgard -t s -n 3 512 512 512 -m abs -e 1e5 -s inf -l 2 -v
+
+
 # $EXEC $DATA s 3 512 512 512 abs 1e5 inf gpu
 DATA=$HOME/dev/data/d3d_coarse_v2_700.bin
-XGC_4D="$EXEC $DATA $DATA.mgard $DATA.out d 4 8 39 16395 39 abs $1 0 gpu"
-XGC_3D="$EXEC $DATA $DATA.mgard $DATA.out d 3 312 16395 39 abs $1 0 gpu"
-XGC_4D_CPU="$EXEC $DATA $DATA.mgard $DATA.out d 4 8 39 16395 39 abs $1 0 cpu"
-XGC_3D_CPU="$EXEC $DATA $DATA.mgard $DATA.out d 3 312 16395 39 abs $1 0 cpu"
+# $EXEC -z -i $DATA -c $DATA.mgard -t d -n 4 8 39 16395 39 -m abs -e 1e15 -s inf -l 1 -v
+# $EXEC -z -i $DATA -c $DATA.mgard -t d -n 3 312 16395 39 -m abs -e 1e15 -s inf -l 1 -v
 
-XGC_3D="$EXEC $DATA $DATA.mgard $DATA.out d 3 39 16395 39 abs $1 0 gpu"
-XGC_3D_CPU="$EXEC $DATA $DATA.mgard $DATA.out d 3 39 16395 39 abs $1 0 cpu"
 # BIN="$EXEC random d 3 10 5 5 rel 0.00001 inf gpu"
 # BIN2="$EXEC random d 3 10 5 5 rel 0.0001 inf gpu"
 # BIN3="$EXEC random d 3 10 5 5 rel 0.001 inf gpu"
@@ -125,7 +124,7 @@ XGC_3D_CPU="$EXEC $DATA $DATA.mgard $DATA.out d 3 39 16395 39 abs $1 0 cpu"
 # DATA=/home/jieyang/dev/data/pk.data
 # DATA=/home/jieyang/dev/data/enst.dat
 
-$XGC_4D
+# $XGC_4D
 # $XGC_3D
 # $XGC_4D_CPU
 # $XGC_3D_CPU

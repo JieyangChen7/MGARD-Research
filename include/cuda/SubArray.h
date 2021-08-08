@@ -17,12 +17,29 @@ public:
   SubArray();
   SubArray(Array<D, T> &array);
   SubArray(std::vector<SIZE> shape, T * dv, std::vector<SIZE> ldvs_h, SIZE * ldvs_d);
+  SubArray(std::vector<SIZE> shape, T * dv);
   SubArray(SubArray<D, T> &subArray);
   void offset(std::vector<SIZE> idx);
   void resize(std::vector<SIZE> shape);
   void offset(DIM dim, SIZE offset_value);
   void resize(DIM dim, SIZE new_size);
   void project(DIM dim0, DIM dim1, DIM dim2);
+  MGARDm_EXEC
+  T* operator()(IDX z, IDX y, IDX x) {
+    return dv + lddv2 * lddv1 * z + lddv1 * y + x;
+  }
+  MGARDm_EXEC
+  T* operator()(IDX x) {
+    return dv + x;
+  }
+  MGARDm_EXEC
+  bool isNull() {
+    return dv == NULL;
+  }
+  MGARDm_EXEC
+  bool data() {
+    return dv;
+  }
   ~SubArray();
 
   T *dv;

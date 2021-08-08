@@ -12,7 +12,6 @@ namespace mgard_cuda {
 
 SERIALIZED_TYPE *Metadata::Serialize(SIZE &total_size) {
   total_size = 0;
-  
   total_size += sizeof(SIZE); // total_size
   total_size += SIGNATURE_SIZE*sizeof(char); // signature
   total_size += sizeof(enum data_type); // data_type

@@ -30,12 +30,13 @@
 namespace mgard_cuda {
 
 bool verify(const void * compressed_data, size_t compressed_size) {
-  char signature[SIGNATURE_SIZE];
+  char signature[SIGNATURE_SIZE+1];
   if (compressed_size < sizeof(signature)) return false;
   SIZE meta_size = *(SIZE*)compressed_data; 
   Metadata meta;
   meta.Deserialize((SERIALIZED_TYPE*)compressed_data, meta_size);
-  strncpy(signature, meta.signature, SIGNATURE_SIZE);
+  std::memcpy(signature, meta.signature, SIGNATURE_SIZE);
+  signature[SIGNATURE_SIZE] = '\0';
   if (strcmp(signature, SIGNATURE) == 0) {
     return true;
   } else {
@@ -112,7 +113,7 @@ void compress(std::vector<SIZE> shape, data_type T,
                 const void * original_data, 
                 void *& compressed_data, size_t &compressed_size, Config config, bool isAllocated) {
   if (shape.size() == 1) {
-    if (T == Double) {
+    if (T == data_type::Double) {
         mgard_cuda::compress<1, double>(shape, tol, s, mode,
                                    original_data, compressed_data, compressed_size, config, isAllocated);
     } else {
@@ -120,7 +121,7 @@ void compress(std::vector<SIZE> shape, data_type T,
                                    original_data, compressed_data, compressed_size, config, isAllocated);
     }
   } else if (shape.size() == 2){
-    if (T == Double) {
+    if (T == data_type::Double) {
         mgard_cuda::compress<2, double>(shape, tol, s, mode,
                                    original_data, compressed_data, compressed_size, config, isAllocated);
     } else {
@@ -128,7 +129,7 @@ void compress(std::vector<SIZE> shape, data_type T,
                                    original_data, compressed_data, compressed_size, config, isAllocated);
     }
   } else if (shape.size() == 3){
-    if (T == Double) {
+    if (T == data_type::Double) {
         mgard_cuda::compress<3, double>(shape, tol, s, mode,
                                    original_data, compressed_data, compressed_size, config, isAllocated);
     } else {
@@ -136,7 +137,7 @@ void compress(std::vector<SIZE> shape, data_type T,
                                    original_data, compressed_data, compressed_size, config, isAllocated);
     }
   } else if (shape.size() == 4){
-    if (T == Double) {
+    if (T == data_type::Double) {
         mgard_cuda::compress<4, double>(shape, tol, s, mode,
                                    original_data, compressed_data, compressed_size, config, isAllocated);
     } else {
@@ -144,7 +145,7 @@ void compress(std::vector<SIZE> shape, data_type T,
                                    original_data, compressed_data, compressed_size, config, isAllocated);
     }
   } else if (shape.size() == 5){
-    if (T == Double) {
+    if (T == data_type::Double) {
         mgard_cuda::compress<5, double>(shape, tol, s, mode,
                                    original_data, compressed_data, compressed_size, config, isAllocated);
     } else {
@@ -160,7 +161,7 @@ void decompress(const void * compressed_data, size_t compressed_size,
   enum data_type T = infer_type(compressed_data, compressed_size);
   std::vector<SIZE> shape = infer_shape(compressed_data, compressed_size);
   if (shape.size() == 1) {
-    if (T == Double) {
+    if (T == data_type::Double) {
         mgard_cuda::decompress<1, double>(shape,
                                    compressed_data, compressed_size, decompressed_data, config, isAllocated);
     } else {
@@ -168,7 +169,7 @@ void decompress(const void * compressed_data, size_t compressed_size,
                                    compressed_data, compressed_size, decompressed_data, config, isAllocated);
     }
   } else if (shape.size() == 2){
-    if (T == Double) {
+    if (T == data_type::Double) {
         mgard_cuda::decompress<2, double>(shape,
                                    compressed_data, compressed_size, decompressed_data, config, isAllocated);
     } else {
@@ -176,7 +177,7 @@ void decompress(const void * compressed_data, size_t compressed_size,
                                    compressed_data, compressed_size, decompressed_data, config, isAllocated);
     }
   } else if (shape.size() == 3){
-    if (T == Double) {
+    if (T == data_type::Double) {
         mgard_cuda::decompress<3, double>(shape,
                                    compressed_data, compressed_size, decompressed_data, config, isAllocated);
     } else {
@@ -184,7 +185,7 @@ void decompress(const void * compressed_data, size_t compressed_size,
                                    compressed_data, compressed_size, decompressed_data, config, isAllocated);
     }
   } else if (shape.size() == 4){
-    if (T == Double) {
+    if (T == data_type::Double) {
         mgard_cuda::decompress<4, double>(shape, 
                                    compressed_data, compressed_size, decompressed_data, config, isAllocated);
     } else {
@@ -192,7 +193,7 @@ void decompress(const void * compressed_data, size_t compressed_size,
                                    compressed_data, compressed_size, decompressed_data, config, isAllocated);
     }
   } else if (shape.size() == 5){
-    if (T == Double) {
+    if (T == data_type::Double) {
         mgard_cuda::decompress<5, double>(shape, 
                                    compressed_data, compressed_size, decompressed_data, config, isAllocated);
     } else {
