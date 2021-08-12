@@ -3,6 +3,7 @@
 
 #include "GroupedBPEncoder.hpp"
 #include "PerBitBPEncoder.hpp"
+#include "PerBitBPEncoderGPU.hpp"
 #include "NegaBinaryBPEncoder.hpp"
 
 #endif

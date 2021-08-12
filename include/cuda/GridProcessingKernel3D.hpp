@@ -1039,6 +1039,18 @@ class GPK_REO_3D_Functor: public Functor<D, T> {
     // }
   }
 
+  MGARDm_EXEC void
+  __operation4(IDX ngridz, IDX ngridy, IDX ngridx,
+               IDX nblockz, IDX nblocky, IDX nblockx,
+               IDX blockz, IDX blocky, IDX blockx,
+               IDX threadz, IDX thready, IDX threadx, T * shared_memory) {}
+
+  MGARDm_EXEC void
+  __operation5(IDX ngridz, IDX ngridy, IDX ngridx,
+               IDX nblockz, IDX nblocky, IDX nblockx,
+               IDX blockz, IDX blocky, IDX blockx,
+               IDX threadz, IDX thready, IDX threadx, T * shared_memory) {}
+
   private:
 
     // functor parameters
@@ -1179,684 +1191,986 @@ class GPK_REV_3D_Functor: public Functor<D, T> {
                IDX blockz, IDX blocky, IDX blockx,
                IDX threadz, IDX thready, IDX threadx, T * shared_memory) 
   {
+    r = blockz * nblockz;
+    c = blocky * nblocky;
+    f = blockx * nblockx;
 
-  T *sm = shared_memory;
+    r_sm = threadz;
+    c_sm = thready;
+    f_sm = threadx;
 
-  ldsm1 = F * 2 + 1;
-  ldsm2 = C * 2 + 1;
-  v_sm = sm;
-  ratio_f_sm = sm + (F * 2 + 1) * (C * 2 + 1) * (R * 2 + 1);
-  ratio_c_sm = ratio_f_sm + F * 2;
-  ratio_r_sm = ratio_c_sm + C * 2;
+    r_sm_ex = (R/2) * 2;
+    c_sm_ex = (C/2) * 2;
+    f_sm_ex = (F/2) * 2;
 
-  rest_r = nr - r;
-  rest_c = nc - c;
-  rest_f = nf - f;
+    sm = shared_memory;
 
-  nr_p = nr;
-  nc_p = nc;
-  nf_p = nf;
+    ldsm1 = (F/2) * 2 + 1;
+    ldsm2 = (C/2) * 2 + 1;
+    v_sm = sm;
+    ratio_f_sm = sm + ((F/2) * 2 + 1) * ((C/2) * 2 + 1) * ((R/2) * 2 + 1);
+    ratio_c_sm = ratio_f_sm + (F/2) * 2;
+    ratio_r_sm = ratio_c_sm + (C/2) * 2;
 
-  threadId = (threadIdx.z * (blockDim.x * blockDim.y)) +
-                 (threadIdx.y * blockDim.x) + threadIdx.x;
+    rest_r = nr - r;
+    rest_c = nc - c;
+    rest_f = nf - f;
 
-  if (nr % 2 == 0) {
-    nr_p = nr + 1;
-    rest_r_p = nr_p - r;
-  }
-  if (nc % 2 == 0) {
-    nc_p = nc + 1;
-    rest_c_p = nc_p - c;
-  }
-  if (nf % 2 == 0) {
-    nf_p = nf + 1;
-    rest_f_p = nf_p - f;
-  }
+    nr_p = nr;
+    nc_p = nc;
+    nf_p = nf;
 
-  // load dist
-  if (c_sm == 0 && f_sm == 0 && r_sm < rest_r - 2) {
-    ratio_r_sm[r_sm] = ratio_r(r + r_sm);
-    if (nr % 2 == 0 && R * 2 + 1 >= rest_r_p && r_sm == 0) {
-      ratio_r_sm[rest_r_p - 3] = 0.5;
+    threadId = (threadz * (nblockx * nblocky)) +
+                   (thready * nblockx) + threadx;
+
+    rest_r_p = rest_r;
+    rest_c_p = rest_c;
+    rest_f_p = rest_f;
+
+
+    if (nr % 2 == 0) {
+      nr_p = nr + 1;
+      rest_r_p = nr_p - r;
     }
-  }
-  if (r_sm == 0 && f_sm == 0 && c_sm < rest_c - 2) {
-    ratio_c_sm[c_sm] = ratio_c(c + c_sm);
-    if (nc % 2 == 0 && C * 2 + 1 >= rest_c_p && c_sm == 0) {
-      ratio_c_sm[rest_c_p - 3] = 0.5;
+    if (nc % 2 == 0) {
+      nc_p = nc + 1;
+      rest_c_p = nc_p - c;
     }
-  }
-  if (c_sm == 0 && r_sm == 0 && f_sm < rest_f - 2) {
-    ratio_f_sm[f_sm] = ratio_f(f + f_sm);
-    if (nf % 2 == 0 && F * 2 + 1 >= rest_f_p && f_sm == 0) {
-      ratio_f_sm[rest_f_p - 3] = 0.5;
+    if (nf % 2 == 0) {
+      nf_p = nf + 1;
+      rest_f_p = nf_p - f;
     }
-  }
 
-
+    // load dist
+    if (c_sm == 0 && f_sm == 0 && r_sm < rest_r - 2) {
+      ratio_r_sm[r_sm] = *ratio_r(r + r_sm);
+      if (nr % 2 == 0 && (R/2) * 2 + 1 >= rest_r_p && r_sm == 0) {
+        ratio_r_sm[rest_r_p - 3] = 0.5;
+      }
+    }
+    if (r_sm == 0 && f_sm == 0 && c_sm < rest_c - 2) {
+      ratio_c_sm[c_sm] = *ratio_c(c + c_sm);
+      if (nc % 2 == 0 && (C/2) * 2 + 1 >= rest_c_p && c_sm == 0) {
+        ratio_c_sm[rest_c_p - 3] = 0.5;
+      }
+    }
+    if (c_sm == 0 && r_sm == 0 && f_sm < rest_f - 2) {
+      ratio_f_sm[f_sm] = *ratio_f(f + f_sm);
+      if (nf % 2 == 0 && (F/2) * 2 + 1 >= rest_f_p && f_sm == 0) {
+        ratio_f_sm[rest_f_p - 3] = 0.5;
+      }
+    }
   }
 
   MGARDm_EXEC void
   __operation2(IDX ngridz, IDX ngridy, IDX ngridx,
                IDX nblockz, IDX nblocky, IDX nblockx,
                IDX blockz, IDX blocky, IDX blockx,
-               IDX threadz, IDX thready, IDX threadx, T * shared_memory) {
+               IDX threadz, IDX thready, IDX threadx, T * shared_memory) 
+  {
   
-  if (!w.isNull() && threadId < R * C * F) {
-    r_sm = (threadId / (C * F)) * 2;
-    c_sm = ((threadId % (C * F)) / F) * 2;
-    f_sm = ((threadId % (C * F)) % F) * 2;
-    r_gl = r / 2 + threadId / (C * F);
-    c_gl = c / 2 + threadId % (C * F) / F;
-    f_gl = f / 2 + threadId % (C * F) % F;
-    if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-        r_gl < nr_c && c_gl < nc_c && f_gl < nf_c) {
+    if (!w.isNull() && threadId < (R/2) * (C/2) * (F/2)) {
+      r_sm = (threadId / ((C/2) * (F/2))) * 2;
+      c_sm = ((threadId % ((C/2) * (F/2))) / (F/2)) * 2;
+      f_sm = ((threadId % ((C/2) * (F/2))) % (F/2)) * 2;
+      r_gl = r / 2 + threadId / ((C/2) * (F/2));
+      c_gl = c / 2 + threadId % ((C/2) * (F/2)) / (F/2);
+      f_gl = f / 2 + threadId % ((C/2) * (F/2)) % (F/2);
+      if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+          r_gl < nr_c && c_gl < nc_c && f_gl < nf_c) {
+          v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
+              *w(r_gl, c_gl, f_gl);
+          // if (c_gl == nc_c - 1 && f_gl == nf_c-1)
+          // printf("block: (%d %d %d) thread: (%d %d %d) load0 (%d %d %d): %f
+          // (%d %d %d)\n", blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z,
+          // threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
+          //               v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)],
+          //                 r_gl, c_gl, f_gl);
+      }
+
+    }
+
+    int base = 0;
+    if (!w.isNull() && threadId >= base && threadId < base + (C/2) * (F/2)) {
+      r_sm = (R/2) * 2;
+      c_sm = ((threadId - base) / (F/2)) * 2;
+      f_sm = ((threadId - base) % (F/2)) * 2;
+      r_gl = r / 2 + (R/2);
+      c_gl = c / 2 + (threadId - base) / (F/2);
+      f_gl = f / 2 + (threadId - base) % (F/2);
+      if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+          r_gl < nr_c && c_gl < nc_c && f_gl < nf_c) {
         v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
-            w(r_gl, c_gl, f_gl);
+            *w(r_gl, c_gl, f_gl);
         // if (c_gl == nc_c - 1 && f_gl == nf_c-1)
-        // printf("block: (%d %d %d) thread: (%d %d %d) load0 (%d %d %d): %f
+        // printf("block: (%d %d %d) thread: (%d %d %d) load1 (%d %d %d): %f
         // (%d %d %d)\n", blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z,
         // threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
         //               v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)],
         //                 r_gl, c_gl, f_gl);
+      }
     }
-
-  }
-
-  int base = 0;
-  if (!w.isNull() && threadId >= base && threadId < base + C * F) {
-    r_sm = R * 2;
-    c_sm = ((threadId - base) / F) * 2;
-    f_sm = ((threadId - base) % F) * 2;
-    r_gl = r / 2 + R;
-    c_gl = c / 2 + (threadId - base) / F;
-    f_gl = f / 2 + (threadId - base) % F;
-    if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-        r_gl < nr_c && c_gl < nc_c && f_gl < nf_c) {
-      v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
-          w(r_gl, c_gl, f_gl);
-      // if (c_gl == nc_c - 1 && f_gl == nf_c-1)
-      // printf("block: (%d %d %d) thread: (%d %d %d) load1 (%d %d %d): %f
-      // (%d %d %d)\n", blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z,
-      // threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
-      //               v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)],
-      //                 r_gl, c_gl, f_gl);
-    }
-  }
-  base += C * F; // ROUND_UP_WARP(C * F) * WARP_SIZE;
-  if (!w.isNull() && threadId >= base && threadId < base + R * F) {
-    r_sm = ((threadId - base) / F) * 2;
-    c_sm = C * 2;
-    f_sm = ((threadId - base) % F) * 2;
-    r_gl = r / 2 + (threadId - base) / F;
-    c_gl = c / 2 + C;
-    f_gl = f / 2 + (threadId - base) % F;
-    if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-        r_gl < nr_c && c_gl < nc_c && f_gl < nf_c) {
-      v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
-          w(r_gl, c_gl, f_gl);
-      // if (c_gl == nc_c - 1 && f_gl == nf_c-1)
-      // printf("block: (%d %d %d) thread: (%d %d %d) load2 (%d %d %d): %f
-      // (%d %d %d)\n", blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z,
-      // threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
-      //               v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)],
-      //                 r_gl, c_gl, f_gl);
-    }
-  }
-  base += R * F; // ROUND_UP_WARP(R * F) * WARP_SIZE;
-  if (!w.isNull() && threadId >= base && threadId < base + R * C) {
-    r_sm = ((threadId - base) / C) * 2;
-    c_sm = ((threadId - base) % C) * 2;
-    f_sm = F * 2;
-    r_gl = r / 2 + (threadId - base) / C;
-    c_gl = c / 2 + (threadId - base) % C;
-    f_gl = f / 2 + F;
-    if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-        r_gl < nr_c && c_gl < nc_c && f_gl < nf_c) {
-      v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
-          w(r_gl, c_gl, f_gl);
-      // if (c_gl == nc_c - 1 && f_gl == nf_c-1)
-      // printf("block: (%d %d %d) thread: (%d %d %d) load3 (%d %d %d): %f
-      // (%d %d %d)\n", blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z,
-      // threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
-      //               v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)],
-      //                 r_gl, c_gl, f_gl);
-    }
-  }
-  base += R * C; // ROUND_UP_WARP(R * C) * WARP_SIZE;
-  // load extra edges
-  if (!w.isNull() && threadId >= base && threadId < base + R) {
-    r_sm = (threadId - base) * 2;
-    c_sm = C * 2;
-    f_sm = F * 2;
-    r_gl = r / 2 + threadId - base;
-    c_gl = c / 2 + C;
-    f_gl = f / 2 + F;
-    if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-        r_gl < nr_c && c_gl < nc_c && f_gl < nf_c) {
-      v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
-          w(r_gl, c_gl, f_gl);
-      // if (c_gl == nc_c - 1 && f_gl == nf_c-1)
-      // printf("block: (%d %d %d) thread: (%d %d %d) load4 (%d %d %d): %f
-      // (%d %d %d)\n", blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z,
-      // threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
-      //               v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)],
-      //                 r_gl, c_gl, f_gl);
-    }
-  }
-  base += R; // ROUND_UP_WARP(R) * WARP_SIZE;
-  if (!w.isNull() && threadId >= base && threadId < base + C) {
-    r_sm = R * 2;
-    c_sm = (threadId - base) * 2;
-    f_sm = F * 2;
-    r_gl = r / 2 + R;
-    c_gl = c / 2 + threadId - base;
-    f_gl = f / 2 + F;
-    if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-        r_gl < nr_c && c_gl < nc_c && f_gl < nf_c) {
-      v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
-          w(r_gl, c_gl, f_gl);
-      // if (c_gl == nc_c - 1 && f_gl == nf_c-1)
-      // printf("block: (%d %d %d) thread: (%d %d %d) load5 (%d %d %d): %f
-      // (%d %d %d)\n", blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z,
-      // threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
-      //               v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)],
-      //                 r_gl, c_gl, f_gl);
-    }
-  }
-  base += C; // ROUND_UP_WARP(C) * WARP_SIZE;
-  if (!w.isNull() && threadId >= base && threadId < base + F) {
-    r_sm = R * 2;
-    c_sm = C * 2;
-    f_sm = (threadId - base) * 2;
-    r_gl = r / 2 + R;
-    c_gl = c / 2 + C;
-    f_gl = f / 2 + threadId - base;
+    base += (C/2) * (F/2); // ROUND_UP_WARP((C/2) * (F/2)) * WARP_SIZE;
+    if (!w.isNull() && threadId >= base && threadId < base + (R/2) * (F/2)) {
+      r_sm = ((threadId - base) / (F/2)) * 2;
+      c_sm = (C/2) * 2;
+      f_sm = ((threadId - base) % (F/2)) * 2;
+      r_gl = r / 2 + (threadId - base) / (F/2);
+      c_gl = c / 2 + (C/2);
+      f_gl = f / 2 + (threadId - base) % (F/2);
       if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
           r_gl < nr_c && c_gl < nc_c && f_gl < nf_c) {
-      v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
-          w(r_gl, c_gl, f_gl);
-      // if (c_gl == nc_c - 1 && f_gl == nf_c-1)
-      // printf("block: (%d %d %d) thread: (%d %d %d) load6 (%d %d %d): %f
-      // (%d %d %d)\n", blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z,
-      // threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
-      //               v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)],
-      //                 r_gl, c_gl, f_gl);
+        v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
+            *w(r_gl, c_gl, f_gl);
+        // if (c_gl == nc_c - 1 && f_gl == nf_c-1)
+        // printf("block: (%d %d %d) thread: (%d %d %d) load2 (%d %d %d): %f
+        // (%d %d %d)\n", blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z,
+        // threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
+        //               v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)],
+        //                 r_gl, c_gl, f_gl);
+      }
     }
-  }
-  base += F; // ROUND_UP_WARP(F) * WARP_SIZE;
-  // // load extra vertex
-  if (!w.isNull() && threadId >= base && threadId < base + 1) {
-    r_sm = R * 2;
-    c_sm = C * 2;
-    f_sm = F * 2;
-    r_gl = r / 2 + R;
-    c_gl = c / 2 + C;
-    f_gl = f / 2 + F;
-    if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-        r_gl < nr_c && c_gl < nc_c && f_gl < nf_c) {
-      v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
-          w(r_gl, c_gl, f_gl);
-      // if (c_gl == nc_c - 1 && f_gl == nf_c-1)
-      // printf("block: (%d %d %d) thread: (%d %d %d) load7 (%d %d %d): %f
-      // (%d %d %d)\n", blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z,
-      // threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
-      //               v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)],
-      //                 r_gl, c_gl, f_gl);
+    base += (R/2) * (F/2); // ROUND_UP_WARP((R/2) * (F/2)) * WARP_SIZE;
+    if (!w.isNull() && threadId >= base && threadId < base + (R/2) * (C/2)) {
+      r_sm = ((threadId - base) / (C/2)) * 2;
+      c_sm = ((threadId - base) % (C/2)) * 2;
+      f_sm = (F/2) * 2;
+      r_gl = r / 2 + (threadId - base) / (C/2);
+      c_gl = c / 2 + (threadId - base) % (C/2);
+      f_gl = f / 2 + (F/2);
+      if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+          r_gl < nr_c && c_gl < nc_c && f_gl < nf_c) {
+        v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
+            *w(r_gl, c_gl, f_gl);
+        // if (c_gl == nc_c - 1 && f_gl == nf_c-1)
+        // printf("block: (%d %d %d) thread: (%d %d %d) load3 (%d %d %d): %f
+        // (%d %d %d)\n", blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z,
+        // threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
+        //               v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)],
+        //                 r_gl, c_gl, f_gl);
+      }
     }
-  }
+    base += (R/2) * (C/2); // ROUND_UP_WARP((R/2) * (C/2)) * WARP_SIZE;
+    // load extra edges
+    if (!w.isNull() && threadId >= base && threadId < base + (R/2)) {
+      r_sm = (threadId - base) * 2;
+      c_sm = (C/2) * 2;
+      f_sm = (F/2) * 2;
+      r_gl = r / 2 + threadId - base;
+      c_gl = c / 2 + (C/2);
+      f_gl = f / 2 + (F/2);
+      if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+          r_gl < nr_c && c_gl < nc_c && f_gl < nf_c) {
+        v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
+            *w(r_gl, c_gl, f_gl);
+        // if (c_gl == nc_c - 1 && f_gl == nf_c-1)
+        // printf("block: (%d %d %d) thread: (%d %d %d) load4 (%d %d %d): %f
+        // (%d %d %d)\n", blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z,
+        // threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
+        //               v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)],
+        //                 r_gl, c_gl, f_gl);
+      }
+    }
+    base += (R/2); // ROUND_UP_WARP((R/2)) * WARP_SIZE;
+    if (!w.isNull() && threadId >= base && threadId < base + (C/2)) {
+      r_sm = (R/2) * 2;
+      c_sm = (threadId - base) * 2;
+      f_sm = (F/2) * 2;
+      r_gl = r / 2 + (R/2);
+      c_gl = c / 2 + threadId - base;
+      f_gl = f / 2 + (F/2);
+      if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+          r_gl < nr_c && c_gl < nc_c && f_gl < nf_c) {
+        v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
+            *w(r_gl, c_gl, f_gl);
+        // if (c_gl == nc_c - 1 && f_gl == nf_c-1)
+        // printf("block: (%d %d %d) thread: (%d %d %d) load5 (%d %d %d): %f
+        // (%d %d %d)\n", blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z,
+        // threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
+        //               v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)],
+        //                 r_gl, c_gl, f_gl);
+      }
+    }
+    base += (C/2); // ROUND_UP_WARP((C/2)) * WARP_SIZE;
+    if (!w.isNull() && threadId >= base && threadId < base + (F/2)) {
+      r_sm = (R/2) * 2;
+      c_sm = (C/2) * 2;
+      f_sm = (threadId - base) * 2;
+      r_gl = r / 2 + (R/2);
+      c_gl = c / 2 + (C/2);
+      f_gl = f / 2 + threadId - base;
+        if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+            r_gl < nr_c && c_gl < nc_c && f_gl < nf_c) {
+        v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
+            *w(r_gl, c_gl, f_gl);
+        // if (c_gl == nc_c - 1 && f_gl == nf_c-1)
+        // printf("block: (%d %d %d) thread: (%d %d %d) load6 (%d %d %d): %f
+        // (%d %d %d)\n", blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z,
+        // threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
+        //               v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)],
+        //                 r_gl, c_gl, f_gl);
+      }
+    }
+    base += (F/2); // ROUND_UP_WARP((F/2)) * WARP_SIZE;
+    // // load extra vertex
+    if (!w.isNull() && threadId >= base && threadId < base + 1) {
+      r_sm = (R/2) * 2;
+      c_sm = (C/2) * 2;
+      f_sm = (F/2) * 2;
+      r_gl = r / 2 + (R/2);
+      c_gl = c / 2 + (C/2);
+      f_gl = f / 2 + (F/2);
+      if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+          r_gl < nr_c && c_gl < nc_c && f_gl < nf_c) {
+        v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] =
+            *w(r_gl, c_gl, f_gl);
+        // if (c_gl == nc_c - 1 && f_gl == nf_c-1)
+        // printf("block: (%d %d %d) thread: (%d %d %d) load7 (%d %d %d): %f
+        // (%d %d %d)\n", blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z,
+        // threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
+        //               v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)],
+        //                 r_gl, c_gl, f_gl);
+      }
+    }
+
+    // __syncthreads();
+    // if (threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0) {
+    //   printf("rest_p: %u %u %u RCF %u %u %u\n", rest_r_p, rest_c_p, rest_f_p, R, C, F);
+
+    //   for (int i = 0; i < min(rest_r_p, (R/2) * 2 + 1); i++) {
+    //     for (int j = 0; j < min(rest_c_p, (C/2) * 2 + 1); j++) {
+    //       for (int k = 0; k < min(rest_f_p, (F/2) * 2 + 1); k++) {
+    //         printf("%2.2f ", v_sm[get_idx(ldsm1, ldsm2, i, j, k)]);
+    //       }
+    //       printf("\n");
+    //     }
+    //     printf("\n");
+    //   }
+    // }
+    // __syncthreads();
+
+
   }
 
   MGARDm_EXEC void
   __operation3(IDX ngridz, IDX ngridy, IDX ngridx,
                IDX nblockz, IDX nblocky, IDX nblockx,
                IDX blockz, IDX blocky, IDX blockx,
-               IDX threadz, IDX thready, IDX threadx, T * shared_memory) {
-     if (dwf && threadId >= R * C * F && threadId < R * C * F * 2) {
+               IDX threadz, IDX thready, IDX threadx, T * shared_memory) 
+  {
+    if (!wf.isNull() && threadId >= (R/2) * (C/2) * (F/2) && threadId < (R/2) * (C/2) * (F/2) * 2) {
+      r_sm = ((threadId - (R/2) * (C/2) * (F/2)) / ((C/2) * (F/2))) * 2;
+      c_sm = (((threadId - (R/2) * (C/2) * (F/2)) % ((C/2) * (F/2))) / (F/2)) * 2;
+      f_sm = (((threadId - (R/2) * (C/2) * (F/2)) % ((C/2) * (F/2))) % (F/2)) * 2 + 1;
+      r_gl = r / 2 + (threadId - (R/2) * (C/2) * (F/2)) / ((C/2) * (F/2));
+      c_gl = c / 2 + ((threadId - (R/2) * (C/2) * (F/2)) % ((C/2) * (F/2))) / (F/2);
+      f_gl = f / 2 + ((threadId - (R/2) * (C/2) * (F/2)) % ((C/2) * (F/2))) % (F/2);
 
-    r_sm = ((threadId - R * C * F) / (C * F)) * 2;
-    c_sm = (((threadId - R * C * F) % (C * F)) / F) * 2;
-    f_sm = (((threadId - R * C * F) % (C * F)) % F) * 2 + 1;
-    r_gl = r / 2 + (threadId - R * C * F) / (C * F);
-    c_gl = c / 2 + ((threadId - R * C * F) % (C * F)) / F;
-    f_gl = f / 2 + ((threadId - R * C * F) % (C * F)) % F;
+      if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+          r_gl < nr_c && c_gl < nc_c && f_gl < nf - nf_c) {
 
-    if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-        r_gl < nr_c && c_gl < nc_c && f_gl < nf - nf_c) {
-
-      res = dwf[get_idx(lddwf1, lddwf2, r_gl, c_gl, f_gl)];
-      res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm - 1)],
-                  v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm + 1)],
-                  ratio_f_sm[f_sm - 1]);
-      v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
-    }
-
-  }
-
-  if (dwc && threadId >= R * C * F * 2 && threadId < R * C * F * 3) {
-    r_sm = ((threadId - R * C * F * 2) / (C * F)) * 2;
-    c_sm = (((threadId - R * C * F * 2) % (C * F)) / F) * 2 + 1;
-    f_sm = (((threadId - R * C * F * 2) % (C * F)) % F) * 2;
-    r_gl = r / 2 + (threadId - R * C * F * 2) / (C * F);
-    c_gl = c / 2 + ((threadId - R * C * F * 2) % (C * F)) / F;
-    f_gl = f / 2 + ((threadId - R * C * F * 2) % (C * F)) % F;
-    if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-        r_gl < nr_c && c_gl < nc - nc_c && f_gl < nf_c) {
-      res = dwc[get_idx(lddwc1, lddwc2, r_gl, c_gl, f_gl)];
-      res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm - 1, f_sm)],
-                  v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm + 1, f_sm)],
-                  ratio_c_sm[c_sm - 1]);
-      v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
-    }
-  }
-
-  if (dwr && threadId >= R * C * F * 3 && threadId < R * C * F * 4) {
-    r_sm = ((threadId - R * C * F * 3) / (C * F)) * 2 + 1;
-    c_sm = (((threadId - R * C * F * 3) % (C * F)) / F) * 2;
-    f_sm = (((threadId - R * C * F * 3) % (C * F)) % F) * 2;
-    r_gl = r / 2 + (threadId - R * C * F * 3) / (C * F);
-    c_gl = c / 2 + ((threadId - R * C * F * 3) % (C * F)) / F;
-    f_gl = f / 2 + ((threadId - R * C * F * 3) % (C * F)) % F;
-
-    if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-        r_gl < nr - nr_c && c_gl < nc_c && f_gl < nf_c) {
-      res = dwr[get_idx(lddwr1, lddwr2, r_gl, c_gl, f_gl)];
-      res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm, f_sm)],
-                  v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm)],
-                  ratio_r_sm[r_sm - 1]);
-      // if (c_gl == nc_c-1 && f_gl == nf_c - 1)
-      //     printf("block: (%d %d %d) thread: (%d %d %d) calc_coeff0 (%d
-      //     %d %d): %f <- %f %f\n", blockIdx.z, blockIdx.y, blockIdx.x,
-      //     threadIdx.z, threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
-      //             res, v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm,
-      //             f_sm)],
-      //               v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm)]);
-      v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
-    }
-  }
-
-  if (dwcf && threadId >= R * C * F * 4 && threadId < R * C * F * 5) {
-    r_sm = ((threadId - R * C * F * 4) / (C * F)) * 2;
-    c_sm = (((threadId - R * C * F * 4) % (C * F)) / F) * 2 + 1;
-    f_sm = (((threadId - R * C * F * 4) % (C * F)) % F) * 2 + 1;
-    r_gl = r / 2 + (threadId - R * C * F * 4) / (C * F);
-    c_gl = c / 2 + ((threadId - R * C * F * 4) % (C * F)) / F;
-    f_gl = f / 2 + ((threadId - R * C * F * 4) % (C * F)) % F;
-
-    if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-        r_gl < nr_c && c_gl < nc - nc_c && f_gl < nf - nf_c) {
-      res = dwcf[get_idx(lddwcf1, lddwcf2, r_gl, c_gl, f_gl)];
-      T f1 = lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm - 1, f_sm - 1)],
-                  v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm - 1, f_sm + 1)],
-                  ratio_f_sm[f_sm - 1]);
-      T f2 = lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm + 1, f_sm - 1)],
-                  v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm + 1, f_sm + 1)],
-                  ratio_f_sm[f_sm - 1]);
-      res += lerp(f1, f2, ratio_c_sm[c_sm - 1]);
-      v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
-    }
-  }
-
-  if (dwrf && threadId >= R * C * F * 5 && threadId < R * C * F * 6) {
-    r_sm = ((threadId - R * C * F * 5) / (C * F)) * 2 + 1;
-    c_sm = (((threadId - R * C * F * 5) % (C * F)) / F) * 2;
-    f_sm = (((threadId - R * C * F * 5) % (C * F)) % F) * 2 + 1;
-    r_gl = r / 2 + (threadId - R * C * F * 5) / (C * F);
-    c_gl = c / 2 + ((threadId - R * C * F * 5) % (C * F)) / F;
-    f_gl = f / 2 + ((threadId - R * C * F * 5) % (C * F)) % F;
-    if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-        r_gl < nr - nr_c && c_gl < nc_c && f_gl < nf - nf_c) {
-      res = dwrf[get_idx(lddwrf1, lddwrf2, r_gl, c_gl, f_gl)];
-      T f1 = lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm, f_sm - 1)],
-                  v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm, f_sm + 1)],
-                  ratio_f_sm[f_sm - 1]);
-      T f2 = lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm - 1)],
-                  v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm + 1)],
-                  ratio_f_sm[f_sm - 1]);
-        res += lerp(f1, f2, ratio_r_sm[r_sm - 1]);
-      v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
-    }
-  }
-
-  if (dwrc && threadId >= R * C * F * 6 && threadId < R * C * F * 7) {
-    r_sm = ((threadId - R * C * F * 6) / (C * F)) * 2 + 1;
-    c_sm = (((threadId - R * C * F * 6) % (C * F)) / F) * 2 + 1;
-    f_sm = (((threadId - R * C * F * 6) % (C * F)) % F) * 2;
-    r_gl = r / 2 + (threadId - R * C * F * 6) / (C * F);
-    c_gl = c / 2 + ((threadId - R * C * F * 6) % (C * F)) / F;
-    f_gl = f / 2 + ((threadId - R * C * F * 6) % (C * F)) % F;
-    if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-        r_gl < nr - nr_c && c_gl < nc - nc_c && f_gl < nf_c) {
-      res = dwrc[get_idx(lddwrc1, lddwrc2, r_gl, c_gl, f_gl)];
-      T c1 = lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm - 1, f_sm)],
-                  v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm + 1, f_sm)],
-                  ratio_c_sm[c_sm - 1]);
-      T c2 = lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm - 1, f_sm)],
-                  v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm + 1, f_sm)],
-                  ratio_c_sm[c_sm - 1]);
-      res += lerp(c1, c2, ratio_r_sm[r_sm - 1]);
-      v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
-    }
-  }
-
-  if (dwrcf && threadId >= R * C * F * 7 && threadId < R * C * F * 8) {
-    r_sm = ((threadId - R * C * F * 7) / (C * F)) * 2 + 1;
-    c_sm = (((threadId - R * C * F * 7) % (C * F)) / F) * 2 + 1;
-    f_sm = (((threadId - R * C * F * 7) % (C * F)) % F) * 2 + 1;
-    r_gl = r / 2 + (threadId - R * C * F * 7) / (C * F);
-    c_gl = c / 2 + ((threadId - R * C * F * 7) % (C * F)) / F;
-    f_gl = f / 2 + ((threadId - R * C * F * 7) % (C * F)) % F;
-    if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-        r_gl < nr - nr_c && c_gl < nc - nc_c && f_gl < nf - nf_c) {
-      res = dwrcf[get_idx(lddwrcf1, lddwrcf2, r_gl, c_gl, f_gl)];
-      T f1 =
-          lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm - 1, f_sm - 1)],
-               v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm - 1, f_sm + 1)],
-               ratio_f_sm[f_sm - 1]);
-      T f2 =
-          lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm + 1, f_sm - 1)],
-               v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm + 1, f_sm + 1)],
-               ratio_f_sm[f_sm - 1]);
-      T f3 =
-          lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm - 1, f_sm - 1)],
-               v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm - 1, f_sm + 1)],
-               ratio_f_sm[f_sm - 1]);
-      T f4 =
-          lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm + 1, f_sm - 1)],
-               v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm + 1, f_sm + 1)],
-               ratio_f_sm[f_sm - 1]);
-
-      T fc1 = lerp(f1, f2, ratio_c_sm[c_sm - 1]);
-      T fc2 = lerp(f3, f4, ratio_c_sm[c_sm - 1]);
-
-      res += lerp(fc1, fc2, ratio_r_sm[r_sm - 1]);
-      v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
-    }
-  }
-
-  if (r + R * 2 == nr_p - 1) {
-    if (threadId < C * F) {
-      if (dwf) {
-        r_sm = R * 2;
-        c_sm = (threadId / F) * 2;
-        f_sm = (threadId % F) * 2 + 1;
-        r_gl = r / 2 + R;
-        c_gl = c / 2 + threadId / F;
-        f_gl = f / 2 + threadId % F;
-        if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-            r_gl < nr_c && c_gl < nc_c && f_gl < nf - nf_c) {
-          res = dwf[get_idx(lddwf1, lddwf2, r_gl, c_gl, f_gl)];
-          res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm - 1)],
-                      v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm + 1)],
-                      ratio_f_sm[f_sm - 1]);
-          v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
-        }
+        res = *wf(r_gl, c_gl, f_gl);
+        res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm - 1)],
+                    v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm + 1)],
+                    ratio_f_sm[f_sm - 1]);
+        v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
       }
 
-      if (dwc) {
-        r_sm = R * 2;
-        c_sm = (threadId / F) * 2 + 1;
-        f_sm = (threadId % F) * 2;
-        r_gl = r / 2 + R;
-        c_gl = c / 2 + threadId / F;
-        f_gl = f / 2 + threadId % F;
-        if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-            r_gl < nr_c && c_gl < nc - nc_c && f_gl < nf_c) {
-          res = dwc[get_idx(lddwc1, lddwc2, r_gl, c_gl, f_gl)];
-          res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm - 1, f_sm)],
-                      v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm + 1, f_sm)],
-                      ratio_c_sm[c_sm - 1]);
-          v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
-        }
-      }
-      if (dwcf) {
-        r_sm = R * 2;
-        c_sm = (threadId / F) * 2 + 1;
-        f_sm = (threadId % F) * 2 + 1;
-        r_gl = r / 2 + R;
-        c_gl = c / 2 + threadId / F;
-        f_gl = f / 2 + threadId % F;
-        if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-            r_gl < nr_c && c_gl < nc - nc_c && f_gl < nf - nf_c) {
-          res = dwcf[get_idx(lddwcf1, lddwcf2, r_gl, c_gl, f_gl)];
-          T f1 =
-              lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm - 1, f_sm - 1)],
-                   v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm - 1, f_sm + 1)],
-                   ratio_f_sm[f_sm - 1]);
-          T f2 =
-              lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm + 1, f_sm - 1)],
-                   v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm + 1, f_sm + 1)],
-                   ratio_f_sm[f_sm - 1]);
-          res += lerp(f1, f2, ratio_c_sm[c_sm - 1]);
-          v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
-        }
+    }
+
+    if (!wc.isNull() && threadId >= (R/2) * (C/2) * (F/2) * 2 && threadId < (R/2) * (C/2) * (F/2) * 3) {
+      r_sm = ((threadId - (R/2) * (C/2) * (F/2) * 2) / ((C/2) * (F/2))) * 2;
+      c_sm = (((threadId - (R/2) * (C/2) * (F/2) * 2) % ((C/2) * (F/2))) / (F/2)) * 2 + 1;
+      f_sm = (((threadId - (R/2) * (C/2) * (F/2) * 2) % ((C/2) * (F/2))) % (F/2)) * 2;
+      r_gl = r / 2 + (threadId - (R/2) * (C/2) * (F/2) * 2) / ((C/2) * (F/2));
+      c_gl = c / 2 + ((threadId - (R/2) * (C/2) * (F/2) * 2) % ((C/2) * (F/2))) / (F/2);
+      f_gl = f / 2 + ((threadId - (R/2) * (C/2) * (F/2) * 2) % ((C/2) * (F/2))) % (F/2);
+      if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+          r_gl < nr_c && c_gl < nc - nc_c && f_gl < nf_c) {
+        res = *wc(r_gl, c_gl, f_gl);
+        res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm - 1, f_sm)],
+                    v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm + 1, f_sm)],
+                    ratio_c_sm[c_sm - 1]);
+        v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
       }
     }
-  }
 
-  if (c + C * 2 == nc_p - 1) {
-    if (threadId >= R * C * F && threadId < R * C * F + R * F) {
-      if (dwf) {
-        r_sm = ((threadId - R * C * F) / F) * 2;
-        c_sm = C * 2;
-        f_sm = ((threadId - R * C * F) % F) * 2 + 1;
-        r_gl = r / 2 + (threadId - R * C * F) / F;
-        c_gl = c / 2 + C;
-        f_gl = f / 2 + (threadId - R * C * F) % F;
-        if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-            r_gl < nr_c && c_gl < nc_c && f_gl < nf - nf_c) {
-          res = dwf[get_idx(lddwf1, lddwf2, r_gl, c_gl, f_gl)];
-          res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm - 1)],
-                      v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm + 1)],
-                      ratio_f_sm[f_sm - 1]);
-          v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
-        }
+    if (!wr.isNull() && threadId >= (R/2) * (C/2) * (F/2) * 3 && threadId < (R/2) * (C/2) * (F/2) * 4) {
+      r_sm = ((threadId - (R/2) * (C/2) * (F/2) * 3) / ((C/2) * (F/2))) * 2 + 1;
+      c_sm = (((threadId - (R/2) * (C/2) * (F/2) * 3) % ((C/2) * (F/2))) / (F/2)) * 2;
+      f_sm = (((threadId - (R/2) * (C/2) * (F/2) * 3) % ((C/2) * (F/2))) % (F/2)) * 2;
+      r_gl = r / 2 + (threadId - (R/2) * (C/2) * (F/2) * 3) / ((C/2) * (F/2));
+      c_gl = c / 2 + ((threadId - (R/2) * (C/2) * (F/2) * 3) % ((C/2) * (F/2))) / (F/2);
+      f_gl = f / 2 + ((threadId - (R/2) * (C/2) * (F/2) * 3) % ((C/2) * (F/2))) % (F/2);
+
+      if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+          r_gl < nr - nr_c && c_gl < nc_c && f_gl < nf_c) {
+        res = *wr(r_gl, c_gl, f_gl);
+        res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm, f_sm)],
+                    v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm)],
+                    ratio_r_sm[r_sm - 1]);
+        // if (c_gl == nc_c-1 && f_gl == nf_c - 1)
+        //     printf("block: (%d %d %d) thread: (%d %d %d) calc_coeff0 (%d
+        //     %d %d): %f <- %f %f\n", blockIdx.z, blockIdx.y, blockIdx.x,
+        //     threadIdx.z, threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
+        //             res, v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm,
+        //             f_sm)],
+        //               v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm)]);
+        v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
       }
-      if (dwr) {
-        r_sm = ((threadId - R * C * F) / F) * 2 + 1;
-        c_sm = C * 2;
-        f_sm = ((threadId - R * C * F) % F) * 2;
-        r_gl = r / 2 + (threadId - R * C * F) / F;
-        c_gl = c / 2 + C;
-        f_gl = f / 2 + (threadId - R * C * F) % F;
-        if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-            r_gl < nr - nr_c && c_gl < nc_c && f_gl < nf_c) {
-          res = dwr[get_idx(lddwr1, lddwr2, r_gl, c_gl, f_gl)];
-          res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm, f_sm)],
-                      v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm)],
-                      ratio_r_sm[r_sm - 1]);
-          // if (c_gl == nc_c-1 && f_gl == nf_c - 1)
-          // printf("block: (%d %d %d) thread: (%d %d %d) calc_coeff1 (%d
-          // %d %d): %f <- %f %f\n", blockIdx.z, blockIdx.y, blockIdx.x,
-          // threadIdx.z, threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
-          //         res, v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm,
-          //         f_sm)],
-          //           v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm)]);
-          v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
-        }
+    }
+
+    if (!wcf.isNull() && threadId >= (R/2) * (C/2) * (F/2) * 4 && threadId < (R/2) * (C/2) * (F/2) * 5) {
+      r_sm = ((threadId - (R/2) * (C/2) * (F/2) * 4) / ((C/2) * (F/2))) * 2;
+      c_sm = (((threadId - (R/2) * (C/2) * (F/2) * 4) % ((C/2) * (F/2))) / (F/2)) * 2 + 1;
+      f_sm = (((threadId - (R/2) * (C/2) * (F/2) * 4) % ((C/2) * (F/2))) % (F/2)) * 2 + 1;
+      r_gl = r / 2 + (threadId - (R/2) * (C/2) * (F/2) * 4) / ((C/2) * (F/2));
+      c_gl = c / 2 + ((threadId - (R/2) * (C/2) * (F/2) * 4) % ((C/2) * (F/2))) / (F/2);
+      f_gl = f / 2 + ((threadId - (R/2) * (C/2) * (F/2) * 4) % ((C/2) * (F/2))) % (F/2);
+
+      if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+          r_gl < nr_c && c_gl < nc - nc_c && f_gl < nf - nf_c) {
+        res = *wcf(r_gl, c_gl, f_gl);
+        T f1 = lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm - 1, f_sm - 1)],
+                    v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm - 1, f_sm + 1)],
+                    ratio_f_sm[f_sm - 1]);
+        T f2 = lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm + 1, f_sm - 1)],
+                    v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm + 1, f_sm + 1)],
+                    ratio_f_sm[f_sm - 1]);
+        res += lerp(f1, f2, ratio_c_sm[c_sm - 1]);
+        v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
       }
-      if (dwrf) {
-        r_sm = ((threadId - R * C * F) / F) * 2 + 1;
-        c_sm = C * 2;
-        f_sm = ((threadId - R * C * F) % F) * 2 + 1;
-        r_gl = r / 2 + (threadId - R * C * F) / F;
-        c_gl = c / 2 + C;
-        f_gl = f / 2 + (threadId - R * C * F) % F;
-        if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-            r_gl < nr - nr_c && c_gl < nc_c && f_gl < nf - nf_c) {
-          res = dwrf[get_idx(lddwrf1, lddwrf2, r_gl, c_gl, f_gl)];
-          T f1 =
-              lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm, f_sm - 1)],
-                   v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm, f_sm + 1)],
-                   ratio_f_sm[f_sm - 1]);
-          T f2 =
-              lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm - 1)],
-                   v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm + 1)],
-                   ratio_f_sm[f_sm - 1]);
+    }
+
+    if (!wrf.isNull() && threadId >= (R/2) * (C/2) * (F/2) * 5 && threadId < (R/2) * (C/2) * (F/2) * 6) {
+      r_sm = ((threadId - (R/2) * (C/2) * (F/2) * 5) / ((C/2) * (F/2))) * 2 + 1;
+      c_sm = (((threadId - (R/2) * (C/2) * (F/2) * 5) % ((C/2) * (F/2))) / (F/2)) * 2;
+      f_sm = (((threadId - (R/2) * (C/2) * (F/2) * 5) % ((C/2) * (F/2))) % (F/2)) * 2 + 1;
+      r_gl = r / 2 + (threadId - (R/2) * (C/2) * (F/2) * 5) / ((C/2) * (F/2));
+      c_gl = c / 2 + ((threadId - (R/2) * (C/2) * (F/2) * 5) % ((C/2) * (F/2))) / (F/2);
+      f_gl = f / 2 + ((threadId - (R/2) * (C/2) * (F/2) * 5) % ((C/2) * (F/2))) % (F/2);
+      if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+          r_gl < nr - nr_c && c_gl < nc_c && f_gl < nf - nf_c) {
+        res = *wrf(r_gl, c_gl, f_gl);
+        T f1 = lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm, f_sm - 1)],
+                    v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm, f_sm + 1)],
+                    ratio_f_sm[f_sm - 1]);
+        T f2 = lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm - 1)],
+                    v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm + 1)],
+                    ratio_f_sm[f_sm - 1]);
           res += lerp(f1, f2, ratio_r_sm[r_sm - 1]);
-          v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
+        v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
+      }
+    }
+
+    if (!wrc.isNull() && threadId >= (R/2) * (C/2) * (F/2) * 6 && threadId < (R/2) * (C/2) * (F/2) * 7) {
+      r_sm = ((threadId - (R/2) * (C/2) * (F/2) * 6) / ((C/2) * (F/2))) * 2 + 1;
+      c_sm = (((threadId - (R/2) * (C/2) * (F/2) * 6) % ((C/2) * (F/2))) / (F/2)) * 2 + 1;
+      f_sm = (((threadId - (R/2) * (C/2) * (F/2) * 6) % ((C/2) * (F/2))) % (F/2)) * 2;
+      r_gl = r / 2 + (threadId - (R/2) * (C/2) * (F/2) * 6) / ((C/2) * (F/2));
+      c_gl = c / 2 + ((threadId - (R/2) * (C/2) * (F/2) * 6) % ((C/2) * (F/2))) / (F/2);
+      f_gl = f / 2 + ((threadId - (R/2) * (C/2) * (F/2) * 6) % ((C/2) * (F/2))) % (F/2);
+      if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+          r_gl < nr - nr_c && c_gl < nc - nc_c && f_gl < nf_c) {
+        res = *wrc(r_gl, c_gl, f_gl);
+        T c1 = lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm - 1, f_sm)],
+                    v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm + 1, f_sm)],
+                    ratio_c_sm[c_sm - 1]);
+        T c2 = lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm - 1, f_sm)],
+                    v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm + 1, f_sm)],
+                    ratio_c_sm[c_sm - 1]);
+        res += lerp(c1, c2, ratio_r_sm[r_sm - 1]);
+        v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
+      }
+    }
+
+    if (!wrcf.isNull() && threadId >= (R/2) * (C/2) * (F/2) * 7 && threadId < (R/2) * (C/2) * (F/2) * 8) {
+      r_sm = ((threadId - (R/2) * (C/2) * (F/2) * 7) / ((C/2) * (F/2))) * 2 + 1;
+      c_sm = (((threadId - (R/2) * (C/2) * (F/2) * 7) % ((C/2) * (F/2))) / (F/2)) * 2 + 1;
+      f_sm = (((threadId - (R/2) * (C/2) * (F/2) * 7) % ((C/2) * (F/2))) % (F/2)) * 2 + 1;
+      r_gl = r / 2 + (threadId - (R/2) * (C/2) * (F/2) * 7) / ((C/2) * (F/2));
+      c_gl = c / 2 + ((threadId - (R/2) * (C/2) * (F/2) * 7) % ((C/2) * (F/2))) / (F/2);
+      f_gl = f / 2 + ((threadId - (R/2) * (C/2) * (F/2) * 7) % ((C/2) * (F/2))) % (F/2);
+      if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+          r_gl < nr - nr_c && c_gl < nc - nc_c && f_gl < nf - nf_c) {
+        res = *wrcf(r_gl, c_gl, f_gl);
+        T f1 =
+            lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm - 1, f_sm - 1)],
+                 v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm - 1, f_sm + 1)],
+                 ratio_f_sm[f_sm - 1]);
+        T f2 =
+            lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm + 1, f_sm - 1)],
+                 v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm + 1, f_sm + 1)],
+                 ratio_f_sm[f_sm - 1]);
+        T f3 =
+            lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm - 1, f_sm - 1)],
+                 v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm - 1, f_sm + 1)],
+                 ratio_f_sm[f_sm - 1]);
+        T f4 =
+            lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm + 1, f_sm - 1)],
+                 v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm + 1, f_sm + 1)],
+                 ratio_f_sm[f_sm - 1]);
+
+        T fc1 = lerp(f1, f2, ratio_c_sm[c_sm - 1]);
+        T fc2 = lerp(f3, f4, ratio_c_sm[c_sm - 1]);
+
+        res += lerp(fc1, fc2, ratio_r_sm[r_sm - 1]);
+        v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
+      }
+    }
+
+    if (r + (R/2) * 2 == nr_p - 1) {
+      if (threadId < (C/2) * (F/2)) {
+        if (!wf.isNull()) {
+          r_sm = (R/2) * 2;
+          c_sm = (threadId / (F/2)) * 2;
+          f_sm = (threadId % (F/2)) * 2 + 1;
+          r_gl = r / 2 + (R/2);
+          c_gl = c / 2 + threadId / (F/2);
+          f_gl = f / 2 + threadId % (F/2);
+          if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+              r_gl < nr_c && c_gl < nc_c && f_gl < nf - nf_c) {
+            res = *wf(r_gl, c_gl, f_gl);
+            res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm - 1)],
+                        v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm + 1)],
+                        ratio_f_sm[f_sm - 1]);
+            v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
+          }
+        }
+
+        if (!wc.isNull()) {
+          r_sm = (R/2) * 2;
+          c_sm = (threadId / (F/2)) * 2 + 1;
+          f_sm = (threadId % (F/2)) * 2;
+          r_gl = r / 2 + (R/2);
+          c_gl = c / 2 + threadId / (F/2);
+          f_gl = f / 2 + threadId % (F/2);
+          if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+              r_gl < nr_c && c_gl < nc - nc_c && f_gl < nf_c) {
+            res = *wc(r_gl, c_gl, f_gl);
+            res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm - 1, f_sm)],
+                        v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm + 1, f_sm)],
+                        ratio_c_sm[c_sm - 1]);
+            v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
+          }
+        }
+        if (!wcf.isNull()) {
+          r_sm = (R/2) * 2;
+          c_sm = (threadId / (F/2)) * 2 + 1;
+          f_sm = (threadId % (F/2)) * 2 + 1;
+          r_gl = r / 2 + (R/2);
+          c_gl = c / 2 + threadId / (F/2);
+          f_gl = f / 2 + threadId % (F/2);
+          if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+              r_gl < nr_c && c_gl < nc - nc_c && f_gl < nf - nf_c) {
+            res = *wcf(r_gl, c_gl, f_gl);
+            T f1 =
+                lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm - 1, f_sm - 1)],
+                     v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm - 1, f_sm + 1)],
+                     ratio_f_sm[f_sm - 1]);
+            T f2 =
+                lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm + 1, f_sm - 1)],
+                     v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm + 1, f_sm + 1)],
+                     ratio_f_sm[f_sm - 1]);
+            res += lerp(f1, f2, ratio_c_sm[c_sm - 1]);
+            v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
+          }
+        }
+      }
+    }
+
+    if (c + (C/2) * 2 == nc_p - 1) {
+      if (threadId >= (R/2) * (C/2) * (F/2) && threadId < (R/2) * (C/2) * (F/2) + (R/2) * (F/2)) {
+        if (!wf.isNull()) {
+          r_sm = ((threadId - (R/2) * (C/2) * (F/2)) / (F/2)) * 2;
+          c_sm = (C/2) * 2;
+          f_sm = ((threadId - (R/2) * (C/2) * (F/2)) % (F/2)) * 2 + 1;
+          r_gl = r / 2 + (threadId - (R/2) * (C/2) * (F/2)) / (F/2);
+          c_gl = c / 2 + (C/2);
+          f_gl = f / 2 + (threadId - (R/2) * (C/2) * (F/2)) % (F/2);
+          if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+              r_gl < nr_c && c_gl < nc_c && f_gl < nf - nf_c) {
+            res = *wf(r_gl, c_gl, f_gl);
+            res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm - 1)],
+                        v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm + 1)],
+                        ratio_f_sm[f_sm - 1]);
+            v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
+          }
+        }
+        if (!wr.isNull()) {
+          r_sm = ((threadId - (R/2) * (C/2) * (F/2)) / (F/2)) * 2 + 1;
+          c_sm = (C/2) * 2;
+          f_sm = ((threadId - (R/2) * (C/2) * (F/2)) % (F/2)) * 2;
+          r_gl = r / 2 + (threadId - (R/2) * (C/2) * (F/2)) / (F/2);
+          c_gl = c / 2 + (C/2);
+          f_gl = f / 2 + (threadId - (R/2) * (C/2) * (F/2)) % (F/2);
+          if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+              r_gl < nr - nr_c && c_gl < nc_c && f_gl < nf_c) {
+            res = *wr(r_gl, c_gl, f_gl);
+            res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm, f_sm)],
+                        v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm)],
+                        ratio_r_sm[r_sm - 1]);
+            // if (c_gl == nc_c-1 && f_gl == nf_c - 1)
+            // printf("block: (%d %d %d) thread: (%d %d %d) calc_coeff1 (%d
+            // %d %d): %f <- %f %f\n", blockIdx.z, blockIdx.y, blockIdx.x,
+            // threadIdx.z, threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
+            //         res, v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm,
+            //         f_sm)],
+            //           v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm)]);
+            v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
+          }
+        }
+        if (!wrf.isNull()) {
+          r_sm = ((threadId - (R/2) * (C/2) * (F/2)) / (F/2)) * 2 + 1;
+          c_sm = (C/2) * 2;
+          f_sm = ((threadId - (R/2) * (C/2) * (F/2)) % (F/2)) * 2 + 1;
+          r_gl = r / 2 + (threadId - (R/2) * (C/2) * (F/2)) / (F/2);
+          c_gl = c / 2 + (C/2);
+          f_gl = f / 2 + (threadId - (R/2) * (C/2) * (F/2)) % (F/2);
+          if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+              r_gl < nr - nr_c && c_gl < nc_c && f_gl < nf - nf_c) {
+            res = *wrf(r_gl, c_gl, f_gl);
+            T f1 =
+                lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm, f_sm - 1)],
+                     v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm, f_sm + 1)],
+                     ratio_f_sm[f_sm - 1]);
+            T f2 =
+                lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm - 1)],
+                     v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm + 1)],
+                     ratio_f_sm[f_sm - 1]);
+            res += lerp(f1, f2, ratio_r_sm[r_sm - 1]);
+            v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
+          }
+        }
+      }
+    }
+
+    if (f + (F/2) * 2 == nf_p - 1) {
+      if (threadId >= (R/2) * (C/2) * (F/2) * 2 && threadId < (R/2) * (C/2) * (F/2) * 2 + (R/2) * (C/2)) {
+        if (!wc.isNull()) {
+          r_sm = ((threadId - (R/2) * (C/2) * (F/2) * 2) / (C/2)) * 2;
+          c_sm = ((threadId - (R/2) * (C/2) * (F/2) * 2) % (C/2)) * 2 + 1;
+          f_sm = (F/2) * 2;
+          r_gl = r / 2 + (threadId - (R/2) * (C/2) * (F/2) * 2) / (C/2);
+          c_gl = c / 2 + (threadId - (R/2) * (C/2) * (F/2) * 2) % (C/2);
+          f_gl = f / 2 + (F/2);
+          if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+              r_gl < nr_c && c_gl < nc - nc_c && f_gl < nf_c) {
+            res = *wc(r_gl, c_gl, f_gl);
+            res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm - 1, f_sm)],
+                        v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm + 1, f_sm)],
+                        ratio_c_sm[c_sm - 1]);
+            v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
+          }
+        }
+
+        if (!wr.isNull()) {
+          r_sm = ((threadId - (R/2) * (C/2) * (F/2) * 2) / (C/2)) * 2 + 1;
+          c_sm = ((threadId - (R/2) * (C/2) * (F/2) * 2) % (C/2)) * 2;
+          f_sm = (F/2) * 2;
+          r_gl = r / 2 + (threadId - (R/2) * (C/2) * (F/2) * 2) / (C/2);
+          c_gl = c / 2 + (threadId - (R/2) * (C/2) * (F/2) * 2) % (C/2);
+          f_gl = f / 2 + (F/2);
+          if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+              r_gl < nr - nr_c && c_gl < nc_c && f_gl < nf_c) {
+            res = *wr(r_gl, c_gl, f_gl);
+            res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm, f_sm)],
+                        v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm)],
+                        ratio_r_sm[r_sm - 1]);
+            // if (c_gl == nc_c-1 && f_gl == nf_c - 1)
+            // printf("block: (%d %d %d) thread: (%d %d %d) calc_coeff2 (%d
+            // %d %d): %f <- %f %f\n", blockIdx.z, blockIdx.y, blockIdx.x,
+            // threadIdx.z, threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
+            //         res, v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm,
+            //         f_sm)],
+            //           v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm)]);
+            v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
+          }
+        }
+
+        if (!wrc.isNull()) {
+          r_sm = ((threadId - (R/2) * (C/2) * (F/2) * 2) / (C/2)) * 2 + 1;
+          c_sm = ((threadId - (R/2) * (C/2) * (F/2) * 2) % (C/2)) * 2 + 1;
+          f_sm = (F/2) * 2;
+          r_gl = r / 2 + (threadId - (R/2) * (C/2) * (F/2) * 2) / (C/2);
+          c_gl = c / 2 + (threadId - (R/2) * (C/2) * (F/2) * 2) % (C/2);
+          f_gl = f / 2 + (F/2);
+          if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+              r_gl < nr - nr_c && c_gl < nc - nc_c && f_gl < nf_c) {
+            res = *wrc(r_gl, c_gl, f_gl);
+            T c1 =
+                lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm - 1, f_sm)],
+                     v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm + 1, f_sm)],
+                     ratio_c_sm[c_sm - 1]);
+            T c2 =
+                lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm - 1, f_sm)],
+                     v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm + 1, f_sm)],
+                     ratio_c_sm[c_sm - 1]);
+            res += lerp(c1, c2, ratio_r_sm[r_sm - 1]);
+            v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
+          }
+        }
+      }
+    }
+
+    if (c + (C/2) * 2 == nc_p - 1 && f + (F/2) * 2 == nf_p - 1) {
+      if (threadId >= (R/2) * (C/2) * (F/2) * 3 && threadId < (R/2) * (C/2) * (F/2) * 3 + (R/2)) {
+        if (!wr.isNull()) {
+          r_sm = (threadId - (R/2) * (C/2) * (F/2) * 3) * 2 + 1;
+          c_sm = (C/2) * 2;
+          f_sm = (F/2) * 2;
+          r_gl = r / 2 + threadId - (R/2) * (C/2) * (F/2) * 3;
+          c_gl = c / 2 + (C/2);
+          f_gl = f / 2 + (F/2);
+          if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+              r_gl < nr - nr_c && c_gl < nc_c && f_gl < nf_c) {
+            res = *wr(r_gl, c_gl, f_gl);
+            res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm, f_sm)],
+                        v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm)],
+                        ratio_r_sm[r_sm - 1]);
+            // if (c_gl == nc_c-1 && f_gl == nf_c - 1)
+            // printf("block: (%d %d %d) thread: (%d %d %d) calc_coeff3 (%d
+            // %d %d): %f <- %f %f\n", blockIdx.z, blockIdx.y, blockIdx.x,
+            // threadIdx.z, threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
+            //         res, v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm,
+            //         f_sm)],
+            //           v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm)]);
+            v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
+          }
+        }
+      }
+    }
+
+    if (r + (R/2) * 2 == nr_p - 1 && f + (F/2) * 2 == nf_p - 1) {
+      if (threadId >= (R/2) * (C/2) * (F/2) * 4 && threadId < (R/2) * (C/2) * (F/2) * 4 + (C/2)) {
+        if (!wc.isNull()) {
+          r_sm = (R/2) * 2;
+          c_sm = (threadId - (R/2) * (C/2) * (F/2) * 4) * 2 + 1;
+          f_sm = (F/2) * 2;
+          r_gl = r / 2 + (R/2);
+          c_gl = c / 2 + threadId - (R/2) * (C/2) * (F/2) * 4;
+          f_gl = f / 2 + (F/2);
+          if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+              r_gl < nr_c && c_gl < nc - nc_c && f_gl < nf_c) {
+            res = *wc(r_gl, c_gl, f_gl);
+            res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm - 1, f_sm)],
+                        v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm + 1, f_sm)],
+                        ratio_c_sm[c_sm - 1]);
+            v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
+          }
+        }
+      }
+    }
+
+    if (r + (R/2) * 2 == nr_p - 1 && c + (C/2) * 2 == nc_p - 1) {
+      if (threadId >= (R/2) * (C/2) * (F/2) * 5 && threadId < (R/2) * (C/2) * (F/2) * 5 + (F/2)) {
+        if (!wf.isNull()) {
+          r_sm = (R/2) * 2;
+          c_sm = (C/2) * 2;
+          f_sm = (threadId - (R/2) * (C/2) * (F/2) * 5) * 2 + 1;
+          r_gl = r / 2 + (R/2);
+          c_gl = c / 2 + (C/2);
+          f_gl = f / 2 + threadId - (R/2) * (C/2) * (F/2) * 5;
+          if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
+              r_gl < nr_c && c_gl < nc_c && f_gl < nf - nf_c) {
+            res = *wf(r_gl, c_gl, f_gl);
+            res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm - 1)],
+                        v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm + 1)],
+                        ratio_f_sm[f_sm - 1]);
+            v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
+          }
+        }
+      }
+    }
+
+    // __syncthreads();
+    // if (debug) {
+    //   printf("TYPE: %d %d %d %d\n", TYPE,
+    //           min(rest_r_p, (R/2) * 2 + 1),
+    //           min(rest_c_p, (C/2) * 2 + 1),
+    //           min(rest_f_p, (F/2) * 2 + 1));
+    //   for (int i = 0; i < min(rest_r_p, (R/2) * 2 + 1); i++) {
+    //     for (int j = 0; j < min(rest_c_p, (C/2) * 2 + 1); j++) {
+    //       for (int k = 0; k < min(rest_f_p, (F/2) * 2 + 1); k++) {
+    //         printf("%2.2f ", v_sm[get_idx(ldsm1, ldsm2, i, j, k)]);
+    //       }
+    //       printf("\n");
+    //     }
+    //     printf("\n");
+    //   }
+    // }
+    // __syncthreads();
+  }
+
+  MGARDm_EXEC void
+  __operation4(IDX ngridz, IDX ngridy, IDX ngridx,
+               IDX nblockz, IDX nblocky, IDX nblockx,
+               IDX blockz, IDX blocky, IDX blockx,
+               IDX threadz, IDX thready, IDX threadx, T * shared_memory) 
+  {
+    r_sm = threadz;
+    c_sm = thready;
+    f_sm = threadx;
+
+    r_sm_ex = nblockz;
+    c_sm_ex = nblocky;
+    f_sm_ex = nblockx;
+
+    r_gl = r + r_sm;
+    c_gl = c + c_sm;
+    f_gl = f + f_sm;
+
+    r_gl_ex = r + rest_r - 1;
+    c_gl_ex = c + rest_c - 1;
+    f_gl_ex = f + rest_f - 1;
+
+    int unpadding_r = rest_r;
+    int unpadding_c = rest_c;
+    int unpadding_f = rest_f;
+    if (nr % 2 == 0)
+      unpadding_r -= 1;
+    if (nc % 2 == 0)
+      unpadding_c -= 1;
+    if (nf % 2 == 0)
+      unpadding_f -= 1;
+
+    if (r_sm < unpadding_r && c_sm < unpadding_c && f_sm < unpadding_f) {
+
+      // store extra rules
+      // case 1: input = odd (non-padding required)
+      //    case 1.a: block size + 1 == rest (need to store extra);
+      //    case 1.b: block size + 1 != rest (No need to store extra);
+      // case 2: input = even (un-padding requried)
+      //    case 2.a: block size + 1 >= rest (No need to store extra, but need
+      //    un-padding first); case 2.b: block size + 1 < rest (No need to store
+      //    extra);
+
+      if (D >= 3 && r_sm == 0) {
+        if (nr % 2 != 0 && (R/2) * 2 + 1 == rest_r) {
+          *v(r_gl_ex, c_gl, f_gl) =
+              v_sm[get_idx(ldsm1, ldsm2, r_sm_ex, c_sm, f_sm)];
+        }
+        if (nr % 2 == 0 && (R/2) * 2 + 1 >= rest_r_p) {
+          v_sm[get_idx(ldsm1, ldsm2, rest_r - 1, c_sm, f_sm)] =
+              v_sm[get_idx(ldsm1, ldsm2, rest_r_p - 1, c_sm, f_sm)];
+          // if ( v_sm[get_idx(ldsm1, ldsm2, rest_r_p-1, c_sm, f_sm)] == 71177117)
+          // printf("un-padding0 error block: (%d %d %d) thread: (%d %d %d)
+          // un-padding (%d %d %d) %f (%d %d %d)\n", blockIdx.z, blockIdx.y,
+          // blockIdx.x, threadIdx.z, threadIdx.y, threadIdx.x,
+          //   rest_r-1, c_sm, f_sm,
+          //     v_sm[get_idx(ldsm1, ldsm2, rest_r_p-1, c_sm, f_sm)], rest_r_p-1,
+          //     c_sm, f_sm);
+        }
+      }
+
+      if (D >= 2 && c_sm == 0) {
+        if (nc % 2 != 0 && (C/2) * 2 + 1 == rest_c) {
+          *v(r_gl, c_gl_ex, f_gl) =
+              v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm_ex, f_sm)];
+        }
+        if (nc % 2 == 0 && (C/2) * 2 + 1 >= rest_c_p) {
+          v_sm[get_idx(ldsm1, ldsm2, r_sm, rest_c - 1, f_sm)] =
+              v_sm[get_idx(ldsm1, ldsm2, r_sm, rest_c_p - 1, f_sm)];
+          // if (v_sm[get_idx(ldsm1, ldsm2, r_sm, rest_c_p - 1, f_sm)] == 71177117)
+          //   printf("un-padding1 error block: (%d %d %d) thread: (%d %d %d) "
+          //          "un-padding (%d %d %d) %f (%d %d %d)\n",
+          //          blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z, threadIdx.y,
+          //          threadIdx.x, r_sm, rest_c - 1, f_sm,
+          //          v_sm[get_idx(ldsm1, ldsm2, r_sm, rest_c_p - 1, f_sm)], r_sm,
+          //          rest_c_p - 1, f_sm);
+        }
+      }
+
+      if (D >= 1 && f_sm == 0) {
+        if (nf % 2 != 0 && (F/2) * 2 + 1 == rest_f) {
+          *v(r_gl, c_gl, f_gl_ex) =
+              v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm_ex)];
+        }
+        if (nf % 2 == 0 && (F/2) * 2 + 1 >= rest_f_p) {
+          v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, rest_f - 1)] =
+              v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, rest_f_p - 1)];
+          // if ( v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, rest_f_p-1)] == 71177117)
+          // printf("un-padding2 error block: (%d %d %d) thread: (%d %d %d)
+          // un-padding (%d %d %d) %f (%d %d %d)\n", blockIdx.z, blockIdx.y,
+          // blockIdx.x, threadIdx.z, threadIdx.y, threadIdx.x,
+          //   r_sm, c_sm, rest_f-1,
+          //     v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, rest_f_p-1)], r_sm, c_sm,
+          //     rest_f_p-1);
+        }
+      }
+
+      // load extra edges
+      if (D >= 2 && c_sm == 0 && f_sm == 0) {
+        if (nc % 2 != 0 && (C/2) * 2 + 1 == rest_c && nf % 2 != 0 &&
+            (F/2) * 2 + 1 == rest_f) {
+          *v(r_gl, c_gl_ex, f_gl_ex) =
+              v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm_ex, f_sm_ex)];
+        }
+        if (nc % 2 == 0 && nf % 2 == 0 && (C/2) * 2 + 1 >= rest_c_p &&
+            (F/2) * 2 + 1 >= rest_f_p) {
+          v_sm[get_idx(ldsm1, ldsm2, r_sm, rest_c - 1, rest_f - 1)] =
+              v_sm[get_idx(ldsm1, ldsm2, r_sm, rest_c_p - 1, rest_f_p - 1)];
+          // printf("block: (%d %d %d) thread: (%d %d %d) un-padding (%d %d %d) %f
+          // (%d %d %d)\n", blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z,
+          // threadIdx.y, threadIdx.x, r_sm, rest_c-1, rest_f-1,
+          //     v_sm[get_idx(ldsm1, ldsm2, r_sm, rest_c-1, rest_f-1)], r_sm,
+          //     rest_c_p-1, rest_f_p-1);
+        }
+        if (nc % 2 == 0 && nf % 2 != 0 && (C/2) * 2 + 1 >= rest_c_p &&
+            (F/2) * 2 + 1 == rest_f) {
+          *v(r_gl, c_gl_ex, f_gl_ex) =
+              v_sm[get_idx(ldsm1, ldsm2, r_sm, rest_c_p - 1, f_sm_ex)];
+        }
+        if (nc % 2 != 0 && nf % 2 == 0 && (C/2) * 2 + 1 == rest_c &&
+            (F/2) * 2 + 1 >= rest_f_p) {
+          *v(r_gl, c_gl_ex, f_gl_ex) =
+              v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm_ex, rest_f_p - 1)];
+          // printf("(%d %d %d): %f <- (%d %d %d)\n",
+          //         r_gl, c_gl_ex, f_gl_ex,
+          //         dv[get_idx(lddv1, lddv2, r_gl, c_gl_ex, f_gl_ex)],
+          //         r_sm, c_sm_ex, f_gl_ex);
+        }
+      }
+
+      if (D >= 3 && r_sm == 0 && f_sm == 0) {
+        if (nr % 2 != 0 && (R/2) * 2 + 1 == rest_r && nf % 2 != 0 &&
+            (F/2) * 2 + 1 == rest_f) {
+          *v(r_gl_ex, c_gl, f_gl_ex) =
+              v_sm[get_idx(ldsm1, ldsm2, r_sm_ex, c_sm, f_sm_ex)];
+        }
+        if (nr % 2 == 0 && nf % 2 == 0 && (R/2) * 2 + 1 >= rest_r_p &&
+            (F/2) * 2 + 1 >= rest_f_p) {
+          v_sm[get_idx(ldsm1, ldsm2, rest_r - 1, c_sm, rest_f - 1)] =
+              v_sm[get_idx(ldsm1, ldsm2, rest_r_p - 1, c_sm, rest_f_p - 1)];
+          // if ( v_sm[get_idx(ldsm1, ldsm2, rest_r_p-1, c_sm, rest_f_p-1)] ==
+          // 71177117) printf("un-padding3 error block: (%d %d %d) thread: (%d %d
+          // %d) un-padding (%d %d %d) %f (%d %d %d)\n", blockIdx.z, blockIdx.y,
+          // blockIdx.x, threadIdx.z, threadIdx.y, threadIdx.x,
+          //   rest_r-1, c_sm, rest_f-1,
+          //     v_sm[get_idx(ldsm1, ldsm2, rest_r_p-1, c_sm, rest_f_p-1)],
+          //     rest_r_p-1, c_sm, rest_f_p-1);
+        }
+        if (nr % 2 == 0 && nf % 2 != 0 && (R/2) * 2 + 1 >= rest_r_p &&
+            (F/2) * 2 + 1 == rest_f) {
+          *v(r_gl_ex, c_gl, f_gl_ex) =
+              v_sm[get_idx(ldsm1, ldsm2, rest_r_p - 1, c_sm, f_sm_ex)];
+        }
+        if (nr % 2 != 0 && nf % 2 == 0 && (R/2) * 2 + 1 == rest_r &&
+            (F/2) * 2 + 1 >= rest_f_p) {
+            *v(r_gl_ex, c_gl, f_gl_ex) =
+                v_sm[get_idx(ldsm1, ldsm2, r_sm_ex, c_sm, rest_f_p - 1)];
+            // printf("(%d %d %d): %f <- (%d %d %d)\n",
+            //         r_gl_ex, c_gl, rest_f-1,
+            //         dv[get_idx(lddv1, lddv2, r_gl_ex-1, c_gl, f_gl_ex)],
+            //         r_sm_ex, c_sm, rest_f_p-1);
+        }
+      }
+
+      if (D >= 3 && r_sm == 0 && c_sm == 0) {
+        if (nr % 2 != 0 && (R/2) * 2 + 1 == rest_r && nc % 2 != 0 &&
+            (C/2) * 2 + 1 == rest_c) {
+            *v(r_gl_ex, c_gl_ex, f_gl) =
+                v_sm[get_idx(ldsm1, ldsm2, r_sm_ex, c_sm_ex, f_sm)];
+        }
+        if (nr % 2 == 0 && nc % 2 == 0 && (R/2) * 2 + 1 >= rest_r_p &&
+            (C/2) * 2 + 1 >= rest_c_p) {
+          v_sm[get_idx(ldsm1, ldsm2, rest_r - 1, rest_c - 1, f_sm)] =
+              v_sm[get_idx(ldsm1, ldsm2, rest_r_p - 1, rest_c_p - 1, f_sm)];
+          // if ( v_sm[get_idx(ldsm1, ldsm2, rest_r_p-1, rest_c_p-1, f_sm)] ==
+          // 71177117) printf("un-padding4 error block: (%d %d %d) thread: (%d %d
+          // %d) un-padding (%d %d %d) %f (%d %d %d)\n", blockIdx.z, blockIdx.y,
+          // blockIdx.x, threadIdx.z, threadIdx.y, threadIdx.x,
+          //   rest_r-1, rest_c-1, f_sm,
+          //     v_sm[get_idx(ldsm1, ldsm2, rest_r_p-1, rest_c_p-1, f_sm)],
+          //     rest_r_p-1, rest_c_p-1, f_sm);
+        }
+        if (nr % 2 == 0 && nc % 2 != 0 && (R/2) * 2 + 1 >= rest_r_p &&
+            (C/2) * 2 + 1 == rest_c) {
+          *v(r_gl_ex, c_gl_ex, f_gl) =
+              v_sm[get_idx(ldsm1, ldsm2, rest_r_p - 1, c_sm_ex, f_sm)];
+        }
+        if (nr % 2 != 0 && nc % 2 == 0 && (R/2) * 2 + 1 == rest_r &&
+            (C/2) * 2 + 1 >= rest_c_p) {
+          *v(r_gl_ex, c_gl_ex, f_gl) =
+              v_sm[get_idx(ldsm1, ldsm2, r_sm_ex, rest_c_p - 1, f_sm)];
+        }
+      }
+      // load extra vertex
+
+      if (D >= 3 && r_sm == 0 && c_sm == 0 && f_sm == 0) {
+        if (nr % 2 != 0 && (R/2) * 2 + 1 == rest_r && nc % 2 != 0 &&
+            (C/2) * 2 + 1 == rest_c && nf % 2 != 0 && (F/2) * 2 + 1 == rest_f) {
+          *v(r_gl_ex, c_gl_ex, f_gl_ex) =
+              v_sm[get_idx(ldsm1, ldsm2, r_sm_ex, c_sm_ex, f_sm_ex)];
+        }
+
+        if (nr % 2 == 0 && nc % 2 == 0 && nf % 2 == 0 && (R/2) * 2 + 1 >= rest_r_p &&
+            (C/2) * 2 + 1 >= rest_c_p && (F/2) * 2 + 1 >= rest_f_p) {
+          v_sm[get_idx(ldsm1, ldsm2, rest_r - 1, rest_c - 1, rest_f - 1)] =
+              v_sm[get_idx(ldsm1, ldsm2, rest_r_p - 1, rest_c_p - 1,
+                           rest_f_p - 1)];
+
+          // printf("block: (%d %d %d) thread: (%d %d %d) un-padding (%d %d %d) %f
+          // (%d %d %d)\n", blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z,
+          // threadIdx.y, threadIdx.x, rest_r-1, rest_c-1, rest_f-1,
+          //     v_sm[get_idx(ldsm1, ldsm2, r_sm, rest_c-1, rest_f-1)],
+          //     rest_r_p-1, rest_c_p-1, rest_f_p-1);
+        }
+        if (nr % 2 == 0 && nc % 2 == 0 && nf % 2 != 0 && (R/2) * 2 + 1 >= rest_r_p &&
+            (C/2) * 2 + 1 >= rest_c_p && (F/2) * 2 + 1 == rest_f) {
+          *v(r_gl_ex, c_gl_ex, f_gl_ex) =
+              v_sm[get_idx(ldsm1, ldsm2, rest_r_p - 1, rest_c_p - 1, f_sm_ex)];
+        }
+        if (nr % 2 == 0 && nc % 2 != 0 && nf % 2 == 0 && (R/2) * 2 + 1 >= rest_r_p &&
+            (C/2) * 2 + 1 == rest_c && (F/2) * 2 + 1 >= rest_f_p) {
+          *v(r_gl_ex, c_gl_ex, f_gl_ex) =
+              v_sm[get_idx(ldsm1, ldsm2, rest_r_p - 1, c_sm_ex, rest_f_p - 1)];
+        }
+        if (nr % 2 != 0 && nc % 2 == 0 && nf % 2 == 0 && (R/2) * 2 + 1 == rest_r &&
+            (C/2) * 2 + 1 >= rest_c_p && (F/2) * 2 + 1 >= rest_f_p) {
+          *v(r_gl_ex, c_gl_ex, f_gl_ex) =
+              v_sm[get_idx(ldsm1, ldsm2, r_sm_ex, rest_c_p - 1, rest_f_p - 1)];
+        }
+        if (nr % 2 == 0 && nc % 2 != 0 && nf % 2 != 0 && (R/2) * 2 + 1 >= rest_r_p &&
+            (C/2) * 2 + 1 == rest_c && (F/2) * 2 + 1 == rest_f) {
+          *v(r_gl_ex, c_gl_ex, f_gl_ex) =
+              v_sm[get_idx(ldsm1, ldsm2, rest_r_p - 1, c_sm_ex, f_sm_ex)];
+        }
+        if (nr % 2 != 0 && nc % 2 == 0 && nf % 2 != 0 && (R/2) * 2 + 1 == rest_r &&
+            (C/2) * 2 + 1 >= rest_c_p && (F/2) * 2 + 1 == rest_f) {
+          *v(r_gl_ex, c_gl_ex, f_gl_ex) =
+              v_sm[get_idx(ldsm1, ldsm2, r_sm_ex, rest_c_p - 1, f_sm_ex)];
+        }
+        if (nr % 2 != 0 && nc % 2 != 0 && nf % 2 == 0 && (R/2) * 2 + 1 == rest_r &&
+            (C/2) * 2 + 1 == rest_c && (F/2) * 2 + 1 >= rest_f_p) {
+          *v(r_gl_ex, c_gl_ex, f_gl_ex) =
+              v_sm[get_idx(ldsm1, ldsm2, r_sm_ex, c_sm_ex, rest_f_p - 1)];
         }
       }
     }
   }
 
-  if (f + F * 2 == nf_p - 1) {
-    if (threadId >= R * C * F * 2 && threadId < R * C * F * 2 + R * C) {
-      if (dwc) {
-        r_sm = ((threadId - R * C * F * 2) / C) * 2;
-        c_sm = ((threadId - R * C * F * 2) % C) * 2 + 1;
-        f_sm = F * 2;
-        r_gl = r / 2 + (threadId - R * C * F * 2) / C;
-        c_gl = c / 2 + (threadId - R * C * F * 2) % C;
-        f_gl = f / 2 + F;
-        if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-            r_gl < nr_c && c_gl < nc - nc_c && f_gl < nf_c) {
-          res = dwc[get_idx(lddwc1, lddwc2, r_gl, c_gl, f_gl)];
-          res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm - 1, f_sm)],
-                      v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm + 1, f_sm)],
-                      ratio_c_sm[c_sm - 1]);
-          v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
-        }
-      }
+  MGARDm_EXEC void
+  __operation5(IDX ngridz, IDX ngridy, IDX ngridx,
+               IDX nblockz, IDX nblocky, IDX nblockx,
+               IDX blockz, IDX blocky, IDX blockx,
+               IDX threadz, IDX thready, IDX threadx, T * shared_memory)
+  {
+    if (r_sm < rest_r && c_sm < rest_c && f_sm < rest_f) {
+      if (r_gl >= svr && r_gl < svr + nvr && c_gl >= svc && c_gl < svc + nvc &&
+          f_gl >= svf && f_gl < svf + nvf) {
+        *v(r_gl, c_gl, f_gl) =
+            v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)];
 
-      if (dwr) {
-        r_sm = ((threadId - R * C * F * 2) / C) * 2 + 1;
-        c_sm = ((threadId - R * C * F * 2) % C) * 2;
-        f_sm = F * 2;
-        r_gl = r / 2 + (threadId - R * C * F * 2) / C;
-        c_gl = c / 2 + (threadId - R * C * F * 2) % C;
-        f_gl = f / 2 + F;
-        if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-            r_gl < nr - nr_c && c_gl < nc_c && f_gl < nf_c) {
-          res = dwr[get_idx(lddwr1, lddwr2, r_gl, c_gl, f_gl)];
-          res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm, f_sm)],
-                      v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm)],
-                      ratio_r_sm[r_sm - 1]);
-          // if (c_gl == nc_c-1 && f_gl == nf_c - 1)
-          // printf("block: (%d %d %d) thread: (%d %d %d) calc_coeff2 (%d
-          // %d %d): %f <- %f %f\n", blockIdx.z, blockIdx.y, blockIdx.x,
-          // threadIdx.z, threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
-          //         res, v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm,
-          //         f_sm)],
-          //           v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm)]);
-          v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
-        }
-      }
-
-      if (dwrc) {
-        r_sm = ((threadId - R * C * F * 2) / C) * 2 + 1;
-        c_sm = ((threadId - R * C * F * 2) % C) * 2 + 1;
-        f_sm = F * 2;
-        r_gl = r / 2 + (threadId - R * C * F * 2) / C;
-        c_gl = c / 2 + (threadId - R * C * F * 2) % C;
-        f_gl = f / 2 + F;
-        if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-            r_gl < nr - nr_c && c_gl < nc - nc_c && f_gl < nf_c) {
-          res = dwrc[get_idx(lddwrc1, lddwrc2, r_gl, c_gl, f_gl)];
-          T c1 =
-              lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm - 1, f_sm)],
-                   v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm + 1, f_sm)],
-                   ratio_c_sm[c_sm - 1]);
-          T c2 =
-              lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm - 1, f_sm)],
-                   v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm + 1, f_sm)],
-                   ratio_c_sm[c_sm - 1]);
-          res += lerp(c1, c2, ratio_r_sm[r_sm - 1]);
-          v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
-        }
+        // if (c_gl == nc - 1 && f_gl == nf - 1) {
+        //   printf("block: (%d %d %d) thread: (%d %d %d) store (%d %d %d) %f
+        //   (%d %d %d)\n", blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z,
+        //   threadIdx.y, threadIdx.x, r_gl, c_gl, f_gl,
+        //     v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)], r_sm, c_sm, f_sm);
+        // }
       }
     }
   }
-
-  if (c + C * 2 == nc_p - 1 && f + F * 2 == nf_p - 1) {
-    if (threadId >= R * C * F * 3 && threadId < R * C * F * 3 + R) {
-      if (dwr) {
-        r_sm = (threadId - R * C * F * 3) * 2 + 1;
-        c_sm = C * 2;
-        f_sm = F * 2;
-        r_gl = r / 2 + threadId - R * C * F * 3;
-        c_gl = c / 2 + C;
-        f_gl = f / 2 + F;
-        if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-            r_gl < nr - nr_c && c_gl < nc_c && f_gl < nf_c) {
-          res = dwr[get_idx(lddwr1, lddwr2, r_gl, c_gl, f_gl)];
-          res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm, f_sm)],
-                      v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm)],
-                      ratio_r_sm[r_sm - 1]);
-          // if (c_gl == nc_c-1 && f_gl == nf_c - 1)
-          // printf("block: (%d %d %d) thread: (%d %d %d) calc_coeff3 (%d
-          // %d %d): %f <- %f %f\n", blockIdx.z, blockIdx.y, blockIdx.x,
-          // threadIdx.z, threadIdx.y, threadIdx.x, r_sm, c_sm, f_sm,
-          //         res, v_sm[get_idx(ldsm1, ldsm2, r_sm - 1, c_sm,
-          //         f_sm)],
-          //           v_sm[get_idx(ldsm1, ldsm2, r_sm + 1, c_sm, f_sm)]);
-          v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
-        }
-      }
-    }
-  }
-
-  if (r + R * 2 == nr_p - 1 && f + F * 2 == nf_p - 1) {
-    if (threadId >= R * C * F * 4 && threadId < R * C * F * 4 + C) {
-      if (dwc) {
-        r_sm = R * 2;
-        c_sm = (threadId - R * C * F * 4) * 2 + 1;
-        f_sm = F * 2;
-        r_gl = r / 2 + R;
-        c_gl = c / 2 + threadId - R * C * F * 4;
-        f_gl = f / 2 + F;
-        if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-            r_gl < nr_c && c_gl < nc - nc_c && f_gl < nf_c) {
-          res = dwc[get_idx(lddwc1, lddwc2, r_gl, c_gl, f_gl)];
-          res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm - 1, f_sm)],
-                      v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm + 1, f_sm)],
-                      ratio_c_sm[c_sm - 1]);
-          v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
-        }
-      }
-    }
-  }
-
-  if (r + R * 2 == nr_p - 1 && c + C * 2 == nc_p - 1) {
-    if (threadId >= R * C * F * 5 && threadId < R * C * F * 5 + F) {
-      if (dwf) {
-        r_sm = R * 2;
-        c_sm = C * 2;
-        f_sm = (threadId - R * C * F * 5) * 2 + 1;
-        r_gl = r / 2 + R;
-        c_gl = c / 2 + C;
-        f_gl = f / 2 + threadId - R * C * F * 5;
-        if (r_sm < rest_r_p && c_sm < rest_c_p && f_sm < rest_f_p &&
-            r_gl < nr_c && c_gl < nc_c && f_gl < nf - nf_c) {
-          res = dwf[get_idx(lddwf1, lddwf2, r_gl, c_gl, f_gl)];
-          res += lerp(v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm - 1)],
-                      v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm + 1)],
-                      ratio_f_sm[f_sm - 1]);
-          v_sm[get_idx(ldsm1, ldsm2, r_sm, c_sm, f_sm)] = res;
-        }
-      }
-    }
-  }
-
-  // __syncthreads();
-  // if (debug) {
-  //   printf("TYPE: %d %d %d %d\n", TYPE,
-  //           min(rest_r_p, R * 2 + 1),
-  //           min(rest_c_p, C * 2 + 1),
-  //           min(rest_f_p, F * 2 + 1));
-  //   for (int i = 0; i < min(rest_r_p, R * 2 + 1); i++) {
-  //     for (int j = 0; j < min(rest_c_p, C * 2 + 1); j++) {
-  //       for (int k = 0; k < min(rest_f_p, F * 2 + 1); k++) {
-  //         printf("%2.2f ", v_sm[get_idx(ldsm1, ldsm2, i, j, k)]);
-  //       }
-  //       printf("\n");
-  //     }
-  //     printf("\n");
-  //   }
-  // }
-  // __syncthreads();
-  }
-
   private:
 
     // functor parameters
@@ -1886,7 +2200,6 @@ class GPK_REV_3D_Functor: public Functor<D, T> {
 };
 
 
-
 template <DIM D, typename T, typename DEVICE>
 class GPK_REV_3D_AutoTuner: public AutoTuner<D, T, DEVICE> {
 public:
@@ -1902,6 +2215,8 @@ public:
                                                         SubArray<D, T>wf, SubArray<D, T>wc, SubArray<D, T>wr, 
                                                         SubArray<D, T>wcf, SubArray<D, T>wrf, SubArray<D, T>wrc, 
                                                         SubArray<D, T>wrcf,
+                                                        SIZE svr, SIZE svc, SIZE svf, 
+                                                        SIZE nvr, SIZE nvc, SIZE nvf,
                                                         int queue_idx) {
     using FunctorType = GPK_REV_3D_Functor<D, T, R, C, F>;
     FunctorType functor(nr, nc, nf, nr_c, nc_c, nf_c,
@@ -1909,7 +2224,9 @@ public:
                         v, w, 
                         wf, wc, wr, 
                         wcf, wrf, wrc,
-                        wrcf);
+                        wrcf,
+                        svr, svc, svf,
+                        nvr, nvc, nvf);
                                                         
       SIZE total_thread_z = std::max(nr - 1, (SIZE)1);  
       SIZE total_thread_y = std::max(nc - 1, (SIZE)1);  
@@ -1935,6 +2252,8 @@ public:
               SubArray<D, T>wf, SubArray<D, T>wc, SubArray<D, T>wr, 
               SubArray<D, T>wcf, SubArray<D, T>wrf, SubArray<D, T>wrc, 
               SubArray<D, T>wrcf,
+              SIZE svr, SIZE svc, SIZE svf, 
+              SIZE nvr, SIZE nvc, SIZE nvf,
               int queue_idx) {
     int range_l = std::min(6, (int)std::log2(nf) - 1);
     int config = this->handle.auto_tuning_cc[this->handle.arch][this->handle.precision][range_l];
@@ -1951,7 +2270,10 @@ public:
                                 v, w, \
                                 wf, wc, wr, \
                                 wcf, wrf, wrc,\
-                                wrcf, queue_idx); \
+                                wrcf,\
+                                svr, svc, svf,\
+                                nvr, nvc, nvf,\
+                                queue_idx); \
       DeviceAdapter<D, T, TaskType, DEVICE> adapter(this->handle); \
       adapter.Execute(task);\
     }
@@ -3254,6 +3576,10 @@ _gpk_rev_3d(SIZE nr, SIZE nc, SIZE nf, SIZE nr_c, SIZE nc_c, SIZE nf_c, T *drati
   SIZE rest_c_p;
   SIZE rest_f_p;
 
+  rest_r_p = rest_r;
+  rest_c_p = rest_c;
+  rest_f_p = rest_f;
+
   threadId = (threadIdx.z * (blockDim.x * blockDim.y)) +
                  (threadIdx.y * blockDim.x) + threadIdx.x;
 
@@ -3483,6 +3809,21 @@ _gpk_rev_3d(SIZE nr, SIZE nc, SIZE nf, SIZE nr_c, SIZE nc_c, SIZE nf_c, T *drati
   }
 
   __syncthreads();
+
+  // __syncthreads();
+  // if (threadIdx.x == 0 && threadIdx.y == 0&& threadIdx.z == 0) {
+  //   printf("rest_p: %u %u %u RCF\n", rest_r_p, rest_c_p, rest_f_p, R, C, F);
+  //   for (int i = 0; i < min(rest_r_p, R * 2 + 1); i++) {
+  //     for (int j = 0; j < min(rest_c_p, C * 2 + 1); j++) {
+  //       for (int k = 0; k < min(rest_f_p, F * 2 + 1); k++) {
+  //         printf("%2.2f ", v_sm[get_idx(ldsm1, ldsm2, i, j, k)]);
+  //       }
+  //       printf("\n");
+  //     }
+  //     printf("\n");
+  //   }
+  // }
+  // __syncthreads();
 
   // __syncthreads();
   // if (debug) {

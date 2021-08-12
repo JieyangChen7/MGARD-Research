@@ -235,8 +235,8 @@ int launch_compress(mgard_cuda::DIM D, enum mgard_cuda::data_type dtype, const c
             compressed_data, compressed_size, config, false);
   writefile(output_file, compressed_size, compressed_data);
   
-  printf("In size:  %10ld  Out size: %10ld  Compression ratio: %10ld \n", original_size * sizeof(T),
-         compressed_size, original_size * sizeof(T) / compressed_size);
+  printf("In size:  %10ld  Out size: %10ld  Compression ratio: %f \n", original_size * sizeof(T),
+         compressed_size, (double)original_size * sizeof(T) / compressed_size);
 
   if (verbose) {
     config.timing = verbose;

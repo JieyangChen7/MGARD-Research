@@ -57,13 +57,13 @@ int main(int argc, char ** argv){
         string filename = "refactored_data/level_" + to_string(i) + ".bin";
         files.push_back(filename);
     }
-    using T = double;
+    using T = float;
     using T_stream = uint32_t;
     if(num_bitplanes > 32){
         num_bitplanes = 32;
         std::cout << "Only less than 32 bitplanes are supported for single-precision floating point" << std::endl;
     }
-    const mgard_cuda::DIM D = 1;
+    const mgard_cuda::DIM D = 3;
     mgard_cuda::Handle<D, T> handle;
     auto decomposer = mgard_cuda::MDR::MGARDOrthoganalDecomposer<D, T>(handle);
     // auto decomposer = MDR::MGARDHierarchicalDecomposer<T>();
@@ -72,7 +72,8 @@ int main(int argc, char ** argv){
     // auto interleaver = MDR::BlockedInterleaver<T>();
     // auto encoder = MDR::GroupedBPEncoder<T, T_stream>();
     // auto encoder = MDR::NegaBinaryBPEncoder<T, T_stream>();
-    auto encoder = mgard_cuda::MDR::PerBitBPEncoder<D, T, T_stream>(handle);
+    // auto encoder = mgard_cuda::MDR::PerBitBPEncoder<D, T, T_stream>(handle);
+    auto encoder = mgard_cuda::MDR::PerBitBPEncoderGPU<D, T, T_stream>(handle);
     // auto compressor = MDR::DefaultLevelCompressor();
     auto compressor = mgard_cuda::MDR::AdaptiveLevelCompressor(32);
     // auto compressor = MDR::NullLevelCompressor();

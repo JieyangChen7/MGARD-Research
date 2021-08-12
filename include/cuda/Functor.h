@@ -41,6 +41,20 @@ public:
                IDX threadz, IDX thready, IDX threadx, T * shared_memory) {
   }
 
+  MGARDm_EXEC void
+  __operation4(IDX ngridz, IDX ngridy, IDX ngridx,
+               IDX nblockz, IDX nblocky, IDX nblockx,
+               IDX blockz, IDX blocky, IDX blockx,
+               IDX threadz, IDX thready, IDX threadx, T * shared_memory) {
+  }
+
+  MGARDm_EXEC void
+  __operation5(IDX ngridz, IDX ngridy, IDX ngridx,
+               IDX nblockz, IDX nblocky, IDX nblockx,
+               IDX blockz, IDX blocky, IDX blockx,
+               IDX threadz, IDX thready, IDX threadx, T * shared_memory) {
+  }
+
 };
 }
 

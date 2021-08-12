@@ -17,7 +17,7 @@ namespace MDR {
             buffer += b << position;
             position ++;
             if(position == 64){
-                printf("encoder buffer full\n");
+                // printf("encoder buffer full\n");
                 *(stream_pos ++) = buffer;
                 buffer = 0;
                 position = 0;
@@ -191,7 +191,7 @@ namespace MDR {
                         encoders[index].encode(bit);
                         // printf("encode bitplane[%u] <- %u from %u\n", index, bit, data_pos-data);
                         if(bit && first_bit){
-                            printf("encode sign bitplane[%u] <- from %u\n", index, data_pos-data);
+                            // printf("encode sign bitplane[%u] <- from %u\n", index, data_pos-data);
                             encoders[index].encode(sign);
                             first_bit = false;
                         }
@@ -217,7 +217,7 @@ namespace MDR {
                         encoders[index].encode(bit);
                         // printf("encode bitplane[%u] <- %u from %u\n", index, bit, data_pos-data);
                         if(bit && first_bit){
-                            printf("encode sign bitplane[%u] <- from %u\n", index, data_pos-data);
+                            // printf("encode sign bitplane[%u] <- from %u\n", index, data_pos-data);
                             encoders[index].encode(sign);
                             first_bit = false;
                         }
@@ -227,7 +227,7 @@ namespace MDR {
             for(int i=0; i<num_bitplanes; i++){
                 encoders[i].flush();
                 stream_sizes[i] = encoders[i].size() * sizeof(uint64_t);
-                printf("stream_sizes[%d]: %llu\n", i, stream_sizes[i]);
+                // printf("stream_sizes[%d]: %llu\n", i, stream_sizes[i]);
             }
             // translate level errors
             for(int i=0; i<level_errors.size(); i++){

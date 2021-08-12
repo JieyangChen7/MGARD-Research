@@ -48,6 +48,18 @@ MGARDm_KERL void kernel (Task<D, T, FUNCTOR> task) {
        threadIdx.z, threadIdx.y, threadIdx.x,
        shared_memory);
   SyncThreads<CUDA>();
+  task.__operation4(gridDim.z, gridDim.y, gridDim.x, 
+       blockDim.z, blockDim.y, blockDim.x,
+       blockIdx.z,  blockIdx.y,  blockIdx.x, 
+       threadIdx.z, threadIdx.y, threadIdx.x,
+       shared_memory);
+  SyncThreads<CUDA>();
+  task.__operation5(gridDim.z, gridDim.y, gridDim.x, 
+       blockDim.z, blockDim.y, blockDim.x,
+       blockIdx.z,  blockIdx.y,  blockIdx.x, 
+       threadIdx.z, threadIdx.y, threadIdx.x,
+       shared_memory);
+  SyncThreads<CUDA>();
 }
 
 

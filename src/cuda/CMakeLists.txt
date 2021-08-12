@@ -54,6 +54,7 @@ set(MGARD_CUDA_SRC
       ${CMAKE_CURRENT_SOURCE_DIR}/ParallelHuffman/par_huffman_sortbyfreq.cu
       ${CMAKE_CURRENT_SOURCE_DIR}/ParallelHuffman/par_merge.cu
       ${CMAKE_CURRENT_SOURCE_DIR}/ParallelHuffman/types.cc
-      ${CMAKE_CURRENT_SOURCE_DIR}/Testing/ReorderToolsGPU.cu
+      ${CMAKE_CURRENT_SOURCE_DIR}/MDR/BitplaneEncoder/PerBitBPEncoderGPU.cu
+      #${CMAKE_CURRENT_SOURCE_DIR}/Testing/ReorderToolsGPU.cu
       #${CMAKE_CURRENT_SOURCE_DIR}/Testing/ReorderToolsCPU.cpp
       PARENT_SCOPE)

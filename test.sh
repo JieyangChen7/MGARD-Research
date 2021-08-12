@@ -14,7 +14,14 @@ BIN_DOUBLE_REL="./bin/TestDoubleRelativeError"
 BIN_FLOAT_REL="./bin/TestFloatRelativeError"
 BIN_DOUBLE_ABS="./bin/TestDoubleAbsoluteError"
 BIN_FLOAT_ABS="./bin/TestFloatAbsoluteError"
-EXEC="./bin/MgardCudaExec"
+MgardSerialExec="./bin/MgardSerialExec"
+MgardCudaExec="./bin/MgardCudaExec"
+TestRefactor="./bin/test_refactor"
+TestReconstructor="./bin/test_reconstructor"
+
+TestRefactorOrg="/home/jieyang/dev/MDR/build/test/test_refactor"
+TestReconstructorOrg="/home/jieyang/dev/MDR/build/test/test_reconstructor"
+
 CPU=0
 GPU=1
 
@@ -105,13 +112,25 @@ test_group_l_inf () {
 # test_group_l_inf d rel $1
 
 DATA=../../512x512x512/velocity_x.dat
-$EXEC -z -i $DATA -c $DATA.mgard -t s -n 3 512 512 512 -m abs -e 1e5 -s inf -l 2 -v
+# $MgardCudaExec -z -i $DATA -c $DATA.mgard -t s -n 3 512 512 512 -m abs -e 1e5 -s inf -l 2 -v
+$MgardCudaExec -z -i $DATA -c $DATA.mgard -t s -n 3 129 129 129 -m abs -e 1e5 -s inf -l 2 -v
+
+# $MgardSerialExec -z -i $DATA -c $DATA.mgard -t s -n 3 512 512 512 -m abs -e 1e5 -s inf -v
+$MgardSerialExec -z -i $DATA -c $DATA.mgard -t s -n 3 129 129 129 -m abs -e 1e5 -s inf -v
+
+# mkdir -p refactored_data
+# $TestRefactor $DATA 1 32 3 5 5 5 
+# $TestReconstructor $DATA 1 1 1e5 0
 
 
-# $EXEC $DATA s 3 512 512 512 abs 1e5 inf gpu
-DATA=$HOME/dev/data/d3d_coarse_v2_700.bin
-# $EXEC -z -i $DATA -c $DATA.mgard -t d -n 4 8 39 16395 39 -m abs -e 1e15 -s inf -l 1 -v
-# $EXEC -z -i $DATA -c $DATA.mgard -t d -n 3 312 16395 39 -m abs -e 1e15 -s inf -l 1 -v
+# mkdir -p refactored_data
+# $TestRefactorOrg $DATA 3 32 3 512 512 512 
+# $TestReconstructorOrg $DATA 1 1 1e5 0
+
+
+# DATA=$HOME/dev/data/d3d_coarse_v2_700.bin
+# $MgardCudaExec -z -i $DATA -c $DATA.mgard -t d -n 4 8 39 16395 39 -m abs -e 1e15 -s inf -l 2 -v
+# $MgardCudaExec -z -i $DATA -c $DATA.mgard -t d -n 3 312 16395 39 -m abs -e 1e15 -s inf -l 2 -v
 
 # BIN="$EXEC random d 3 10 5 5 rel 0.00001 inf gpu"
 # BIN2="$EXEC random d 3 10 5 5 rel 0.0001 inf gpu"
@@ -123,6 +142,9 @@ DATA=$HOME/dev/data/d3d_coarse_v2_700.bin
 # BIN="$EXEC $DATA d 1 100 abs 1e15 inf gpu"
 # DATA=/home/jieyang/dev/data/pk.data
 # DATA=/home/jieyang/dev/data/enst.dat
+
+
+
 
 # $XGC_4D
 # $XGC_3D

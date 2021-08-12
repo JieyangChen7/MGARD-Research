@@ -62,6 +62,31 @@ public:
              blockz, blocky, blockx,
              threadz, thready, threadx, shared_memory);
     }
+
+    MGARDm_EXEC void 
+    __operation4(IDX ngridz, IDX ngridy, IDX ngridx, 
+                    IDX nblockz, IDX nblocky, IDX nblockx,
+                    IDX blockz, IDX blocky, IDX blockx, 
+                    IDX threadz, IDX thready, IDX threadx,
+                    T * shared_memory) {
+      functor.__operation4(ngridz, ngridy, ngridx,
+             nblockz, nblocky, nblockx,
+             blockz, blocky, blockx,
+             threadz, thready, threadx, shared_memory);
+    }
+
+    MGARDm_EXEC void 
+    __operation5(IDX ngridz, IDX ngridy, IDX ngridx, 
+                    IDX nblockz, IDX nblocky, IDX nblockx,
+                    IDX blockz, IDX blocky, IDX blockx, 
+                    IDX threadz, IDX thready, IDX threadx,
+                    T * shared_memory) {
+      functor.__operation5(ngridz, ngridy, ngridx,
+             nblockz, nblocky, nblockx,
+             blockz, blocky, blockx,
+             threadz, thready, threadx, shared_memory);
+    }
+
     MGARDm_CONT int get_queue_idx() {return queue_idx;}
     MGARDm_CONT IDX get_ngridz() {return ngridz;}
     MGARDm_CONT IDX get_ngridy() {return ngridy;}

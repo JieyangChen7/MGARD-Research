@@ -48,8 +48,8 @@ set(MGARD_CUDA_HEADER
       ${CMAKE_CURRENT_SOURCE_DIR}/ParallelHuffman/par_merge.cuh
       ${CMAKE_CURRENT_SOURCE_DIR}/ParallelHuffman/timer.hh
       ${CMAKE_CURRENT_SOURCE_DIR}/ParallelHuffman/types.hh
-      ${CMAKE_CURRENT_SOURCE_DIR}/Testing/ReorderToolsCPU.h
-      ${CMAKE_CURRENT_SOURCE_DIR}/Testing/ReorderToolsCPU.hpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/Testing/ReorderToolsGPU.h
-      ${CMAKE_CURRENT_SOURCE_DIR}/Testing/ReorderToolsGPU.hpp
+      # ${CMAKE_CURRENT_SOURCE_DIR}/Testing/ReorderToolsCPU.h
+      # ${CMAKE_CURRENT_SOURCE_DIR}/Testing/ReorderToolsCPU.hpp
+      # ${CMAKE_CURRENT_SOURCE_DIR}/Testing/ReorderToolsGPU.h
+      # ${CMAKE_CURRENT_SOURCE_DIR}/Testing/ReorderToolsGPU.hpp
       PARENT_SCOPE)

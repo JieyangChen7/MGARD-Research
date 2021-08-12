@@ -90,6 +90,7 @@ if(MGARD_ENABLE_CUDA)
        CUDA_SEPARABLE_COMPILATION ON)
 
   SET(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -w")
+  SET(CMAKE_CUDA_FLAGS "${CMAKE_CXX_FLAGS} -w")
   SET(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr")
 
   if(MGARD_ENABLE_CUDA_FMA)
@@ -310,15 +311,23 @@ if(MGARD_ENABLE_CUDA)
     add_executable(MgardCudaExec ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/MgardCudaExec.cpp)
     target_link_libraries(MgardCudaExec mgard-library  ${CMAKE_DL_LIBS})
     target_include_directories(MgardCudaExec PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+
+    add_executable(MgardSerialExec ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/MgardSerialExec.cpp)
+    target_link_libraries(MgardSerialExec mgard-library  ${CMAKE_DL_LIBS})
+    target_include_directories(MgardSerialExec PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+
     add_executable(BatchTests ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/Testing/BatchTests.cpp)
     target_link_libraries(BatchTests mgard-library  ${CMAKE_DL_LIBS})
     target_include_directories(BatchTests PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
-    add_executable(test_refactor ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/Testing/MDR/test_refactor.cpp)
+
+    add_executable(test_refactor ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/Testing/MDR/test_refactor.cu)
     target_link_libraries(test_refactor mgard-library  ${CMAKE_DL_LIBS})
     target_include_directories(test_refactor PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
-    add_executable(test_reconstructor ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/Testing/MDR/test_reconstructor.cpp)
+
+    add_executable(test_reconstructor ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/Testing/MDR/test_reconstructor.cu)
     target_link_libraries(test_reconstructor mgard-library  ${CMAKE_DL_LIBS})
     target_include_directories(test_reconstructor PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+
     # add_executable(TestDoubleRelativeError ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/TestDoubleRelativeError.cpp)
     # target_link_libraries(TestDoubleRelativeError mgard-library  ${CMAKE_DL_LIBS})
     # target_include_directories(TestDoubleRelativeError PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)

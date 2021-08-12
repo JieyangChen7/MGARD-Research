@@ -33,6 +33,7 @@
 #define MAX_GRID_X 2147483647
 #define MAX_GRID_Y 65536
 #define MAX_GRID_Z 65536
+#define MGARDm_WARP_SIZE 32
 
 #define COPY 0
 #define ADD 1

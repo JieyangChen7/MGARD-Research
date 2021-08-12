@@ -121,7 +121,7 @@ int main(int argc, char ** argv){
 
     using T = float;
     using T_stream = uint32_t;
-    const mgard_cuda::DIM D = 1;
+    const mgard_cuda::DIM D = 3;
     mgard_cuda::Handle<D, T> handle;
     auto decomposer = mgard_cuda::MDR::MGARDOrthoganalDecomposer<D, T>(handle);
     // auto decomposer = MDR::MGARDHierarchicalDecomposer<T>();
@@ -129,8 +129,9 @@ int main(int argc, char ** argv){
     // auto interleaver = MDR::SFCInterleaver<T>();
     // auto interleaver = MDR::BlockedInterleaver<T>();
     // auto encoder = MDR::GroupedBPEncoder<T, T_stream>();
-    auto encoder = mgard_cuda::MDR::NegaBinaryBPEncoder<D, T, T_stream>(handle);
-    // auto encoder = MDR::PerBitBPEncoder<T, T_stream>();
+    // auto encoder = mgard_cuda::MDR::NegaBinaryBPEncoder<D, T, T_stream>(handle);
+    // auto encoder = mgard_cuda::MDR::PerBitBPEncoder<D, T, T_stream>(handle);
+    auto encoder = mgard_cuda::MDR::PerBitBPEncoderGPU<D, T, T_stream>(handle);
     // auto compressor = MDR::DefaultLevelCompressor();
     auto compressor = mgard_cuda::MDR::AdaptiveLevelCompressor(32);
     // auto compressor = MDR::NullLevelCompressor();
