@@ -194,7 +194,14 @@ int launch_compress(mgard_cuda::DIM D, enum mgard_cuda::data_type dtype, const c
   size_t original_size = 1;
   for (mgard_cuda::DIM i = 0; i < D; i++) original_size *= shape[i];
   T * original_data;
-  size_t in_size = readfile(input_file, original_data);
+  size_t in_size = 0;
+  if (std::string(input_file).compare("random") == 0) {
+    in_size = original_size * sizeof(T);
+    original_data = new T[original_size];
+    for (size_t i = 0; i < original_size; i++) original_data[i] = rand() % 10 + 1;
+  } else { 
+    in_size = readfile(input_file, original_data);
+  }
   if (in_size != original_size * sizeof(T)) {
     std::cout << mgard_cuda::log::log_err << "input file size mismatch!\n";
   }
@@ -235,11 +242,11 @@ int launch_compress(mgard_cuda::DIM D, enum mgard_cuda::data_type dtype, const c
             compressed_data, compressed_size, config, false);
   writefile(output_file, compressed_size, compressed_data);
   
-  printf("In size:  %10ld  Out size: %10ld  Compression ratio: %10ld \n", original_size * sizeof(T),
-         compressed_size, original_size * sizeof(T) / compressed_size);
+  printf("In size:  %10ld  Out size: %10ld  Compression ratio: %f \n", original_size * sizeof(T),
+         compressed_size, (double)original_size * sizeof(T) / compressed_size);
 
   if (verbose) {
-    config.timing = false;
+    config.timing = verbose;
     mgard_cuda::decompress(compressed_data, compressed_size, 
                             decompressed_data, config, false);
     print_statistics<T>(original_size, original_data, (T*)decompressed_data);
@@ -280,12 +287,12 @@ int launch_decompress(const char * input_file, const char * output_file,
                             decompressed_data, config, false);
 
   int elem_size = 0;
-  if (dtype == mgard_cuda::Double) elem_size = 8;
-  else if (dtype == mgard_cuda::Float) elem_size = 4;
+  if (dtype == mgard_cuda::data_type::Double) elem_size = 8;
+  else if (dtype == mgard_cuda::data_type::Float) elem_size = 4;
   writefile(output_file, original_size * elem_size, decompressed_data);
 
-  if (dtype == mgard_cuda::Double) delete [] (double*)decompressed_data;
-  else if (dtype == mgard_cuda::Float) delete[] (float*)decompressed_data;
+  if (dtype == mgard_cuda::data_type::Double) delete [] (double*)decompressed_data;
+  else if (dtype == mgard_cuda::data_type::Float) delete[] (float*)decompressed_data;
 
   delete [] compressed_data;
   return 0;
@@ -304,11 +311,11 @@ bool try_compression(int argc, char *argv[]) {
   enum mgard_cuda::data_type dtype;
   std::string dt = get_arg(argc, argv, "-t");
   if (dt.compare("s") == 0) { 
-    dtype = mgard_cuda::Float;
+    dtype = mgard_cuda::data_type::Float;
     std::cout << mgard_cuda::log::log_info << "data type: Single precision\n";
   }
   else if (dt.compare("d") == 0) {
-    dtype = mgard_cuda::Double;
+    dtype = mgard_cuda::data_type::Double;
     std::cout << mgard_cuda::log::log_info << "data type: Double precision\n";
   }
   else print_usage_message("wrong data type.");
@@ -346,9 +353,9 @@ bool try_compression(int argc, char *argv[]) {
   }
   bool verbose = has_arg(argc, argv, "-v");
   if (verbose) std::cout << mgard_cuda::log::log_info << "Verbose: enabled\n";
-  if (dtype == mgard_cuda::Double)
+  if (dtype == mgard_cuda::data_type::Double)
     launch_compress<double>(D, dtype, input_file.c_str(), output_file.c_str(), shape, tol, s, mode, lossless_level, verbose);
-  else if (dtype == mgard_cuda::Float)
+  else if (dtype == mgard_cuda::data_type::Float)
     launch_compress<float>(D, dtype, input_file.c_str(), output_file.c_str(), shape, tol, s, mode, lossless_level, verbose);
   return true;
 }

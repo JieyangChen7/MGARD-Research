@@ -4,11 +4,28 @@
  * Author: Jieyang Chen (chenj3@ornl.gov)
  * Date: April 2, 2021
  */
+#include <stdint.h>
+
+#include <algorithm>
+#include <cstdio>
+
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
+
+
 
 #ifndef MGRAD_CUDA_COMMON_INTERNAL
 #define MGRAD_CUDA_COMMON_INTERNAL
 
-#include <stdint.h>
+
+#define MGARDm_CONT __host__  __inline__
+#define MGARDm_KERL __global__
+#define MGARDm_EXEC __device__ __forceinline__
+#define MGARDm_CONT_EXEC __host__ __device__ __forceinline__
+
+#include "Common.h"
+#include "SubArray.h"
+#include "Metadata.h"
 
 #define MAX_GRID_X 2147483647
 #define MAX_GRID_Y 65536
@@ -18,25 +35,8 @@
 #define ADD 1
 #define SUBTRACT 2
 
-
-
-#include <algorithm>
-#include <cstdio>
-
-
-#include <thrust/device_vector.h>
-#include <thrust/host_vector.h>
-
-#include "Common.h"
-#include "Metadata.h"
-
-
-
 // #define WARP_SIZE 32
 // #define ROUND_UP_WARP(TID) ((TID) + WARP_SIZE - 1) / WARP_SIZE
-
-
-
 
 #define gpuErrchk(ans)                                                         \
   { gpuAssert((ans), __FILE__, __LINE__); }
@@ -52,6 +52,19 @@ inline void gpuAssert(cudaError_t code, const char *file, int line,
 }
 
 namespace mgard_cuda {
+
+
+template <class T> struct SharedMemory {
+  __device__ inline operator T *() {
+    extern __shared__ int __smem[];
+    return (T *)__smem;
+  }
+
+  __device__ inline operator const T *() const {
+    extern __shared__ int __smem[];
+    return (T *)__smem;
+  }
+};
 
 // template <DIM D, typename T> struct Metadata {
 //   char signature[SIGNATURE_SIZE] = SIGNATURE;
@@ -219,23 +232,13 @@ __host__ __forceinline__ __device__ int div_roundup(SIZE a, SIZE b) {
 //   // }
 // }
 
-template <typename T> T max_norm_cuda(const T *v, size_t size);
+// template <typename T> T max_norm_cuda(const T *v, size_t size);
 
 template <typename T> __device__ T _get_dist(T *coords, int i, int j);
 
-// __host__ __device__ int get_lindex_cuda(const int n, const int no, const int i);
+// // __host__ __device__ int get_lindex_cuda(const int n, const int no, const int i);
 
-template <class T> struct SharedMemory {
-  __device__ inline operator T *() {
-    extern __shared__ int __smem[];
-    return (T *)__smem;
-  }
 
-  __device__ inline operator const T *() const {
-    extern __shared__ int __smem[];
-    return (T *)__smem;
-  }
-};
 
 
 
@@ -275,3 +278,4 @@ template <class T> struct SharedMemory {
 } // namespace mgard_cuda
 
 #endif
+

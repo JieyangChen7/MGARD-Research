@@ -1262,6 +1262,10 @@ _gpk_rev_3d(SIZE nr, SIZE nc, SIZE nf, SIZE nr_c, SIZE nc_c, SIZE nf_c, T *drati
   SIZE rest_c_p;
   SIZE rest_f_p;
 
+  rest_r_p = rest_r;
+  rest_c_p = rest_c;
+  rest_f_p = rest_f;
+
   if (nr % 2 == 0) {
     nr_p = nr + 1;
     rest_r_p = nr_p - r;

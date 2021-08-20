@@ -10,7 +10,7 @@ set(MGARD_CUDA_HEADER
       ${CMAKE_CURRENT_SOURCE_DIR}/CommonInternal.h   
       ${CMAKE_CURRENT_SOURCE_DIR}/PrecomputeKernels.h   
       ${CMAKE_CURRENT_SOURCE_DIR}/DataRefactoring.h   
-      #${CMAKE_CURRENT_SOURCE_DIR}/DataRefactoring_AMR.h
+      ${CMAKE_CURRENT_SOURCE_DIR}/DataRefactoring.hpp  
       ${CMAKE_CURRENT_SOURCE_DIR}/GPKFunctor.h
       ${CMAKE_CURRENT_SOURCE_DIR}/GridProcessingKernel.hpp   
       ${CMAKE_CURRENT_SOURCE_DIR}/GridProcessingKernel.h

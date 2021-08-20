@@ -11,9 +11,12 @@
 #include <stdint.h>
 
 namespace mgard_cuda {
-enum error_bound_type { REL, ABS };
-enum data_type { Float, Double };
 
+enum error_bound_type { REL, ABS };
+// enum data_type { Float, Double };
+enum class data_type:uint8_t { Float, Double };
+
+using IDX = unsigned long long int;
 using LENGTH = unsigned long long int;
 using SIZE = unsigned int;
 // using SIZE = int;
@@ -29,7 +32,6 @@ using SERIALIZED_TYPE = unsigned char;
 #include <vector>
 
 #include "Array.h"
-#include "SubArray.h"
 #include "Handle.h"
 #include "Message.h"
 #include "ErrorCalculator.h"
