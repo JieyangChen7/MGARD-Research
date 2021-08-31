@@ -126,6 +126,17 @@ template class SubArray<4, float>;
 template class SubArray<5, double>;
 template class SubArray<5, float>;
 
+template class SubArray<2, uint8_t>;
+
+template class SubArray<1, bool>;
+
+template class SubArray<1, uint8_t>;
+template class SubArray<1, uint16_t>;
+template class SubArray<1, uint32_t>;
+template class SubArray<1, uint64_t>;
+
+template class SubArray<1, unsigned long long>;
+
 
 // template class SubArray<1, QUANTIZED_INT>;
 // template class SubArray<2, QUANTIZED_INT>;

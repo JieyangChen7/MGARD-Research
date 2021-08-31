@@ -30,7 +30,8 @@ using SIZE = unsigned int;
 using DIM = uint32_t;
 using QUANTIZED_INT = int;
 using SERIALIZED_TYPE = unsigned char;
-
+using Byte = unsigned char;
+using OPTION = uint32_t;
 }
 
 #include <iostream>

@@ -11,7 +11,7 @@
 namespace mgard_cuda {
 namespace MDR {
 
-#define KERNELS(D, T) template class PER_BIT_ENCODER_AutoTuner<D, T, CUDA>;
+#define KERNELS(D, T) template class PerBitEncoder<Handle<D, T>, T, CUDA>;
 
 KERNELS(1, double)
 KERNELS(1, float)

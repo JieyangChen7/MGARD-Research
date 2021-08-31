@@ -66,20 +66,26 @@ int main(int argc, char ** argv){
     const mgard_cuda::DIM D = 3;
     mgard_cuda::Handle<D, T> handle;
     auto decomposer = mgard_cuda::MDR::MGARDOrthoganalDecomposer<D, T>(handle);
-    // auto decomposer = MDR::MGARDHierarchicalDecomposer<T>();
+    // auto decomposer = mgard_cuda::MDR::MGARDHierarchicalDecomposer<T>();
     auto interleaver = mgard_cuda::MDR::DirectInterleaver<D, T>(handle);
-    // auto interleaver = MDR::SFCInterleaver<T>();
-    // auto interleaver = MDR::BlockedInterleaver<T>();
-    // auto encoder = MDR::GroupedBPEncoder<T, T_stream>();
-    // auto encoder = MDR::NegaBinaryBPEncoder<T, T_stream>();
+    // auto interleaver = mgard_cuda::MDR::SFCInterleaver<T>();
+    // auto interleaver = mgard_cuda::MDR::BlockedInterleaver<T>();
+    // auto encoder = mgard_cuda::MDR::GroupedBPEncoder<T, T_stream>(handle);
+    auto encoder = mgard_cuda::MDR::GroupedBPEncoderGPU<D, T, T_stream>(handle);
+    // auto encoder = mgard_cuda::MDR::NegaBinaryBPEncoder<D, T, T_stream>(handle);
     // auto encoder = mgard_cuda::MDR::PerBitBPEncoder<D, T, T_stream>(handle);
-    auto encoder = mgard_cuda::MDR::PerBitBPEncoderGPU<D, T, T_stream>(handle);
-    // auto compressor = MDR::DefaultLevelCompressor();
+
+    // auto encoder = mgard_cuda::MDR::PerBitBPEncoderGPU<D, T, T_stream>(handle);
+    // auto encoder = mgard_cuda::MDR::GroupedBPEncoderGPU<D, T, T_stream>(handle);
+
+
+    
+    // auto compressor = mgard_cuda::MDR::DefaultLevelCompressor();
     auto compressor = mgard_cuda::MDR::AdaptiveLevelCompressor(32);
-    // auto compressor = MDR::NullLevelCompressor();
+    // auto compressor = mgard_cuda::MDR::NullLevelCompressor();
     auto collector = mgard_cuda::MDR::SquaredErrorCollector<T>();
     auto writer = mgard_cuda::MDR::ConcatLevelFileWriter(metadata_file, files);
-    // auto writer = MDR::HPSSFileWriter(metadata_file, files, 2048, 512 * 1024 * 1024);
+    // auto writer = mgard_cuda::MDR::HPSSFileWriter(metadata_file, files, 2048, 512 * 1024 * 1024);
 
     test<T>(filename, dims, target_level, num_bitplanes, decomposer, interleaver, encoder, compressor, collector, writer);
     return 0;

@@ -10,51 +10,41 @@
 
 namespace mgard_cuda {
 
-template <DIM D, typename T>
+template <typename DeviceType>
 class Functor {
 public:
-  // MGARDm_CONT Functor() {}
-  // MGARDm_EXEC void operator()(IDX ngridz, IDX ngridy, IDX ngirdx,
-  //              IDX nblockz, IDX nblocky, IDX nblockx,
-  //              IDX blockz, IDX blocky, IDX blockx,
-  //              IDX threadz, IDX thready, IDX threadx, T * shared_memory){
-  // }
-
   MGARDm_EXEC void
-  __operation1(IDX ngridz, IDX ngridy, IDX ngridx,
-               IDX nblockz, IDX nblocky, IDX nblockx,
-               IDX blockz, IDX blocky, IDX blockx,
-               IDX threadz, IDX thready, IDX threadx, T * shared_memory) {
+  Init(IDX ngridz, IDX ngridy, IDX ngridx,
+       IDX nblockz, IDX nblocky, IDX nblockx,
+       IDX blockz, IDX blocky, IDX blockx,
+       IDX threadz, IDX thready, IDX threadx, Byte * shared_memory) {
+    this->ngridz = ngridz; this->ngridy = ngridy; this->ngridx = ngridx;
+    this->nblockz = nblockz; this->nblocky = nblocky; this->nblockx = nblockx;
+    this->blockz = blockz; this->blocky = blocky; this->blockx = blockx;
+    this->threadz = threadz; this->thready = thready; this->threadx = threadx;
+    this->shared_memory = shared_memory;
   }
 
   MGARDm_EXEC void
-  __operation2(IDX ngridz, IDX ngridy, IDX ngridx,
-               IDX nblockz, IDX nblocky, IDX nblockx,
-               IDX blockz, IDX blocky, IDX blockx,
-               IDX threadz, IDX thready, IDX threadx, T * shared_memory) {
-  }
+  Operation1();
 
   MGARDm_EXEC void
-  __operation3(IDX ngridz, IDX ngridy, IDX ngridx,
-               IDX nblockz, IDX nblocky, IDX nblockx,
-               IDX blockz, IDX blocky, IDX blockx,
-               IDX threadz, IDX thready, IDX threadx, T * shared_memory) {
-  }
+  Operation2();
 
   MGARDm_EXEC void
-  __operation4(IDX ngridz, IDX ngridy, IDX ngridx,
-               IDX nblockz, IDX nblocky, IDX nblockx,
-               IDX blockz, IDX blocky, IDX blockx,
-               IDX threadz, IDX thready, IDX threadx, T * shared_memory) {
-  }
+  Operation3();
 
   MGARDm_EXEC void
-  __operation5(IDX ngridz, IDX ngridy, IDX ngridx,
-               IDX nblockz, IDX nblocky, IDX nblockx,
-               IDX blockz, IDX blocky, IDX blockx,
-               IDX threadz, IDX thready, IDX threadx, T * shared_memory) {
-  }
+  Operation4();
 
+  MGARDm_EXEC void
+  Operation5();
+
+  IDX ngridz, ngridy, ngridx;
+  IDX nblockz, nblocky, nblockx;
+  IDX blockz, blocky, blockx;
+  IDX threadz, thready, threadx;
+  Byte * shared_memory;
 };
 }
 

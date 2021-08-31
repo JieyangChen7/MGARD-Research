@@ -20,10 +20,10 @@
 namespace mgard_cuda {
 
 
-template <DIM D, typename T, SIZE R, SIZE C, SIZE F>
-class GPK_REO_3D_Functor: public Functor<D, T> {
+template <DIM D, typename T, SIZE R, SIZE C, SIZE F, typename DeviceType>
+class GpkReo3DFunctor: public Functor<DeviceType> {
   public:
-  MGARDm_CONT GPK_REO_3D_Functor(SIZE nr, SIZE nc, SIZE nf, 
+  MGARDm_CONT GpkReo3DFunctor(SIZE nr, SIZE nc, SIZE nf, 
                                   SIZE nr_c, SIZE nc_c, SIZE nf_c, 
                                   SubArray<1, T> ratio_r, SubArray<1, T> ratio_c, SubArray<1, T> ratio_f,
                                   SubArray<D, T> v, SubArray<D, T>w, 
@@ -37,17 +37,13 @@ class GPK_REO_3D_Functor: public Functor<D, T> {
                                   wf(wf), wc(wc), wr(wr), 
                                   wcf(wcf), wrf(wrf), wrc(wrc),
                                   wrcf(wrcf) {
-                                    Functor<D, T>();
+                                    Functor<DeviceType>();
                                   }
 
   MGARDm_EXEC void
-  __operation1(IDX ngridz, IDX ngridy, IDX ngridx,
-               IDX nblockz, IDX nblocky, IDX nblockx,
-               IDX blockz, IDX blocky, IDX blockx,
-               IDX threadz, IDX thready, IDX threadx, T * shared_memory) {
+  Operation1() {
 
-
-    sm = shared_memory;//SharedMemory<T>();
+    sm = (T*)this->shared_memory;
     ldsm1 = (F/2) * 2 + 1;
     ldsm2 = (C/2) * 2 + 1;
     v_sm = sm;
@@ -55,9 +51,9 @@ class GPK_REO_3D_Functor: public Functor<D, T> {
     ratio_c_sm = ratio_f_sm + (F/2) * 2;
     ratio_r_sm = ratio_c_sm + (C/2) * 2;
 
-    r = blockz * nblockz;
-    c = blocky * nblocky;
-    f = blockx * nblockx;
+    r = this->blockz * this->nblockz;
+    c = this->blocky * this->nblocky;
+    f = this->blockx * this->nblockx;
 
     rest_r = nr - r;
     rest_c = nc - c;
@@ -84,16 +80,16 @@ class GPK_REO_3D_Functor: public Functor<D, T> {
       rest_f_p = nf_p - f;
     }
 
-    r_sm = threadz;
-    c_sm = thready;
-    f_sm = threadx;
+    r_sm = this->threadz;
+    c_sm = this->thready;
+    f_sm = this->threadx;
 
     r_sm_ex = (R/2) * 2;
     c_sm_ex = (C/2) * 2;
     f_sm_ex = (F/2) * 2;
 
-    threadId = (threadz * (nblockx * nblocky)) +
-    (thready * nblockx) + threadx;
+    threadId = (this->threadz * (this->nblockx * this->nblocky)) +
+    (this->thready * this->nblockx) + this->threadx;
 
     r_gl = r + r_sm;
     r_gl_ex = r + (R/2) * 2;
@@ -172,10 +168,7 @@ class GPK_REO_3D_Functor: public Functor<D, T> {
   }
 
   MGARDm_EXEC void
-  __operation2(IDX ngridz, IDX ngridy, IDX ngridx,
-               IDX nblockz, IDX nblocky, IDX nblockx,
-               IDX blockz, IDX blocky, IDX blockx,
-               IDX threadz, IDX thready, IDX threadx, T * shared_memory) {
+  Operation2() {
        // apply padding is necessary
     if (r_sm < rest_r && c_sm < rest_c && f_sm < rest_f) {
 
@@ -386,22 +379,19 @@ class GPK_REO_3D_Functor: public Functor<D, T> {
     // start = clock64() - start;
     // printf("[load ratio] block id %d,%d,%d elapsed %lu\n", blockIdx.z,
     // blockIdx.y, blockIdx.x, start); start = clock64();
+    // bool debug = false;
+    // if (threadx == 0 && thready == 0 && threadz == 0) {
+    //   debug = true;
+    // }
 
     // __syncthreads();
     // // debug print
     // if (debug) {
     //   printf("in config: %d %d %d (%d %d %d)\n", (R/2), (C/2), (F/2), r,c,f);
     //   printf("rest_p: %d %d %d\n", rest_r_p, rest_c_p, rest_f_p);
-    //   bool print = false;
     //   for (int i = 0; i < (R/2) * 2 + 1; i++) {
     //     for (int j = 0; j < (C/2) * 2 + 1; j++) {
     //       for (int k = 0; k < (F/2) * 2 + 1; k++) {
-    //         // if (abs(v_sm[get_idx(ldsm1, ldsm2, i, j, k)]) > 10000) {
-    //           // print = true;
-    //           // printf("(block %d %d %d) %2.2f \n", r,c,f,
-    //           v_sm[get_idx(ldsm1, ldsm2, i, j, k)]);
-    //         // printf("%2.2f ", v_sm[get_idx(ldsm1, ldsm2, i, j, k)]);
-    //         // }
     //         printf("%2.2f ", v_sm[get_idx(ldsm1, ldsm2, i, j, k)]);
     //       }
     //       printf("\n");
@@ -413,10 +403,7 @@ class GPK_REO_3D_Functor: public Functor<D, T> {
   }
 
   MGARDm_EXEC void
-  __operation3(IDX ngridz, IDX ngridy, IDX ngridx,
-               IDX nblockz, IDX nblocky, IDX nblockx,
-               IDX blockz, IDX blocky, IDX blockx,
-               IDX threadz, IDX thready, IDX threadx, T * shared_memory) {
+  Operation3() {
     if (!w.isNull() && threadId < (R/2) * (C/2) * (F/2)) {
       r_sm = (threadId / ((C/2) * (F/2))) * 2;
       c_sm = ((threadId % ((C/2) * (F/2))) / (F/2)) * 2;
@@ -1040,16 +1027,10 @@ class GPK_REO_3D_Functor: public Functor<D, T> {
   }
 
   MGARDm_EXEC void
-  __operation4(IDX ngridz, IDX ngridy, IDX ngridx,
-               IDX nblockz, IDX nblocky, IDX nblockx,
-               IDX blockz, IDX blocky, IDX blockx,
-               IDX threadz, IDX thready, IDX threadx, T * shared_memory) {}
+  Operation4() {}
 
   MGARDm_EXEC void
-  __operation5(IDX ngridz, IDX ngridy, IDX ngridx,
-               IDX nblockz, IDX nblocky, IDX nblockx,
-               IDX blockz, IDX blocky, IDX blockx,
-               IDX threadz, IDX thready, IDX threadx, T * shared_memory) {}
+  Operation5() {}
 
   private:
 
@@ -1080,15 +1061,15 @@ class GPK_REO_3D_Functor: public Functor<D, T> {
 
 
 
-template <DIM D, typename T, typename DEVICE>
-class GPK_REO_3D_AutoTuner: public AutoTuner<D, T, DEVICE> {
+template <typename HandleType, DIM D, typename T, typename DeviceType>
+class GpkReo3D: public AutoTuner<HandleType, DeviceType> {
 public:
   MGARDm_CONT
-  GPK_REO_3D_AutoTuner(Handle<D, T> &handle):AutoTuner<D, T, DEVICE>(handle) {}
+  GpkReo3D(HandleType& handle):AutoTuner<HandleType, DeviceType>(handle) {}
 
   template <SIZE R, SIZE C, SIZE F>
   MGARDm_CONT
-  Task<D, T, GPK_REO_3D_Functor<D, T, R, C, F> > GenTask(SIZE nr, SIZE nc, SIZE nf, 
+  Task<GpkReo3DFunctor<D, T, R, C, F, DeviceType> > GenTask(SIZE nr, SIZE nc, SIZE nf, 
                                                         SIZE nr_c, SIZE nc_c, SIZE nf_c, 
                                                         SubArray<1, T> ratio_r, SubArray<1, T> ratio_c, SubArray<1, T> ratio_f, 
                                                         SubArray<D, T> v, SubArray<D, T>w, 
@@ -1096,7 +1077,7 @@ public:
                                                         SubArray<D, T>wcf, SubArray<D, T>wrf, SubArray<D, T>wrc, 
                                                         SubArray<D, T>wrcf,
                                                         int queue_idx) {
-    using FunctorType = GPK_REO_3D_Functor<D, T, R, C, F>;
+    using FunctorType = GpkReo3DFunctor<D, T, R, C, F, DeviceType>;
     FunctorType functor(nr, nc, nf, nr_c, nc_c, nf_c,
                         ratio_r, ratio_c, ratio_f,
                         v, w, 
@@ -1116,7 +1097,7 @@ public:
       gridz = ceil((float)total_thread_z / tbz);
       gridy = ceil((float)total_thread_y / tby);
       gridx = ceil((float)total_thread_x / tbx);
-      return Task<D, T, FunctorType>(functor, gridz, gridy, gridx, 
+      return Task(functor, gridz, gridy, gridx, 
                         tbz, tby, tbx, sm_size, queue_idx); 
   }
 
@@ -1136,8 +1117,8 @@ public:
       const int R=GPK_CONFIG[D-1][CONFIG][0];\
       const int C=GPK_CONFIG[D-1][CONFIG][1];\
       const int F=GPK_CONFIG[D-1][CONFIG][2];\
-      using FunctorType = GPK_REO_3D_Functor<D, T, R, C, F>;\
-      using TaskType = Task<D, T, FunctorType>;\
+      using FunctorType = GpkReo3DFunctor<D, T, R, C, F, DeviceType>;\
+      using TaskType = Task<FunctorType>;\
       TaskType task = GenTask<R, C, F>(\
                                 nr, nc, nf, nr_c, nc_c, nf_c,\
                                 ratio_r, ratio_c, ratio_f,\
@@ -1145,7 +1126,7 @@ public:
                                 wf, wc, wr, \
                                 wcf, wrf, wrc,\
                                 wrcf, queue_idx); \
-      DeviceAdapter<D, T, TaskType, DEVICE> adapter(this->handle); \
+      DeviceAdapter<HandleType, TaskType, DeviceType> adapter(this->handle); \
       adapter.Execute(task);\
     }
 
@@ -1161,10 +1142,10 @@ public:
 };
 
 
-template <DIM D, typename T, SIZE R, SIZE C, SIZE F>
-class GPK_REV_3D_Functor: public Functor<D, T> {
+template <DIM D, typename T, SIZE R, SIZE C, SIZE F, typename DeviceType>
+class GpkRev3DFunctor: public Functor<DeviceType> {
   public:
-  MGARDm_CONT GPK_REV_3D_Functor(SIZE nr, SIZE nc, SIZE nf, 
+  MGARDm_CONT GpkRev3DFunctor(SIZE nr, SIZE nc, SIZE nf, 
                                   SIZE nr_c, SIZE nc_c, SIZE nf_c, 
                                   SubArray<1, T> ratio_r, SubArray<1, T> ratio_c, SubArray<1, T> ratio_f,
                                   SubArray<D, T> v, SubArray<D, T>w, 
@@ -1182,28 +1163,25 @@ class GPK_REV_3D_Functor: public Functor<D, T> {
                                   wcf(wcf), wrf(wrf), wrc(wrc),
                                   svr(svr), svc(svc), svf(svf),
                                   nvr(nvr), nvc(nvc), nvf(nvf) {
-                                    Functor<D, T>();
+                                    Functor<DeviceType>();
                                   }
 
   MGARDm_EXEC void
-  __operation1(IDX ngridz, IDX ngridy, IDX ngridx,
-               IDX nblockz, IDX nblocky, IDX nblockx,
-               IDX blockz, IDX blocky, IDX blockx,
-               IDX threadz, IDX thready, IDX threadx, T * shared_memory) 
+  Operation1() 
   {
-    r = blockz * nblockz;
-    c = blocky * nblocky;
-    f = blockx * nblockx;
+    r = this->blockz * this->nblockz;
+    c = this->blocky * this->nblocky;
+    f = this->blockx * this->nblockx;
 
-    r_sm = threadz;
-    c_sm = thready;
-    f_sm = threadx;
+    r_sm = this->threadz;
+    c_sm = this->thready;
+    f_sm = this->threadx;
 
     r_sm_ex = (R/2) * 2;
     c_sm_ex = (C/2) * 2;
     f_sm_ex = (F/2) * 2;
 
-    sm = shared_memory;
+    sm = (T*)this->shared_memory;
 
     ldsm1 = (F/2) * 2 + 1;
     ldsm2 = (C/2) * 2 + 1;
@@ -1220,8 +1198,8 @@ class GPK_REV_3D_Functor: public Functor<D, T> {
     nc_p = nc;
     nf_p = nf;
 
-    threadId = (threadz * (nblockx * nblocky)) +
-                   (thready * nblockx) + threadx;
+    threadId = (this->threadz * (this->nblockx * this->nblocky)) +
+                   (this->thready * this->nblockx) + this->threadx;
 
     rest_r_p = rest_r;
     rest_c_p = rest_c;
@@ -1263,10 +1241,7 @@ class GPK_REV_3D_Functor: public Functor<D, T> {
   }
 
   MGARDm_EXEC void
-  __operation2(IDX ngridz, IDX ngridy, IDX ngridx,
-               IDX nblockz, IDX nblocky, IDX nblockx,
-               IDX blockz, IDX blocky, IDX blockx,
-               IDX threadz, IDX thready, IDX threadx, T * shared_memory) 
+  Operation2() 
   {
   
     if (!w.isNull() && threadId < (R/2) * (C/2) * (F/2)) {
@@ -1453,10 +1428,7 @@ class GPK_REV_3D_Functor: public Functor<D, T> {
   }
 
   MGARDm_EXEC void
-  __operation3(IDX ngridz, IDX ngridy, IDX ngridx,
-               IDX nblockz, IDX nblocky, IDX nblockx,
-               IDX blockz, IDX blocky, IDX blockx,
-               IDX threadz, IDX thready, IDX threadx, T * shared_memory) 
+  Operation3() 
   {
     if (!wf.isNull() && threadId >= (R/2) * (C/2) * (F/2) && threadId < (R/2) * (C/2) * (F/2) * 2) {
       r_sm = ((threadId - (R/2) * (C/2) * (F/2)) / ((C/2) * (F/2))) * 2;
@@ -1903,18 +1875,15 @@ class GPK_REV_3D_Functor: public Functor<D, T> {
   }
 
   MGARDm_EXEC void
-  __operation4(IDX ngridz, IDX ngridy, IDX ngridx,
-               IDX nblockz, IDX nblocky, IDX nblockx,
-               IDX blockz, IDX blocky, IDX blockx,
-               IDX threadz, IDX thready, IDX threadx, T * shared_memory) 
+  Operation4() 
   {
-    r_sm = threadz;
-    c_sm = thready;
-    f_sm = threadx;
+    r_sm = this->threadz;
+    c_sm = this->thready;
+    f_sm = this->threadx;
 
-    r_sm_ex = nblockz;
-    c_sm_ex = nblocky;
-    f_sm_ex = nblockx;
+    r_sm_ex = this->nblockz;
+    c_sm_ex = this->nblocky;
+    f_sm_ex = this->nblockx;
 
     r_gl = r + r_sm;
     c_gl = c + c_sm;
@@ -2151,10 +2120,7 @@ class GPK_REV_3D_Functor: public Functor<D, T> {
   }
 
   MGARDm_EXEC void
-  __operation5(IDX ngridz, IDX ngridy, IDX ngridx,
-               IDX nblockz, IDX nblocky, IDX nblockx,
-               IDX blockz, IDX blocky, IDX blockx,
-               IDX threadz, IDX thready, IDX threadx, T * shared_memory)
+  Operation5()
   {
     if (r_sm < rest_r && c_sm < rest_c && f_sm < rest_f) {
       if (r_gl >= svr && r_gl < svr + nvr && c_gl >= svc && c_gl < svc + nvc &&
@@ -2200,15 +2166,15 @@ class GPK_REV_3D_Functor: public Functor<D, T> {
 };
 
 
-template <DIM D, typename T, typename DEVICE>
-class GPK_REV_3D_AutoTuner: public AutoTuner<D, T, DEVICE> {
+template <typename HandleType, DIM D, typename T, typename DeviceType>
+class GpkRev3D: public AutoTuner<HandleType, DeviceType> {
 public:
   MGARDm_CONT
-  GPK_REV_3D_AutoTuner(Handle<D, T> &handle):AutoTuner<D, T, DEVICE>(handle) {}
+  GpkRev3D(HandleType& handle):AutoTuner<HandleType, DeviceType>(handle) {}
 
   template <SIZE R, SIZE C, SIZE F>
   MGARDm_CONT
-  Task<D, T, GPK_REV_3D_Functor<D, T, R, C, F> > GenTask(SIZE nr, SIZE nc, SIZE nf, 
+  Task<GpkRev3DFunctor<D, T, R, C, F, DeviceType> > GenTask(SIZE nr, SIZE nc, SIZE nf, 
                                                         SIZE nr_c, SIZE nc_c, SIZE nf_c, 
                                                         SubArray<1, T> ratio_r, SubArray<1, T> ratio_c, SubArray<1, T> ratio_f, 
                                                         SubArray<D, T> v, SubArray<D, T>w, 
@@ -2218,7 +2184,7 @@ public:
                                                         SIZE svr, SIZE svc, SIZE svf, 
                                                         SIZE nvr, SIZE nvc, SIZE nvf,
                                                         int queue_idx) {
-    using FunctorType = GPK_REV_3D_Functor<D, T, R, C, F>;
+    using FunctorType = GpkRev3DFunctor<D, T, R, C, F, DeviceType>;
     FunctorType functor(nr, nc, nf, nr_c, nc_c, nf_c,
                         ratio_r, ratio_c, ratio_f,
                         v, w, 
@@ -2240,7 +2206,7 @@ public:
       gridz = ceil((float)total_thread_z / tbz);
       gridy = ceil((float)total_thread_y / tby);
       gridx = ceil((float)total_thread_x / tbx);
-      return Task<D, T, FunctorType>(functor, gridz, gridy, gridx, 
+      return Task(functor, gridz, gridy, gridx, 
                         tbz, tby, tbx, sm_size, queue_idx); 
   }
 
@@ -2262,8 +2228,8 @@ public:
       const int R=GPK_CONFIG[D-1][CONFIG][0];\
       const int C=GPK_CONFIG[D-1][CONFIG][1];\
       const int F=GPK_CONFIG[D-1][CONFIG][2];\
-      using FunctorType = GPK_REV_3D_Functor<D, T, R, C, F>;\
-      using TaskType = Task<D, T, FunctorType>;\
+      using FunctorType = GpkRev3DFunctor<D, T, R, C, F, DeviceType>;\
+      using TaskType = Task<FunctorType>;\
       TaskType task = GenTask<R, C, F>(\
                                 nr, nc, nf, nr_c, nc_c, nf_c,\
                                 ratio_r, ratio_c, ratio_f,\
@@ -2274,7 +2240,7 @@ public:
                                 svr, svc, svf,\
                                 nvr, nvc, nvf,\
                                 queue_idx); \
-      DeviceAdapter<D, T, TaskType, DEVICE> adapter(this->handle); \
+      DeviceAdapter<HandleType, TaskType, DeviceType> adapter(this->handle); \
       adapter.Execute(task);\
     }
 

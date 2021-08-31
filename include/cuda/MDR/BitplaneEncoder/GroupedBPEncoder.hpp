@@ -1,6 +1,8 @@
 #ifndef _MDR_GROUPED_BP_ENCODER_HPP
 #define _MDR_GROUPED_BP_ENCODER_HPP
 
+#include "../../CommonInternal.h"
+
 #include "BitplaneEncoderInterface.hpp"
 #include <string.h>
 namespace mgard_cuda {

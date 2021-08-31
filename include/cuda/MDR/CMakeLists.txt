@@ -15,6 +15,8 @@ SET(MDR_HEADER
 	${CMAKE_CURRENT_SOURCE_DIR}/BitplaneEncoder/PerBitBPEncoder.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/BitplaneEncoder/GroupedBPEncoder.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/BitplaneEncoder/BitplaneEncoder.hpp
+	${CMAKE_CURRENT_SOURCE_DIR}/BitplaneEncoder/GroupedBPEncoderGPU.hpp
+	${CMAKE_CURRENT_SOURCE_DIR}/BitplaneEncoder/BitplaneEncoderGPU.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/Reconstructor
 	${CMAKE_CURRENT_SOURCE_DIR}/Reconstructor/ComposedReconstructor.hpp
 	${CMAKE_CURRENT_SOURCE_DIR}/Reconstructor/Reconstructor.hpp

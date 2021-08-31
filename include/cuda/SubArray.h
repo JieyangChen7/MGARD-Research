@@ -24,20 +24,24 @@ public:
   void offset(DIM dim, SIZE offset_value);
   void resize(DIM dim, SIZE new_size);
   void project(DIM dim0, DIM dim1, DIM dim2);
-  MGARDm_EXEC
+  MGARDm_CONT_EXEC
   T* operator()(IDX z, IDX y, IDX x) {
     return dv + lddv2 * lddv1 * z + lddv1 * y + x;
   }
-  MGARDm_EXEC
+  MGARDm_CONT_EXEC
+  T* operator()(IDX y, IDX x) {
+    return dv + lddv1 * y + x;
+  }
+  MGARDm_CONT_EXEC
   T* operator()(IDX x) {
     return dv + x;
   }
-  MGARDm_EXEC
+  MGARDm_CONT_EXEC
   bool isNull() {
     return dv == NULL;
   }
-  MGARDm_EXEC
-  bool data() {
+  MGARDm_CONT_EXEC
+  T * data() {
     return dv;
   }
   ~SubArray();
@@ -51,6 +55,7 @@ public:
   DIM projected_dim2;
   SIZE lddv1;
   SIZE lddv2;
+  using DataType = T;
 };
 
 } // namespace mgard_cuda

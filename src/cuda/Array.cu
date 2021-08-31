@@ -193,7 +193,17 @@ template class Array<4, float>;
 template class Array<5, double>;
 template class Array<5, float>;
 
-template class Array<1, unsigned char>;
+// template class Array<1, unsigned char>;
+
+template class Array<2, uint8_t>;
+
+template class Array<1, bool>;
+
+template class Array<1, uint8_t>;
+template class Array<1, uint16_t>;
+template class Array<1, uint32_t>;
+template class Array<1, uint64_t>;
+template class Array<1, unsigned long long>;
 
 // template class Array<1, QUANTIZED_INT>;
 // template class Array<2, QUANTIZED_INT>;

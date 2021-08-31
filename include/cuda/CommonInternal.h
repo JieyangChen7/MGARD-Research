@@ -18,10 +18,12 @@
 #define MGRAD_CUDA_COMMON_INTERNAL
 
 
+
 #define MGARDm_CONT __host__  __inline__
 #define MGARDm_KERL __global__
-#define MGARDm_EXEC __device__  __inline__
-#define MGARDm_CONT_EXEC __host__ __device__ __inline__
+#define MGARDm_EXEC __device__ __forceinline__
+#define MGARDm_CONT_EXEC __host__ __device__ __forceinline__
+
 
 #include "Common.h"
 #include "SubArray.h"
@@ -29,15 +31,20 @@
 #include "AutoTuner.h"
 #include "Task.h"
 
-
 #define MAX_GRID_X 2147483647
 #define MAX_GRID_Y 65536
 #define MAX_GRID_Z 65536
 #define MGARDm_WARP_SIZE 32
+#define SIZE_MAX_VALUE 4294967295
 
 #define COPY 0
 #define ADD 1
 #define SUBTRACT 2
+
+// reduction operations
+#define SUM 0
+#define MAX 1
+
 // #define WARP_SIZE 32
 // #define ROUND_UP_WARP(TID) ((TID) + WARP_SIZE - 1) / WARP_SIZE
 

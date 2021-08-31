@@ -17,6 +17,10 @@ namespace mgard_cuda {
 
 enum copy_type { H2D, D2H, D2D, H2H, AUTO };
 
+
+template <typename SubArrayType> 
+void PrintSubarray(std::string name, SubArrayType subArray);
+
 template <typename T> void print_matrix(SIZE nrow, SIZE ncol, T *v, SIZE ldv);
 template <typename T>
 void print_matrix_cuda(SIZE nrow, SIZE ncol, T *dv, SIZE lddv);

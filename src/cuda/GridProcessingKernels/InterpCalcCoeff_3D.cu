@@ -19,8 +19,7 @@ namespace mgard_cuda {
       SIZE lddwr1, SIZE lddwr2, T *dwcf, SIZE lddwcf1, SIZE lddwcf2, T *dwrf,      \
       SIZE lddwrf1, SIZE lddwrf2, T *dwrc, SIZE lddwrc1, SIZE lddwrc2, T *dwrcf,   \
       SIZE lddwrcf1, SIZE lddwrcf2, int queue_idx, int config);\
-  template class GPK_REO_3D_AutoTuner<D, T, CUDA>; \
-  template class Functor<D, T>;
+  template class GpkReo3D<Handle<D, T>, D, T, CUDA>;
 
 KERNELS(1, double)
 KERNELS(1, float)

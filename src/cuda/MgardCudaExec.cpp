@@ -194,7 +194,14 @@ int launch_compress(mgard_cuda::DIM D, enum mgard_cuda::data_type dtype, const c
   size_t original_size = 1;
   for (mgard_cuda::DIM i = 0; i < D; i++) original_size *= shape[i];
   T * original_data;
-  size_t in_size = readfile(input_file, original_data);
+  size_t in_size = 0;
+  if (std::string(input_file).compare("random") == 0) {
+    in_size = original_size * sizeof(T);
+    original_data = new T[original_size];
+    for (size_t i = 0; i < original_size; i++) original_data[i] = rand() % 10 + 1;
+  } else { 
+    in_size = readfile(input_file, original_data);
+  }
   if (in_size != original_size * sizeof(T)) {
     std::cout << mgard_cuda::log::log_err << "input file size mismatch!\n";
   }

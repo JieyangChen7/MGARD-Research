@@ -2,6 +2,8 @@
 #define _MDR_ENCODER_HPP
 
 #include "GroupedBPEncoder.hpp"
+#include "GroupedBPEncoderGPU.hpp"
+#include "GroupedPackedBPEncoderGPU.hpp"
 #include "PerBitBPEncoder.hpp"
 #include "PerBitBPEncoderGPU.hpp"
 #include "NegaBinaryBPEncoder.hpp"

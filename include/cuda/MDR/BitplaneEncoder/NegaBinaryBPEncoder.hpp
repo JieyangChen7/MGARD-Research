@@ -91,7 +91,7 @@ namespace MDR {
                 level_errors[i] = 0;
             }
             T_data const * data_pos = data;
-            for(int i=0; i<n - block_size; i+=block_size){
+            for(int i=0; i<(int)n - (int)block_size; i+=block_size){
                 for(int j=0; j<block_size; j++){
                     T_data cur_data = *(data_pos++);
                     T_data shifted_data = ldexp(cur_data, num_bitplanes - exp);
@@ -120,9 +120,13 @@ namespace MDR {
                 stream_sizes[i] = reinterpret_cast<uint8_t*>(streams_pos[i]) - streams[i];
             }
             // translate level errors
+            printf("error: ");
             for(int i=0; i<level_errors.size(); i++){
                 level_errors[i] = ldexp(level_errors[i], 2*(- num_bitplanes + exp));
+                printf("%f ", level_errors[i]);
             }
+            printf("\n");
+
             return streams;
         }
 

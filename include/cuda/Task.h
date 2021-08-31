@@ -4,19 +4,18 @@
  * Author: Jieyang Chen (chenj3@ornl.gov)
  * Date: April 2, 2021
  */
-
-#include "Functor.h"
-
 #ifndef MGARD_CUDA_TASK
 #define MGARD_CUDA_TASK
 
+#include "Functor.h"
+
 namespace mgard_cuda {
 
-template <DIM D, typename T, typename FUNCTOR>
+template <typename FunctorType>
 class Task {
 public:
     MGARDm_CONT
-    Task(FUNCTOR functor, 
+    Task(FunctorType functor, 
          IDX ngridz, IDX ngridy, IDX ngridx,
          IDX nblockz, IDX nblocky, IDX nblockx,
          LENGTH shared_memory_size,
@@ -27,66 +26,8 @@ public:
           shared_memory_size(shared_memory_size),
           queue_idx(queue_idx) {}
 
-    MGARDm_EXEC void 
-    __operation1(IDX ngridz, IDX ngridy, IDX ngridx, 
-                    IDX nblockz, IDX nblocky, IDX nblockx,
-                    IDX blockz, IDX blocky, IDX blockx, 
-                    IDX threadz, IDX thready, IDX threadx,
-                    T * shared_memory) {
-      functor.__operation1(ngridz, ngridy, ngridx,
-             nblockz, nblocky, nblockx,
-             blockz, blocky, blockx,
-             threadz, thready, threadx, shared_memory);
-    }
-
-    MGARDm_EXEC void 
-    __operation2(IDX ngridz, IDX ngridy, IDX ngridx, 
-                    IDX nblockz, IDX nblocky, IDX nblockx,
-                    IDX blockz, IDX blocky, IDX blockx, 
-                    IDX threadz, IDX thready, IDX threadx,
-                    T * shared_memory) {
-      functor.__operation2(ngridz, ngridy, ngridx,
-             nblockz, nblocky, nblockx,
-             blockz, blocky, blockx,
-             threadz, thready, threadx, shared_memory);
-    }
-
-    MGARDm_EXEC void 
-    __operation3(IDX ngridz, IDX ngridy, IDX ngridx, 
-                    IDX nblockz, IDX nblocky, IDX nblockx,
-                    IDX blockz, IDX blocky, IDX blockx, 
-                    IDX threadz, IDX thready, IDX threadx,
-                    T * shared_memory) {
-      functor.__operation3(ngridz, ngridy, ngridx,
-             nblockz, nblocky, nblockx,
-             blockz, blocky, blockx,
-             threadz, thready, threadx, shared_memory);
-    }
-
-    MGARDm_EXEC void 
-    __operation4(IDX ngridz, IDX ngridy, IDX ngridx, 
-                    IDX nblockz, IDX nblocky, IDX nblockx,
-                    IDX blockz, IDX blocky, IDX blockx, 
-                    IDX threadz, IDX thready, IDX threadx,
-                    T * shared_memory) {
-      functor.__operation4(ngridz, ngridy, ngridx,
-             nblockz, nblocky, nblockx,
-             blockz, blocky, blockx,
-             threadz, thready, threadx, shared_memory);
-    }
-
-    MGARDm_EXEC void 
-    __operation5(IDX ngridz, IDX ngridy, IDX ngridx, 
-                    IDX nblockz, IDX nblocky, IDX nblockx,
-                    IDX blockz, IDX blocky, IDX blockx, 
-                    IDX threadz, IDX thready, IDX threadx,
-                    T * shared_memory) {
-      functor.__operation5(ngridz, ngridy, ngridx,
-             nblockz, nblocky, nblockx,
-             blockz, blocky, blockx,
-             threadz, thready, threadx, shared_memory);
-    }
-
+    // copy contructure does not work in device so return by reference
+    MGARDm_EXEC FunctorType& get_functor() {return functor;}
     MGARDm_CONT int get_queue_idx() {return queue_idx;}
     MGARDm_CONT IDX get_ngridz() {return ngridz;}
     MGARDm_CONT IDX get_ngridy() {return ngridy;}
@@ -96,12 +37,33 @@ public:
     MGARDm_CONT IDX get_nblockx() {return nblockx;}
     MGARDm_CONT LENGTH get_shared_memory_size () {return shared_memory_size; }
   private:
-    FUNCTOR functor;
+    FunctorType functor;
     IDX ngridz, ngridy, ngridx;
     IDX nblockz, nblocky, nblockx;
     LENGTH shared_memory_size;
     int queue_idx;
 };
+
+
+template <typename FunctorType, typename T_reduce>
+class ReduceTask {
+public:
+  MGARDm_CONT
+  ReduceTask(int num_items, SubArray<1, T_reduce> d_in, SubArray<1, T_reduce> d_out, T_reduce init, int queue_idx): 
+            num_items(num_items), d_in(d_in), d_out(d_out), init(init), queue_idx(queue_idx) {}
+  MGARDm_CONT int get_queue_idx() { return queue_idx; }
+  MGARDm_CONT int get_num_items() { return num_items; }
+  MGARDm_CONT SubArray<1, T_reduce>  get_d_in() { return d_in; }
+  MGARDm_CONT SubArray<1, T_reduce>  get_d_out() { return d_out; }
+  MGARDm_CONT T_reduce get_init() { return init; }
+private:
+  int num_items;
+  SubArray<1, T_reduce> d_in;
+  SubArray<1, T_reduce> d_out;
+  T_reduce init;
+  int queue_idx;
+};
+
 
 }
 #endif

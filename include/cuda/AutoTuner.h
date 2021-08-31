@@ -18,12 +18,12 @@ constexpr int GPK_CONFIG[5][7][3] = {{{1, 1, 8},{1, 1, 8},{1, 1, 8},{1, 1, 16},{
                                      {{2, 2, 2},{4, 4, 4},{4, 4, 8},{4, 4, 16},{4, 4, 32},{2, 2, 64},{2, 2, 128}}};
 
 
-template <DIM D, typename T, typename DEVICE>
+template <typename HandleType, typename DeviceType>
 class AutoTuner {
 public:
   MGARDm_CONT
-  AutoTuner(Handle<D, T>& handle):handle(handle){};
-  Handle<D, T>&handle;
+  AutoTuner(HandleType& handle):handle(handle){};
+  HandleType& handle;
 };
 }
 
