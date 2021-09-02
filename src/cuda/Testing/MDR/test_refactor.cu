@@ -70,7 +70,7 @@ int main(int argc, char ** argv){
     auto interleaver = mgard_cuda::MDR::DirectInterleaver<D, T>(handle);
     // auto interleaver = mgard_cuda::MDR::SFCInterleaver<T>();
     // auto interleaver = mgard_cuda::MDR::BlockedInterleaver<T>();
-    // auto encoder = mgard_cuda::MDR::GroupedBPEncoder<T, T_stream>(handle);
+    // auto encoder = mgard_cuda::MDR::GroupedBPEncoder<D, T, T_stream>(handle);
     auto encoder = mgard_cuda::MDR::GroupedBPEncoderGPU<D, T, T_stream>(handle);
     // auto encoder = mgard_cuda::MDR::NegaBinaryBPEncoder<D, T, T_stream>(handle);
     // auto encoder = mgard_cuda::MDR::PerBitBPEncoder<D, T, T_stream>(handle);

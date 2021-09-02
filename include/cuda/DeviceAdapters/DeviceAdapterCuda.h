@@ -85,12 +85,28 @@ struct BlockReduce<T, nblockx, nblocky, nblockz, CUDA> {
 #define ALIGN_LEFT 0 // for encoding
 #define ALIGN_RIGHT 1 // for decoding
 
-#define ATOMIC 0
-#define REDUCTION 1
-#define BALLOT 2
+#define Sign_Encoding_Atomic 0
+#define Sign_Encoding_Reduce 1
+#define Sign_Encoding_Ballot 2
+
+#define Sign_Decoding_Parallel 0
 
 #define BINARY 0
 #define NEGABINARY 1
+
+#define Bit_Transpose_Serial_All 0
+#define Bit_Transpose_Parallel_B_Serial_b 1
+#define Bit_Transpose_Parallel_B_Atomic_b 2
+#define Bit_Transpose_Parallel_B_Reduce_b 3
+#define Bit_Transpose_Parallel_B_Ballot_b 4
+#define Bit_Transpose_TCU 5
+
+
+#define Error_Collecting_Serial_All 0
+#define Error_Collecting_Parallel_B_Serial_b 1
+#define Error_Collecting_Parallel_B_Atomic_b 2
+#define Error_Collecting_Parallel_B_Reduce_b 3
+
 
 typedef unsigned long long int uint64_cu;
 
@@ -127,10 +143,10 @@ struct EncodeSignBits<T, METHOD, CUDA>{
 
   MGARDm_EXEC 
   T Encode(T bit, SIZE b_idx) {
-    if (METHOD == ATOMIC) return Atomic(bit, b_idx);
-    else if (METHOD == REDUCTION) return Reduction(bit, b_idx);
-    else if (METHOD == BALLOT) return Ballot(bit, b_idx);
-    else {}
+    if (METHOD == Sign_Encoding_Atomic) return Atomic(bit, b_idx);
+    else if (METHOD == Sign_Encoding_Reduce) return Reduction(bit, b_idx);
+    else if (METHOD == Sign_Encoding_Ballot) return Ballot(bit, b_idx);
+    else { printf("Sign Encoding Wrong Algorithm Type!\n"); }
   }
 };
 
@@ -404,11 +420,12 @@ struct BlockBitTranspose<T_org, T_trans, nblockx, nblocky, nblockz, ALIGN, METHO
 
   MGARDm_EXEC 
   void Transpose(T_org * v, T_trans * tv, SIZE b, SIZE B) {
-    if (METHOD == 0)  Serial_All(v, tv, b, B);
-    else if (METHOD == 1) Parallel_B_Serial_b(v, tv, b, B);
-    else if (METHOD == 2) Parallel_B_Atomic_b(v, tv, b, B);
-    else if (METHOD == 3) Parallel_B_Reduction_b(v, tv, b, B);
-    else if (METHOD == 4) Parallel_B_Ballot_b(v, tv, b, B);
+    if (METHOD == Bit_Transpose_Serial_All)  Serial_All(v, tv, b, B);
+    else if (METHOD == Bit_Transpose_Parallel_B_Serial_b) Parallel_B_Serial_b(v, tv, b, B);
+    else if (METHOD == Bit_Transpose_Parallel_B_Atomic_b) Parallel_B_Atomic_b(v, tv, b, B);
+    else if (METHOD == Bit_Transpose_Parallel_B_Reduce_b) Parallel_B_Reduction_b(v, tv, b, B);
+    else if (METHOD == Bit_Transpose_Parallel_B_Ballot_b) Parallel_B_Ballot_b(v, tv, b, B);
+    else { printf("Bit Transpose Wrong Algorithm Type!\n");  }
     // else if (METHOD == 5) TCU(v, tv, b, B);
   }
 };
@@ -438,15 +455,18 @@ struct ErrorCollect<T, T_fp, T_sfp, T_error, nblockx, nblocky, nblockz, METHOD, 
         } else if (BinaryType == NEGABINARY) {
           mantissa = data - fps_data;
         }
-        for(int k = 0; k < num_bitplanes; k++){
-          uint64_t mask = (1 << k) - 1;
+        for(SIZE bitplane_idx = 0; bitplane_idx < num_bitplanes; bitplane_idx++){
+          uint64_t mask = (1 << bitplane_idx) - 1;
           T_error diff = 0;
           if (BinaryType == BINARY) {
             diff = (T_error) (fp_data & mask) + mantissa;
           } else if (BinaryType == NEGABINARY) {
             diff = (T_error) negabinary2binary(ngb_data & mask) + mantissa;
           }
-          errors[num_bitplanes-k] += diff * diff;
+          errors[num_bitplanes-bitplane_idx] += diff * diff;
+          // if (blockIdx.x == 0 && num_bitplanes-bitplane_idx == 2) {
+          //   printf("elem error[%u]: %f\n", elem_idx, diff * diff);
+          // }
         }
         errors[0] += data * data;
       }
@@ -486,12 +506,12 @@ struct ErrorCollect<T, T_fp, T_sfp, T_error, nblockx, nblocky, nblockz, METHOD, 
     }
   }
 
-  MGARDm_EXEC
-  void Parallel_Bitplanes_Reduce_Error(T * v, T_error * temp, T_error * errors, SIZE num_elems, SIZE num_bitplanes) {
+    MGARDm_EXEC
+  void Parallel_Bitplanes_Atomic_Error(T * v, T_error * temp, T_error * errors, SIZE num_elems, SIZE num_bitplanes) {
     for (SIZE elem_idx = threadIdx.x; elem_idx < num_elems; elem_idx += blockDim.x) {
-      for(int bitplane_idx = threadIdx.y; bitplane_idx < num_bitplanes; bitplane_idx += blockDim.y){
+      for(SIZE bitplane_idx = threadIdx.y; bitplane_idx < num_bitplanes; bitplane_idx += blockDim.y){
         T data = v[elem_idx];
-        T_fp fp_data = (T_fp)v[elem_idx];
+        T_fp fp_data = (T_fp) fabs(v[elem_idx]);
         T_sfp fps_data = (T_sfp) data;
         T_fp ngb_data = binary2negabinary(fps_data);
         T_error mantissa;
@@ -514,24 +534,96 @@ struct ErrorCollect<T, T_fp, T_sfp, T_error, nblockx, nblocky, nblockz, METHOD, 
       }
     }
     __syncthreads();
-    __shared__ WarpReduceStorageType warp_storage[nblocky];
-
-    for(int bitplane_idx = threadIdx.y; bitplane_idx < num_bitplanes+1; bitplane_idx += blockDim.y){
+    // if (blockIdx.x == 0 && threadIdx.x == 0 && threadIdx.y == 0) {
+    //     for (SIZE elem_idx = 0; elem_idx < num_elems; elem_idx += 1) {
+    //       printf("elem error[%u]: %f\n", elem_idx, temp[(2) * num_elems + elem_idx]);
+    //     }
+    // }
+    for(SIZE bitplane_idx = threadIdx.y; bitplane_idx < num_bitplanes+1; bitplane_idx += blockDim.y){
       for (SIZE elem_idx = threadIdx.x; elem_idx < ((num_elems-1)/32+1)*32; elem_idx += 32) {
         T_error error = 0;
         if (elem_idx < num_elems) {
           error = temp[(num_bitplanes - bitplane_idx) * num_elems + elem_idx];
         }
-        errors[num_bitplanes - bitplane_idx] += WarpReduceType(warp_storage[threadIdx.y]).Sum(error);
+        T_error * sum = &(errors[num_bitplanes - bitplane_idx]);
+        atomicAdd(sum, error);
       }
     }
   }
 
+  MGARDm_EXEC
+  void Parallel_Bitplanes_Reduce_Error(T * v, T_error * temp, T_error * errors, SIZE num_elems, SIZE num_bitplanes) {
+    for (SIZE elem_idx = threadIdx.x; elem_idx < num_elems; elem_idx += blockDim.x) {
+      for(SIZE bitplane_idx = threadIdx.y; bitplane_idx < num_bitplanes; bitplane_idx += blockDim.y){
+        T data = v[elem_idx];
+        T_fp fp_data = (T_fp) fabs(v[elem_idx]);
+        T_sfp fps_data = (T_sfp) data;
+        T_fp ngb_data = binary2negabinary(fps_data);
+        T_error mantissa;
+        if (BinaryType == BINARY) {
+          mantissa = fabs(data) - fp_data;
+        } else if (BinaryType == NEGABINARY) {
+          mantissa = data - fps_data;
+        }
+        uint64_t mask = (1 << bitplane_idx) - 1;
+        T_error diff = 0;
+        if (BinaryType == BINARY) {
+          diff = (T_error) (fp_data & mask) + mantissa;
+        } else if (BinaryType == NEGABINARY) {
+          diff = (T_error) negabinary2binary(ngb_data & mask) + mantissa;
+        }
+        temp[(num_bitplanes - bitplane_idx) * num_elems + elem_idx] = diff * diff;
+        // if (blockIdx.x == 0 && num_bitplanes - bitplane_idx == 31) {
+        //   printf("elem_idx: %u, data: %f, fp_data: %u, mask: %u, mantissa: %f, diff: %f\n",
+        //           elem_idx, data, fp_data, mask, mantissa, diff);
+        // }
+        if (bitplane_idx == 0) {
+          temp[elem_idx] = data * data;
+        }
+      }
+    }
+    __syncthreads();
+
+    // if (blockIdx.x == 0 && threadIdx.x == 0 && threadIdx.y == 0) {
+    //   for (SIZE elem_idx = 0; elem_idx < num_elems; elem_idx += 1) {
+    //     printf("elem error[%u]: %f\n", elem_idx, temp[(31) * num_elems + elem_idx]);
+    //   }
+    // }
+
+
+    __shared__ WarpReduceStorageType warp_storage[nblocky];
+
+    for(SIZE bitplane_idx = threadIdx.y; bitplane_idx < num_bitplanes+1; bitplane_idx += blockDim.y){
+      T error_sum = 0;
+      for (SIZE elem_idx = threadIdx.x; elem_idx < ((num_elems-1)/32+1)*32; elem_idx += 32) {
+        T_error error = 0;
+        if (elem_idx < num_elems) {
+          error = temp[(num_bitplanes - bitplane_idx) * num_elems + elem_idx];
+        }
+        error_sum += WarpReduceType(warp_storage[threadIdx.y]).Sum(error);
+        // errors[num_bitplanes - bitplane_idx] += WarpReduceType(warp_storage[threadIdx.y]).Sum(error);
+      }
+      if (threadIdx.x == 0) { 
+        errors[num_bitplanes - bitplane_idx] = error_sum;
+      }
+    }
+    // __syncthreads();
+    // if (blockIdx.x == 0 && threadIdx.x == 0 && threadIdx.y == 0) {
+    //   for (int i = 0; i < num_bitplanes + 1; i++) {
+    //     printf("error[%d]: %f\n", i, errors[i]);
+    //   }
+    // }
+
+
+  }
+
   MGARDm_EXEC 
   void Collect(T * v, T_error * temp, T_error * errors, SIZE num_elems, SIZE num_bitplanes) {
-    if (METHOD == 0) Serial_All(v, temp, errors, num_elems, num_bitplanes);
-    else if (METHOD == 1) Parallel_Bitplanes_Serial_Error(v, temp, errors, num_elems, num_bitplanes);
-    else if (METHOD == 2) Parallel_Bitplanes_Reduce_Error(v, temp, errors, num_elems, num_bitplanes);
+    if (METHOD == Error_Collecting_Serial_All) Serial_All(v, temp, errors, num_elems, num_bitplanes);
+    else if (METHOD == Error_Collecting_Parallel_B_Serial_b) Parallel_Bitplanes_Serial_Error(v, temp, errors, num_elems, num_bitplanes);
+    else if (METHOD == Error_Collecting_Parallel_B_Atomic_b) Parallel_Bitplanes_Atomic_Error(v, temp, errors, num_elems, num_bitplanes);
+    else if (METHOD == Error_Collecting_Parallel_B_Reduce_b) Parallel_Bitplanes_Reduce_Error(v, temp, errors, num_elems, num_bitplanes);
+    // else { printf("Error Collecting Wrong Algorithm Type!\n");  }
   }
 };
 

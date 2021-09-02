@@ -9,6 +9,29 @@
 
 #include "BitplaneEncoderInterface.hpp"
 #include <string.h>
+
+#define BINARY_TYPE BINARY
+
+#define DATA_ENCODING_ALGORITHM Bit_Transpose_Serial_All
+// #define DATA_ENCODING_ALGORITHM Bit_Transpose_Parallel_B_Serial_b
+// #define DATA_ENCODING_ALGORITHM Bit_Transpose_Parallel_B_Atomic_b
+// #define DATA_ENCODING_ALGORITHM Bit_Transpose_Parallel_B_Reduce_b
+// #define DATA_ENCODING_ALGORITHM Bit_Transpose_Parallel_B_Ballot_b
+
+
+#define DATA_DECODING_ALGORITHM Bit_Transpose_Serial_All
+// #define DATA_DECODING_ALGORITHM Bit_Transpose_Parallel_B_Serial_b
+// #define DATA_DECODING_ALGORITHM Bit_Transpose_Parallel_B_Atomic_b
+// #define DATA_DECODING_ALGORITHM Bit_Transpose_Parallel_B_Reduce_b
+// #define DATA_DECODING_ALGORITHM Bit_Transpose_Parallel_B_Ballot_b
+
+
+#define ERROR_COLLECTING_ALGORITHM Error_Collecting_Serial_All
+// #define ERROR_COLLECTING_ALGORITHM Error_Collecting_Parallel_B_Serial_b
+// #define ERROR_COLLECTING_ALGORITHM Error_Collecting_Parallel_B_Atomic_b
+// #define ERROR_COLLECTING_ALGORITHM Error_Collecting_Parallel_B_Reduce_b
+
+
 namespace mgard_cuda {
 namespace MDR {
 
@@ -23,7 +46,7 @@ namespace MDR {
     }
   }
 
-  template <typename T, typename T_fp, typename T_sfp, typename T_bitplane, typename T_error, OPTION BinaryType, typename DeviceType>
+  template <typename T, typename T_fp, typename T_sfp, typename T_bitplane, typename T_error, OPTION BinaryType, OPTION EncodingAlgorithm, OPTION ErrorColectingAlgorithm,typename DeviceType>
   class GroupedEncoderFunctor: public Functor<DeviceType> {
     public: 
     MGARDm_CONT GroupedEncoderFunctor(SIZE n,
@@ -59,11 +82,12 @@ namespace MDR {
       sm_temp_errors =  (T_error*)sm_p;    sm_p += (num_bitplanes + 1) * num_elems_per_TB * sizeof(T_error);
       sm_errors =       (T_error*)sm_p;    sm_p += (num_bitplanes + 1)                    * sizeof(T_error);
       sm_fix_point =    (T_fp*)sm_p;       sm_p += num_elems_per_TB                       * sizeof(T_fp);
+      if (BinaryType == BINARY) {
+        sm_signs =        (T_fp*)sm_p;       sm_p += num_elems_per_TB                       * sizeof(T_fp);
+      }
       sm_shifted =      (T*)sm_p;          sm_p += num_elems_per_TB                       * sizeof(T);
       sm_bitplanes =    (T_bitplane*)sm_p; sm_p += (num_bitplanes + 1) * num_batches_per_TB * sizeof(T_bitplane);
-      if (BinaryType == BINARY) {
-        sm_signs =        (T_bitplane*)sm_p;       sm_p += num_elems_per_TB                       * sizeof(T_bitplane);
-      }
+      
       // sm_reduce =  (blockReduce_error.TempStorageType*) sm_p;
       // blockReduce_error.AllocateTempStorage();
       // thread orginal data mapping
@@ -81,6 +105,12 @@ namespace MDR {
       //   sm_signs[local_data_idx] = 0;
       // }
 
+      for (SIZE bitplane_idx = 0; bitplane_idx < num_bitplanes+1; bitplane_idx++) {
+        if (local_data_idx < num_elems_per_TB) {
+          sm_temp_errors[bitplane_idx * num_elems_per_TB + local_data_idx] = 0;
+        }
+      }
+
       if (local_bitplane_idx < num_bitplanes + 1) {
         sm_errors[local_bitplane_idx] = 0; 
       }
@@ -96,13 +126,13 @@ namespace MDR {
           fp_data = (T_fp) fabs(shifted_data);
         } else if (BinaryType == NEGABINARY) {
           fp_data = binary2negabinary((T_sfp)shifted_data);
-          printf("2^%d %f->%u\n", (int)num_bitplanes - (int)exp, shifted_data, fp_data);
+          // printf("2^%d %f->%u\n", (int)num_bitplanes - (int)exp, shifted_data, fp_data);
         }
         // save fp_data to shared memory
         sm_fix_point[local_data_idx] = fp_data;
         sm_shifted  [local_data_idx] = shifted_data;
         if (BinaryType == BINARY) {
-          sm_signs    [local_data_idx] = signbit(cur_data); 
+          sm_signs    [local_data_idx] = signbit(cur_data) << (sizeof(T_fp)*8 - 1); 
         }
         // printf("%llu, %f -> %f-> %u\n", global_data_idx, cur_data, shifted_data, sm_fix_point[local_data_idx] );
         // printf("sm_fix_point[%llu]: %u\n", local_data_idx, sm_fix_point[local_data_idx]);
@@ -114,27 +144,22 @@ namespace MDR {
     MGARDm_EXEC void
     Operation2() {
       // data
-      BlockBitTranspose<T_fp, T_bitplane, 32, 32, 1, ALIGN_LEFT, 0, DeviceType> blockBitTranspose;
-      for (SIZE i = 0; i < num_batches_per_TB; i++) {
-        blockBitTranspose.Transpose(sm_fix_point + i * num_elems_per_batch, sm_bitplanes + i * num_bitplanes, num_elems_per_batch, num_bitplanes);
+      BlockBitTranspose<T_fp, T_bitplane, 32, 32, 1, ALIGN_LEFT, EncodingAlgorithm, DeviceType> blockBitTranspose;
+      for (SIZE batch_idx = 0; batch_idx < num_batches_per_TB; batch_idx++) {
+        blockBitTranspose.Transpose(sm_fix_point + batch_idx * num_elems_per_batch, 
+                                    sm_bitplanes + batch_idx * num_bitplanes, 
+                                    num_elems_per_batch, num_bitplanes);
       }
       if (BinaryType == BINARY) {
         // sign
-        EncodeSignBits<T_bitplane, REDUCTION, DeviceType> encodeSignBits;
-        for (SIZE batch_idx = this->thready; batch_idx < num_batches_per_TB; batch_idx += 32) {
-          SIZE shift = 0;
-          T_bitplane sign_bitplane = 0;
-          for (SIZE sign_idx = this->threadx; sign_idx < ((num_elems_per_batch-1)/32+1)*32; sign_idx += 32) {
-            sign_bitplane += encodeSignBits.Encode(sm_signs[batch_idx *  num_elems_per_batch + sign_idx], this->threadx) << shift;
-          }
-          if (this->threadx == 0) {
-            sm_bitplanes[num_batches_per_TB*num_bitplanes+batch_idx] = sign_bitplane;
-            printf("sign_bitplane[%u]: %u\n", batch_idx, sign_bitplane);
-          }
+        for (SIZE batch_idx = 0; batch_idx < num_batches_per_TB; batch_idx++) {
+          blockBitTranspose.Transpose(sm_signs + batch_idx * num_elems_per_batch, 
+                                      sm_bitplanes + num_batches_per_TB * num_bitplanes + batch_idx,
+                                      num_elems_per_batch, 1);
         }
       }
       // error
-      ErrorCollect<T, T_fp, T_sfp, T_error, 32, 32, 1, 0, BinaryType, DeviceType>().Collect(sm_shifted, sm_temp_errors, sm_errors, num_elems_per_TB, num_bitplanes);
+      ErrorCollect<T, T_fp, T_sfp, T_error, 32, 32, 1, ErrorColectingAlgorithm, BinaryType, DeviceType>().Collect(sm_shifted, sm_temp_errors, sm_errors, num_elems_per_TB, num_bitplanes);
     }
 
     // get max bit-plane length 
@@ -171,11 +196,11 @@ namespace MDR {
     MGARDm_EXEC void
     Operation4() {
       if (debug) {
-        for (int i = 0; i < num_elems_per_TB; i++) {
-          printf("input[%u]\torg\t%f\t2^%d\tfp\t%llu:\t", i, *v(this->blockx*num_elems_per_TB+i), (int)num_bitplanes - (int)exp, sm_fix_point[i]);
-          print_bits(sm_fix_point[i], num_bitplanes);
-          printf("\n");
-        }
+        // for (int i = 0; i < num_elems_per_TB; i++) {
+        //   printf("input[%u]\torg\t%f\t2^%d\tfp\t%llu:\t", i, *v(this->blockx*num_elems_per_TB+i), (int)num_bitplanes - (int)exp, sm_fix_point[i]);
+        //   print_bits(sm_fix_point[i], num_bitplanes);
+        //   printf("\n");
+        // }
 
         // for (int i = 0; i < num_bitplanes; i++) {
         //   printf("sm_bitplane %d: ", i);
@@ -217,9 +242,7 @@ namespace MDR {
 
         // for (int i = 0; i < num_bitplanes + 1; i++) {
         //   printf("error %d/%d: ", i, num_bitplanes + 1);
-        //   for (int j = 0; j < num_elems_per_TB_roundup; j++) {
-        //     printf (" %f ", sm_level_errors[i * num_elems_per_TB_roundup + j]);
-        //   }
+        //     printf (" %f ", sm_errors[i]);
         //   printf("\n");
         // }
 
@@ -238,9 +261,9 @@ namespace MDR {
       size += (num_bitplanes + 1) * num_batches_per_TB * sizeof(T_bitplane);
       size += num_elems_per_TB                        * sizeof(T);
       if (BinaryType == BINARY) {
-        size += num_elems_per_TB                        * sizeof(T_bitplane);
+        size += num_elems_per_TB                        * sizeof(T_fp);
       }
-      printf("shared_memory_size: %u\n", size);
+      // printf("shared_memory_size: %u\n", size);
       return size;
     }
   private:
@@ -267,29 +290,34 @@ namespace MDR {
     T_fp * sm_fix_point;
     T * sm_shifted;
     T_bitplane * sm_bitplanes;
-    T_bitplane * sm_signs;
+    T_fp * sm_signs;
   };
 
 
-  template <typename HandleType, typename T, typename T_bitplane, typename T_error, OPTION BinaryType, typename DeviceType>
+  template <typename HandleType, typename T, typename T_bitplane, typename T_error, OPTION BinaryType, OPTION EncodingAlgorithm, OPTION ErrorColectingAlgorithm, typename DeviceType>
   class GroupedEncoder: public AutoTuner<HandleType, DeviceType> {
   public:
     MGARDm_CONT
     GroupedEncoder(HandleType& handle):AutoTuner<HandleType, DeviceType>(handle) {}
 
+    using T_sfp = typename std::conditional<std::is_same<T, double>::value, int64_t, int32_t>::type;
+    using T_fp = typename std::conditional<std::is_same<T, double>::value, uint64_t, uint32_t>::type;
+    using FunctorType = GroupedEncoderFunctor<T, T_fp, T_sfp, T_bitplane, T_error, BinaryType, EncodingAlgorithm, ErrorColectingAlgorithm, DeviceType>;
+    using TaskType = Task<FunctorType>;
+
+
     template <typename T_fp, typename T_sfp>
     MGARDm_CONT
-    Task<GroupedEncoderFunctor<T, T_fp, T_sfp, T_bitplane, T_error, BinaryType, DeviceType> > GenTask(
-                                                      SIZE n,
-                                                      SIZE num_batches_per_TB,
-                                                      SIZE num_bitplanes,
-                                                      SIZE exp,
-                                                      SubArray<1, T> v,
-                                                      SubArray<2, T_bitplane> encoded_bitplanes,
-                                                      SubArray<2, T_error> level_errors_workspace,
-                                                      int queue_idx) 
+    TaskType GenTask(
+                    SIZE n,
+                    SIZE num_batches_per_TB,
+                    SIZE num_bitplanes,
+                    SIZE exp,
+                    SubArray<1, T> v,
+                    SubArray<2, T_bitplane> encoded_bitplanes,
+                    SubArray<2, T_error> level_errors_workspace,
+                    int queue_idx) 
     {
-      using FunctorType = GroupedEncoderFunctor<T, T_fp, T_sfp, T_bitplane, T_error, BinaryType, DeviceType>;
       FunctorType functor(n, num_batches_per_TB, num_bitplanes, exp, v, encoded_bitplanes, level_errors_workspace);
         SIZE tbx, tby, tbz, gridx, gridy, gridz;
         size_t sm_size = functor.shared_memory_size();
@@ -315,14 +343,10 @@ namespace MDR {
                  SubArray<2, T_error> level_errors_workspace,
                  int queue_idx) {
       
-      using T_sfp = typename std::conditional<std::is_same<T, double>::value, int64_t, int32_t>::type;
-      using T_fp = typename std::conditional<std::is_same<T, double>::value, uint64_t, uint32_t>::type;
-      using FunctorType = GroupedEncoderFunctor<T, T_fp, T_sfp, T_bitplane, T_error, BinaryType, DeviceType>;
-      using TaskType = Task<FunctorType>;
+      
       TaskType task = GenTask<T_fp, T_sfp>(n, num_batches_per_TB, num_bitplanes, exp, v, encoded_bitplanes, level_errors_workspace, queue_idx);
       DeviceAdapter<HandleType, TaskType, DeviceType> adapter(this->handle);
       adapter.Execute(task);
-
       this->handle.sync_all();
       // PrintSubarray("level_errors_workspace", level_errors_workspace);
       // get level error
@@ -335,14 +359,14 @@ namespace MDR {
         deviceReduce.Sum(reduce_size, curr_errors, sum_error, queue_idx);
       }
       this->handle.sync_all();
-      PrintSubarray("level_errors", level_errors);
+      // PrintSubarray("level_errors", level_errors);
       // PrintSubarray("encoded_bitplanes", encoded_bitplanes);
 
     }
   };
 
 
-  template <typename T, typename T_fp, typename T_sfp, typename T_bitplane, OPTION BinaryType, typename DeviceType>
+  template <typename T, typename T_fp, typename T_sfp, typename T_bitplane, OPTION BinaryType, OPTION DecodingAlgorithm, typename DeviceType>
   class GroupedDecoderFunctor: public Functor<DeviceType> 
   {
       public: 
@@ -382,6 +406,9 @@ namespace MDR {
 
         int8_t * sm_p = (int8_t *)this->shared_memory;
         sm_fix_point =  (T_fp*)sm_p;       sm_p += num_elems_per_TB                       * sizeof(T_fp);
+        if (BinaryType == BINARY) {
+          sm_signs =        (T_fp*)sm_p;       sm_p += num_elems_per_TB                       * sizeof(T_fp);
+        }
         sm_bitplanes  = (T_bitplane*)sm_p; sm_p += num_batches_per_TB * (num_bitplanes+1) * sizeof(T_bitplane);
         
 
@@ -411,7 +438,7 @@ namespace MDR {
             }
           } else {
             if (local_data_idx < num_elems_per_TB) {
-              sign = *signs(global_data_idx);
+              sm_signs[local_data_idx] = *signs(global_data_idx);
             }
           }
         }
@@ -422,7 +449,7 @@ namespace MDR {
       MGARDm_EXEC void
       Operation2() {
         //data
-        BlockBitTranspose<T_bitplane, T_fp, 32, 32, 1, ALIGN_RIGHT, 0, DeviceType> blockBitTranspose;
+        BlockBitTranspose<T_bitplane, T_fp, 32, 32, 1, ALIGN_RIGHT, DecodingAlgorithm, DeviceType> blockBitTranspose;
         for (SIZE i = 0; i < num_batches_per_TB; i++) {
           blockBitTranspose.Transpose(sm_bitplanes + i * num_bitplanes, sm_fix_point + i * num_elems_per_batch,  num_bitplanes, num_elems_per_batch);
         }
@@ -430,12 +457,12 @@ namespace MDR {
         if (BinaryType == BINARY) {
           // sign
           if (starting_bitplane == 0) {
-            DecodeSignBits<T_bitplane, 0, DeviceType> decodeSignBits;
-            if (local_data_idx < num_elems_per_TB) {
-              SIZE batch_idx = local_data_idx / num_elems_per_batch;
-              SIZE local_elem_idx = local_data_idx % num_elems_per_batch;
-              sign = decodeSignBits.Decode(sm_bitplanes[num_batches_per_TB*num_bitplanes + batch_idx], local_elem_idx);
+            for (SIZE batch_idx = 0; batch_idx < num_batches_per_TB; batch_idx ++) {
+              blockBitTranspose.Transpose(sm_bitplanes + num_batches_per_TB*num_bitplanes + batch_idx,
+                                          sm_signs + batch_idx * num_elems_per_batch,
+                                          1, num_elems_per_batch);
             }
+
           }
         }
 
@@ -477,7 +504,8 @@ namespace MDR {
           T_fp fp_data = sm_fix_point[local_data_idx];
           if (BinaryType == BINARY) {
             T cur_data = ldexp((T)fp_data, - ending_bitplane + exp);
-            *v(global_data_idx) = sign ? -cur_data : cur_data;
+            *v(global_data_idx) = sm_signs[local_data_idx] ? -cur_data : cur_data;
+            *signs(global_data_idx) = sm_signs[local_data_idx];
           } else if (BinaryType == NEGABINARY) {
             T cur_data = ldexp((T)negabinary2binary(fp_data), - ending_bitplane + exp);
             *v(global_data_idx) = ending_bitplane % 2 != 0 ? -cur_data : cur_data;
@@ -502,14 +530,22 @@ namespace MDR {
         //   printf("\n");
         // }
 
+        // if (debug) {
+        //   printf("sm_signs: ");
+        //   for (int i = 0; i < num_elems_per_TB; i++) {
+        //     printf("%u ,", sm_signs[i]);
+        //   }
+        //   printf("\n");
+        // }
 
-        if (debug) {
-          printf("dencode data:\t");
-          for (int i = 0; i < num_elems_per_TB; i++) {
-            printf("%f\t", *v(this->blockx * num_elems_per_TB + i));
-          }
-          printf("\n");
-        }
+
+        // if (debug) {
+        //   printf("dencode data:\t");
+        //   for (int i = 0; i < num_elems_per_TB; i++) {
+        //     printf("%f\t", *v(this->blockx * num_elems_per_TB + i));
+        //   }
+        //   printf("\n");
+        // }
       }
 
       
@@ -523,6 +559,9 @@ namespace MDR {
         size_t size = 0;
         size += num_batches_per_TB * (num_bitplanes+1) * sizeof(T_bitplane);
         size += num_elems_per_TB                       * sizeof(T_fp);
+        if (BinaryType == BINARY) {
+          size += num_elems_per_TB                        * sizeof(T_fp);
+        }
         return size;
       }
     private:
@@ -549,30 +588,36 @@ namespace MDR {
       T_bitplane * sm_bitplanes;
       T_fp * sm_fix_point;
       bool sign;
+      T_fp * sm_signs;
 
 
   };
 
 
-  template <typename HandleType, typename T, typename T_bitplane, OPTION BinaryType,typename DeviceType>
+  template <typename HandleType, typename T, typename T_bitplane, OPTION BinaryType, OPTION DecodingAlgorithm, typename DeviceType>
   class GroupedDecoder: public AutoTuner<HandleType, DeviceType> {
   public:
     MGARDm_CONT
     GroupedDecoder(HandleType& handle):AutoTuner<HandleType, DeviceType>(handle) {}
 
+    using T_sfp = typename std::conditional<std::is_same<T, double>::value, int64_t, int32_t>::type;
+    using T_fp = typename std::conditional<std::is_same<T, double>::value, uint64_t, uint32_t>::type;
+    using FunctorType = GroupedDecoderFunctor<T, T_fp, T_sfp, T_bitplane, BinaryType, DecodingAlgorithm, DeviceType>;
+    using TaskType = Task<FunctorType>;
+
     template <typename T_fp, typename T_sfp>
     MGARDm_CONT
-    Task<GroupedDecoderFunctor<T, T_fp, T_sfp, T_bitplane, BinaryType, DeviceType> > GenTask(SIZE n,
-                                                                           SIZE num_batches_per_TB,
-                                                                           SIZE starting_bitplane,
-                                                                           SIZE num_bitplanes,
-                                                                           SIZE exp,
-                                                                           SubArray<2, T_bitplane> encoded_bitplanes,
-                                                                           SubArray<1, bool> signs,
-                                                                           SubArray<1, T> v,
-                                                                           int queue_idx) 
-    {
-      using FunctorType = GroupedDecoderFunctor<T, T_fp, T_sfp, T_bitplane, BinaryType, DeviceType>;
+    TaskType GenTask(SIZE n,
+                     SIZE num_batches_per_TB,
+                     SIZE starting_bitplane,
+                     SIZE num_bitplanes,
+                     SIZE exp,
+                     SubArray<2, T_bitplane> encoded_bitplanes,
+                     SubArray<1, bool> signs,
+                     SubArray<1, T> v,
+                     int queue_idx) 
+{
+      // using FunctorType = GroupedDecoderFunctor<T, T_fp, T_sfp, T_bitplane, BinaryType, DeviceType>;
       FunctorType functor(n, num_batches_per_TB, starting_bitplane, num_bitplanes, exp, encoded_bitplanes, signs, v);
         SIZE tbx, tby, tbz, gridx, gridy, gridz;
         size_t sm_size = functor.shared_memory_size();
@@ -583,6 +628,7 @@ namespace MDR {
         gridz = 1;
         gridy = 1;
         gridx = (n-1) / num_elems_per_TB + 1;
+        printf("GroupedDecoder config(%u %u %u) (%u %u %u)\n", tbx, tby, tbz, gridx, gridy, gridz);
         return Task(functor, gridz, gridy, gridx, tbz, tby, tbx, sm_size, queue_idx); 
     }
 
@@ -597,14 +643,10 @@ namespace MDR {
                  SubArray<1, T> v,
                  int queue_idx) 
     {
-      using T_sfp = typename std::conditional<std::is_same<T, double>::value, int64_t, int32_t>::type;
-      using T_fp = typename std::conditional<std::is_same<T, double>::value, uint64_t, uint32_t>::type;
-      using FunctorType = GroupedDecoderFunctor<T, T_fp, T_sfp, T_bitplane, BinaryType, DeviceType>;
-      using TaskType = Task<FunctorType>;
       TaskType task = GenTask<T_fp, T_sfp>(n, num_batches_per_TB, starting_bitplane, num_bitplanes, exp, encoded_bitplanes, signs, v, queue_idx);
       DeviceAdapter<HandleType, TaskType, DeviceType> adapter(this->handle);
       adapter.Execute(task);
-      // this->handle.sync_all();
+      this->handle.sync_all();
       // PrintSubarray("v", v);
     }
   };
@@ -710,7 +752,7 @@ namespace MDR {
             Array<2, uint8_t> encoded_bitplanes_array({(SIZE)num_bitplanes, (SIZE)bitplane_max_length_total});
             SubArray<2, uint8_t> encoded_bitplanes_subarray(encoded_bitplanes_array);
             
-            GroupedEncoder<Handle<D, T_data>, T_data, uint8_t, double, NEGABINARY, CUDA>(_handle).Execute(n, num_batches_per_TB, num_bitplanes, exp, v, encoded_bitplanes_subarray, level_errors_subarray, level_errors_work_subarray, 0);
+            GroupedEncoder<Handle<D, T_data>, T_data, uint8_t, double, BINARY_TYPE, DATA_ENCODING_ALGORITHM, ERROR_COLLECTING_ALGORITHM, CUDA>(_handle).Execute(n, num_batches_per_TB, num_bitplanes, exp, v, encoded_bitplanes_subarray, level_errors_subarray, level_errors_work_subarray, 0);
 
             cudaMemcpyAsyncHelper(_handle, level_errors.data(), level_errors_subarray.data(), (num_bitplanes+1)* sizeof(double), AUTO, 0);
             _handle.sync_all();
@@ -871,7 +913,6 @@ namespace MDR {
                 return data;
             }
 
-
             if(level_signs.size() == level){
               level_signs.push_back(std::vector<bool>(n, false));
             }
@@ -905,8 +946,7 @@ namespace MDR {
             Array<1, T_data> v_array({(SIZE)n});
             SubArray<1, T_data> v(v_array);
 
-            
-            GroupedDecoder<Handle<D, T_data>, T_data, uint8_t, NEGABINARY, CUDA>(_handle).Execute(n, num_batches_per_TB, starting_bitplane, num_bitplanes, exp, encoded_bitplanes_subarray, signs_subarray, v, 0);
+            GroupedDecoder<Handle<D, T_data>, T_data, uint8_t, BINARY_TYPE, DATA_DECODING_ALGORITHM, CUDA>(_handle).Execute(n, num_batches_per_TB, starting_bitplane, num_bitplanes, exp, encoded_bitplanes_subarray, signs_subarray, v, 0);
 
             new_signs = signs_array.getDataHost();
 

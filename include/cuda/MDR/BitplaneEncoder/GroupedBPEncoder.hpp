@@ -39,7 +39,7 @@ namespace MDR {
             }
             T_data const * data_pos = data;
             int block_id=0;
-            for(int i=0; i<n - block_size; i+=block_size){
+            for(int i=0; i<(int)n - (int)block_size; i+=block_size){
                 T_stream sign_bitplane = 0;
                 for(int j=0; j<block_size; j++){
                     T_data cur_data = *(data_pos++);
@@ -103,7 +103,7 @@ namespace MDR {
             }
             T_data const * data_pos = data;
             int block_id=0;
-            for(int i=0; i<n - block_size; i+=block_size){
+            for(int i=0; i<(int)n - (int)block_size; i+=block_size){
                 T_stream sign_bitplane = 0;
                 for(int j=0; j<block_size; j++){
                     T_data cur_data = *(data_pos++);
@@ -171,7 +171,7 @@ namespace MDR {
             // decode
             T_data * data_pos = data;
             int block_id = 0;
-            for(int i=0; i<n - block_size; i+=block_size){
+            for(int i=0; i<(int)n - (int)block_size; i+=block_size){
                 uint8_t recording_bitplane = recording_bitplanes[block_id ++];
                 if(recording_bitplane < num_bitplanes){
                     memset(int_data_buffer.data(), 0, block_size * sizeof(T_fp));
@@ -244,7 +244,7 @@ namespace MDR {
             // decode
             T_data * data_pos = data;
             int block_id = 0;
-            for(int i=0; i<n - block_size; i+=block_size){
+            for(int i=0; i<(int)n - (int)block_size; i+=block_size){
                 uint8_t recording_bitplane = recording_bitplanes[block_id ++];
                 if(recording_bitplane < ending_bitplane){
                     memset(int_data_buffer.data(), 0, block_size * sizeof(T_fp));
