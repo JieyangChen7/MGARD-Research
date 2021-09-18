@@ -3,7 +3,6 @@
 
 #include "GroupedBPEncoder.hpp"
 #include "GroupedBPEncoderGPU.hpp"
-#include "GroupedPackedBPEncoderGPU.hpp"
 #include "GroupedWarpBPEncoderGPU.hpp"
 #include "PerBitBPEncoder.hpp"
 #include "PerBitBPEncoderGPU.hpp"
