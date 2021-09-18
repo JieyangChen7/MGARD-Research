@@ -413,7 +413,7 @@ void cpu_lossless_compression(Handle<D, T> &handle, S *input_data, size_t input_
       const_cast<void *>(static_cast<void const *>(input_vector.data())),
       input_vector.size() * sizeof(long int), z_output);
   // Possibly we should check that `sizeof(std::uint8_t)` is `1`.
-  const std::size_t out_data_size = z_output.size();
+  out_data_size = z_output.size();
 
   void *const buffer = new unsigned char[size];
   std::copy(z_output.begin(), z_output.end(),

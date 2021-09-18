@@ -267,7 +267,7 @@ _levelwise_linear_quantize(SIZE *shapes, SIZE l_target, T *quantizers, T * volum
   __syncthreads();
 
 
-  SIZE level = 0;
+  int level = 0;
   for (DIM d = 0; d < D; d++) {
     long long unsigned int l_bit = 0l;
     for (SIZE l = 0; l < l_target + 1; l++) {
@@ -581,7 +581,7 @@ _levelwise_linear_dequantize(SIZE *shapes, SIZE l_target, T *quantizers, T * vol
 
   __syncthreads();
 
-  SIZE level = 0;
+  int level = 0;
   for (DIM d = 0; d < D; d++) {
     long long unsigned int l_bit = 0l;
     for (SIZE l = 0; l < l_target + 1; l++) {
@@ -712,7 +712,7 @@ __global__ void _levelwise_linear_dequantize_outliers(
     QUANTIZED_INT outliter = outliers[gloablId];
     outliter -= dict_size / 2;
 
-    SIZE level = 0;
+    int level = 0;
     for (DIM d = 0; d < D; d++) {
       long long unsigned int l_bit = 0l;
       for (SIZE l = 0; l < l_target + 1; l++) {

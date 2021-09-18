@@ -400,16 +400,16 @@ template <DIM D, typename T>
 void cudaMalloc3DHelper(Handle<D, T> &handle, void **devPtr, size_t *pitch, size_t width,
                         size_t height, size_t depth) {
 
-  if (handle.reduce_memory_footprint) {
-    cudaMallocHelper(handle, devPtr, width*height*depth);
-    *pitch = width;
-  } else {
+  // if (handle.reduce_memory_footprint) {
+  //   cudaMallocHelper(handle, devPtr, width*height*depth);
+  //   *pitch = width;
+  // } else {
     cudaPitchedPtr devPitchedPtr;
     cudaExtent extent = make_cudaExtent(width, height, depth);
     gpuErrchk(cudaMalloc3D(&devPitchedPtr, extent));
     *devPtr = devPitchedPtr.ptr;
     *pitch = devPitchedPtr.pitch;
-  }
+  // }
 }
 
 // Allocate page-locked memory on host
@@ -710,7 +710,14 @@ KERNELS(4, double)
 KERNELS(4, float)
 KERNELS(5, double)
 KERNELS(5, float)
+KERNELS(1, uint8_t)
+KERNELS(1, uint16_t)
+KERNELS(1, uint32_t)
+KERNELS(1, uint64_t)
 KERNELS(2, uint8_t)
+KERNELS(2, uint16_t)
+KERNELS(2, uint32_t)
+KERNELS(2, uint64_t)
 
 #undef KERNELS
 

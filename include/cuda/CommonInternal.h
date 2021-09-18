@@ -23,7 +23,7 @@
 #define MGARDm_KERL __global__
 #define MGARDm_EXEC __device__ __forceinline__
 #define MGARDm_CONT_EXEC __host__ __device__ __forceinline__
-
+#define MGARDm_COMPILE_EXEC __CUDACC__
 
 #include "Common.h"
 #include "SubArray.h"
@@ -35,6 +35,9 @@
 #define MAX_GRID_Y 65536
 #define MAX_GRID_Z 65536
 #define MGARDm_WARP_SIZE 32
+#define MGARDm_MAX_NUM_WARPS_PER_TB 32
+#define MGARDm_NUM_SMs 68
+
 #define SIZE_MAX_VALUE 4294967295
 
 #define COPY 0

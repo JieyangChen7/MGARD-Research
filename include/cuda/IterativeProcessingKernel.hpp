@@ -13,7 +13,7 @@
 #include "IterativeProcessingKernel.h"
 namespace mgard_cuda {
 
-template <DIM D, typename T, SIZE R, SIZE C, SIZE F, int G>
+template <DIM D, typename T, SIZE R, SIZE C, SIZE F, SIZE G>
 __global__ void _ipk_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
                        DIM processed_n, DIM *processed_dims, DIM curr_dim_r,
                        DIM curr_dim_c, DIM curr_dim_f, T *am, T *bm, T *dist_f,
@@ -487,7 +487,7 @@ __global__ void _ipk_1(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
 }
 
 
-template <DIM D, typename T, SIZE R, SIZE C, SIZE F, int G>
+template <DIM D, typename T, SIZE R, SIZE C, SIZE F, SIZE G>
 void ipk_1_adaptive_launcher(Handle<D, T> &handle, SIZE *shape_h, SIZE *shape_c_h,
                              SIZE *shape_d, SIZE *shape_c_d, SIZE *ldvs, SIZE *ldws,
                              DIM processed_n, DIM *processed_dims_h,
@@ -638,7 +638,7 @@ void ipk_1(Handle<D, T> &handle, SIZE *shape_h, SIZE *shape_c_h, SIZE *shape_d,
 #undef IPK
 }
 
-template <DIM D, typename T, SIZE R, SIZE C, SIZE F, int G>
+template <DIM D, typename T, SIZE R, SIZE C, SIZE F, SIZE G>
 __global__ void _ipk_2(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
                        DIM processed_n, DIM *processed_dims, DIM curr_dim_r,
                        DIM curr_dim_c, DIM curr_dim_f, T *am, T *bm, T *dist_c,
@@ -1180,7 +1180,7 @@ __global__ void _ipk_2(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
   __syncthreads();
 }
 
-template <DIM D, typename T, SIZE R, SIZE C, SIZE F, int G>
+template <DIM D, typename T, SIZE R, SIZE C, SIZE F, SIZE G>
 void ipk_2_adaptive_launcher(Handle<D, T> &handle, SIZE *shape_h, SIZE *shape_c_h,
                              SIZE *shape_d, SIZE *shape_c_d, SIZE *ldvs, SIZE *ldws,
                              DIM processed_n, DIM *processed_dims_h,
@@ -1302,7 +1302,7 @@ void ipk_2(Handle<D, T> &handle, SIZE *shape_h, SIZE *shape_c_h, SIZE *shape_d,
 #undef IPK
 }
 
-template <DIM D, typename T, SIZE R, SIZE C, SIZE F, int G>
+template <DIM D, typename T, SIZE R, SIZE C, SIZE F, SIZE G>
 __global__ void _ipk_3(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
                        DIM processed_n, DIM *processed_dims, DIM curr_dim_r,
                        DIM curr_dim_c, DIM curr_dim_f, T *am, T *bm, T *dist_r,
@@ -1900,7 +1900,7 @@ __global__ void _ipk_3(SIZE *shape, SIZE *shape_c, SIZE *ldvs, SIZE *ldws,
 }
 
 
-template <DIM D, typename T, SIZE R, SIZE C, SIZE F, int G>
+template <DIM D, typename T, SIZE R, SIZE C, SIZE F, SIZE G>
 void ipk_3_adaptive_launcher(Handle<D, T> &handle, SIZE *shape_h, SIZE *shape_c_h,
                              SIZE *shape_d, SIZE *shape_c_d, SIZE *ldvs, SIZE *ldws,
                              DIM processed_n, DIM *processed_dims_h,

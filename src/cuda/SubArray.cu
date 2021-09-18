@@ -61,6 +61,36 @@ template <DIM D, typename T> SubArray<D, T>::SubArray(SubArray<D, T> &subArray) 
 
 }
 
+template <DIM D, typename T> SubArray<D, T>::SubArray(const SubArray<D, T> &subArray) {
+  this->shape  = subArray.shape;
+  this->dv     = subArray.dv;
+  this->ldvs_h = subArray.ldvs_h;
+  this->ldvs_d = subArray.ldvs_d;
+
+  this->lddv1 = subArray.lddv1;
+  this->lddv2 = subArray.lddv2;
+
+  this->projected_dim0 = subArray.projected_dim0;
+  this->projected_dim1 = subArray.projected_dim1;
+  this->projected_dim2 = subArray.projected_dim2;
+
+}
+
+ template <DIM D, typename T> SubArray<D, T>& SubArray<D, T>::operator = (const SubArray<D, T> &subArray) {
+  this->shape  = subArray.shape;
+  this->dv     = subArray.dv;
+  this->ldvs_h = subArray.ldvs_h;
+  this->ldvs_d = subArray.ldvs_d;
+
+  this->lddv1 = subArray.lddv1;
+  this->lddv2 = subArray.lddv2;
+
+  this->projected_dim0 = subArray.projected_dim0;
+  this->projected_dim1 = subArray.projected_dim1;
+  this->projected_dim2 = subArray.projected_dim2;
+  return *this;
+}
+
 template <DIM D, typename T> void SubArray<D, T>::offset(std::vector<SIZE> idx) {
   dv += get_idx(ldvs_h, idx);
 }
@@ -69,13 +99,13 @@ template <DIM D, typename T> void SubArray<D, T>::resize(std::vector<SIZE> shape
   this->shape = shape;
 }
 
-template <DIM D, typename T> void SubArray<D, T>::offset(SIZE dim, SIZE offset_value) {
+template <DIM D, typename T> void SubArray<D, T>::offset(DIM dim, SIZE offset_value) {
   std::vector<SIZE> idx(D, 0);
   idx[dim] = offset_value;
   dv += get_idx(ldvs_h, idx);
 }
 
-template <DIM D, typename T> void SubArray<D, T>::resize(SIZE dim, SIZE new_size) {
+template <DIM D, typename T> void SubArray<D, T>::resize(DIM dim, SIZE new_size) {
   shape[dim] = new_size;
 }
 
@@ -126,14 +156,17 @@ template class SubArray<4, float>;
 template class SubArray<5, double>;
 template class SubArray<5, float>;
 
-template class SubArray<2, uint8_t>;
-
 template class SubArray<1, bool>;
 
 template class SubArray<1, uint8_t>;
 template class SubArray<1, uint16_t>;
 template class SubArray<1, uint32_t>;
 template class SubArray<1, uint64_t>;
+
+template class SubArray<2, uint8_t>;
+template class SubArray<2, uint16_t>;
+template class SubArray<2, uint32_t>;
+template class SubArray<2, uint64_t>;
 
 template class SubArray<1, unsigned long long>;
 

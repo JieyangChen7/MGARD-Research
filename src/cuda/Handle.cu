@@ -165,6 +165,7 @@ template <DIM D, typename T>
 void Handle<D, T>::init(std::vector<SIZE> shape, std::vector<T *> coords,
                         Config config) {
 
+  this->shape = shape;
   // determine dof
   for (DIM i = 0; i < shape.size(); i++) {
     std::vector<SIZE> curr_dofs;
@@ -483,6 +484,7 @@ template <DIM D, typename T> void Handle<D, T>::destroy_queues() {
   for (int i = 0; i < num_of_queues; i++) {
     gpuErrchk(cudaStreamDestroy(ptr[i]));
   }
+
 }
 
 template <DIM D, typename T>
@@ -1093,13 +1095,13 @@ template <DIM D, typename T> void Handle<D, T>::sync_all() {
 
 template <DIM D, typename T> Handle<D, T>::~Handle() {
   cudaSetDeviceHelper(dev_id);
-  destroy_queues();
   if (initialized) {
     destroy();
   }
   if (auto_tuning_table_created) {
     destroy_auto_tuning_table();
   }
+  destroy_queues();
 }
 
 template class Handle<1, double>;

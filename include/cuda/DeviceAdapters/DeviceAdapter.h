@@ -42,10 +42,26 @@ struct DecodeSignBits{
   T Decode(T sign_bitplane, SIZE b_idx);
 };
 
+template <typename T_org, typename T_trans, OPTION ALIGN, OPTION METHOD, typename DeviceType> 
+struct WarpBitTranspose{
+  MGARDm_EXEC 
+  void Transpose(T_org * v, SIZE inc_v, T_trans * tv, SIZE inc_tv, SIZE b, SIZE B);
+
+  MGARDm_EXEC 
+  T_trans Transpose(T_org v, SIZE b, SIZE B);
+};
+
 template <typename T_org, typename T_trans, SIZE nblockx, SIZE nblocky, SIZE nblockz, OPTION ALIGN, OPTION METHOD, typename DeviceType> 
 struct BlockBitTranspose{
   MGARDm_EXEC 
   void Transpose(T_org * v, T_trans * tv, SIZE b, SIZE B);
+};
+
+template <typename T, typename T_fp, typename T_sfp, typename T_error, OPTION METHOD, OPTION BinaryType, typename DeviceType> 
+struct WarpErrorCollect{
+  MGARDm_EXEC 
+  void Collect(T * v, T_error * errors, SIZE num_elems, SIZE num_bitplanes);
+
 };
 
 
@@ -77,6 +93,8 @@ public:
   DeviceReduce(HandleType& handle):handle(handle){};
   MGARDm_CONT
   void Sum(SIZE n, SubArray<1, T_reduce>& v, SubArray<1, T_reduce>& result, int queue_idx);
+  MGARDm_CONT
+  void AbsMax(SIZE n, SubArray<1, T_reduce>& v, SubArray<1, T_reduce>& result, int queue_idx);
 private:
   HandleType& handle;
 };

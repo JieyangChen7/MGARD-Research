@@ -9,6 +9,10 @@
 #define MGRAD_CUDA_LEVELWISE_PROCESSING_KERNEL_TEMPLATE
 
 #include "CommonInternal.h"
+#include "Functor.h"
+#include "AutoTuner.h"
+#include "Task.h"
+#include "DeviceAdapters/DeviceAdapterCuda.h"
 
 #include "LevelwiseProcessingKernel.h"
 namespace mgard_cuda {
@@ -120,6 +124,148 @@ void lwpk(Handle<D, T> &handle, SIZE *shape_h, SIZE *shape_d, T *dv, SIZE *ldvs,
 
 #undef COPYLEVEL
 }
+
+
+template <mgard_cuda::DIM D, typename T, int R, int C, int F, OPTION OP, typename DeviceType>
+class LevelwiseCalcNDFunctor : public Functor<DeviceType> {
+public:
+  MGARDm_CONT
+  LevelwiseCalcNDFunctor(SIZE *shape, SubArray<D, T> v, SubArray<D, T> w): 
+                        shape(shape), v(v), w(w) {
+    Functor<DeviceType>();
+  }
+
+  MGARDm_EXEC void
+  Operation1() {
+    threadId = (this->threadz * (this->nblockx * this->nblocky)) +
+                    (this->thready * this->nblockx) + this->threadx;
+
+    int8_t * sm_p = (int8_t *)this->shared_memory;
+    shape_sm = (SIZE *)sm_p; sm_p += D * sizeof(SIZE);
+
+    if (threadId < D) {
+      shape_sm[threadId] = shape[threadId];
+    }
+  }
+
+  MGARDm_EXEC void
+  Operation2() {
+
+    SIZE firstD = div_roundup(shape_sm[0], F);
+
+    SIZE bidx = this->blockx;
+    idx[0] = (bidx % firstD) * F + this->threadx;
+
+    // printf("firstD %d idx[0] %d\n", firstD, idx[0]);
+
+    bidx /= firstD;
+    if (D >= 2)
+      idx[1] = this->blocky * this->nblocky + this->thready;
+    if (D >= 3)
+      idx[2] = this->blockz * this->nblockz + this->threadz;
+
+    for (DIM d = 3; d < D; d++) {
+      idx[d] = bidx % shape_sm[d];
+      bidx /= shape_sm[d];
+    }
+
+    bool in_range = true;
+    for (DIM d = 0; d < D; d++) {
+      if (idx[d] >= shape_sm[d])
+        in_range = false;
+    }
+    if (in_range) {
+      // printf("%d %d %d %d\n", idx[3], idx[2], idx[1], idx[0]);
+      if (OP == COPY)
+        *w(idx) = *v(idx);
+      if (OP == ADD)
+        *w(idx) += *v(idx);
+      if (OP == SUBTRACT)
+        *w(idx) -= *v(idx);
+    }
+  }
+
+  MGARDm_EXEC void
+  Operation3() {}
+
+  MGARDm_EXEC void
+  Operation4() {}
+
+  MGARDm_EXEC void
+  Operation5() {}
+
+  MGARDm_CONT size_t
+  shared_memory_size() {
+    size_t size = 0;
+    size += D * sizeof(SIZE);
+    return size;
+  }
+
+private:
+  SIZE *shape;
+  SubArray<D, T> v;
+  SubArray<D, T> w;
+
+  SIZE *shape_sm;
+  size_t threadId;
+  SIZE idx[D];
+
+};
+
+template <typename HandleType, DIM D, typename T, OPTION Direction, typename DeviceType>
+class LevelwiseCalcNDKernel: public AutoTuner<HandleType, DeviceType> {
+
+public:
+  MGARDm_CONT
+  LevelwiseCalcNDKernel(HandleType& handle): AutoTuner<HandleType, DeviceType>(handle) {}
+
+  template <SIZE R, SIZE C, SIZE F>
+  MGARDm_CONT
+  Task<LevelwiseCalcNDFunctor<D, T, R, C, F, Direction, DeviceType>> 
+  GenTask(SIZE *shape_h, SIZE *shape_d, SubArray<D, T> v, SubArray<D, T> w, int queue_idx) {
+    using FunctorType = LevelwiseCalcNDFunctor<D, T, R, C, F, Direction, DeviceType>;
+    FunctorType functor(shape_d, v, w);
+    SIZE tbx, tby, tbz, gridx, gridy, gridz;
+    size_t sm_size = functor.shared_memory_size();
+    int total_thread_z = shape_h[2];
+    int total_thread_y = shape_h[1];
+    int total_thread_x = shape_h[0];
+    // linearize other dimensions
+    tbz = R;
+    tby = C;
+    tbx = F;
+    gridz = ceil((float)total_thread_z / tbz);
+    gridy = ceil((float)total_thread_y / tby);
+    gridx = ceil((float)total_thread_x / tbx);
+    for (int d = 3; d < D; d++) {
+      gridx *= shape_h[d];
+    }
+    return Task(functor, gridz, gridy, gridx, tbz, tby, tbx, sm_size, queue_idx); 
+  }
+
+  MGARDm_CONT
+  void Execute(SIZE *shape_h, SIZE *shape_d, SubArray<D, T> v, SubArray<D, T> w, int queue_idx) {
+    #define KERNEL(R, C, F)\
+    {\
+      using FunctorType = LevelwiseCalcNDFunctor<D, T, R, C, F, Direction, DeviceType>;\
+      using TaskType = Task<FunctorType>;\
+      TaskType task = GenTask<R, C, F>(shape_h, shape_d, v, w, queue_idx);\
+      DeviceAdapter<HandleType, TaskType, DeviceType> adapter(this->handle); \
+      adapter.Execute(task);\
+    }
+
+    if (D >= 3) {
+      KERNEL(4, 4, 16)
+    }
+    if (D == 2) {
+      KERNEL(1, 4, 32)
+    }
+    if (D == 1) {
+      KERNEL(1, 1, 64)
+    }
+    #undef KERNEL
+  }
+};
 
 } // namespace mgard_cuda
 

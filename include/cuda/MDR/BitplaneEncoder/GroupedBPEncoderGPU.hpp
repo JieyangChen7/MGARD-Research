@@ -26,10 +26,10 @@
 // #define DATA_DECODING_ALGORITHM Bit_Transpose_Parallel_B_Ballot_b
 
 
-#define ERROR_COLLECTING_ALGORITHM Error_Collecting_Serial_All
-// #define ERROR_COLLECTING_ALGORITHM Error_Collecting_Parallel_B_Serial_b
-// #define ERROR_COLLECTING_ALGORITHM Error_Collecting_Parallel_B_Atomic_b
-// #define ERROR_COLLECTING_ALGORITHM Error_Collecting_Parallel_B_Reduce_b
+// #define ERROR_COLLECTING_ALGORITHM Error_Collecting_Serial_All
+// #define ERROR_COLLECTING_ALGORITHM Error_Collecting_Parallel_Bitplanes_Serial_Error
+// #define ERROR_COLLECTING_ALGORITHM Error_Collecting_Parallel_Bitplanes_Atomic_Error
+#define ERROR_COLLECTING_ALGORITHM Error_Collecting_Parallel_Bitplanes_Reduce_Error
 
 
 namespace mgard_cuda {
@@ -328,7 +328,7 @@ namespace MDR {
         gridz = 1;
         gridy = 1;
         gridx = (n-1) / num_elems_per_TB + 1;
-        printf("GroupedEncoder config(%u %u %u) (%u %u %u)\n", tbx, tby, tbz, gridx, gridy, gridz);
+        // printf("GroupedEncoder config(%u %u %u) (%u %u %u), sm_size: %llu\n", tbx, tby, tbz, gridx, gridy, gridz, sm_size);
         return Task(functor, gridz, gridy, gridx, tbz, tby, tbx, sm_size, queue_idx); 
     }
 
@@ -343,7 +343,7 @@ namespace MDR {
                  SubArray<2, T_error> level_errors_workspace,
                  int queue_idx) {
       
-      
+      // PrintSubarray("v", v);
       TaskType task = GenTask<T_fp, T_sfp>(n, num_batches_per_TB, num_bitplanes, exp, v, encoded_bitplanes, level_errors_workspace, queue_idx);
       DeviceAdapter<HandleType, TaskType, DeviceType> adapter(this->handle);
       adapter.Execute(task);
@@ -359,8 +359,22 @@ namespace MDR {
         deviceReduce.Sum(reduce_size, curr_errors, sum_error, queue_idx);
       }
       this->handle.sync_all();
+
+      // PrintSubarray("v", v);
+
       // PrintSubarray("level_errors", level_errors);
       // PrintSubarray("encoded_bitplanes", encoded_bitplanes);
+
+    }
+
+    MGARDm_CONT
+    SIZE MaxBitplaneLength(LENGTH n) {
+      mgard_cuda::SIZE num_batches_per_TB = 2;
+      const mgard_cuda::SIZE num_elems_per_TB = sizeof(T_bitplane) * 8 * num_batches_per_TB;
+      const mgard_cuda::SIZE bitplane_max_length_per_TB = num_batches_per_TB * 2;
+      mgard_cuda::SIZE num_blocks = (n-1)/num_elems_per_TB+1;
+      mgard_cuda::SIZE bitplane_max_length_total = bitplane_max_length_per_TB * num_blocks;
+      return bitplane_max_length_total;
 
     }
   };
@@ -516,19 +530,19 @@ namespace MDR {
       MGARDm_EXEC void
       Operation4() {
 
-        // if (debug) {
-        //   for (int i = 0; i < num_bitplanes; i++) {
-        //     printf("decode bitpane[%d]: ", i);
-        //     for (int j = 0; j < num_batches_per_TB; j++) {
-        //       printf(" %u  ", sm_bitplanes[j*num_bitplanes+i]);
-        //       // for (int k = 0; k < B; k++) {
-        //       //   printf("%u", (sm_bitplanes[j*B+i] >> B-1-k) & 1u);
-        //       // }
-        //     }
-        //     printf("\n");
-        //   }
-        //   printf("\n");
-        // }
+        if (debug) {
+          // for (int i = 0; i < num_bitplanes; i++) {
+          //   printf("decode bitpane[%d]: ", i);
+          //   for (int j = 0; j < num_batches_per_TB; j++) {
+          //     printf(" %u  ", sm_bitplanes[j*num_bitplanes+i]);
+          //     // for (int k = 0; k < B; k++) {
+          //     //   printf("%u", (sm_bitplanes[j*B+i] >> B-1-k) & 1u);
+          //     // }
+          //   }
+          //   printf("\n");
+          // }
+          // printf("\n");
+        }
 
         // if (debug) {
         //   printf("sm_signs: ");
@@ -540,7 +554,7 @@ namespace MDR {
 
 
         // if (debug) {
-        //   printf("dencode data:\t");
+        //   printf("decoded data:\t");
         //   for (int i = 0; i < num_elems_per_TB; i++) {
         //     printf("%f\t", *v(this->blockx * num_elems_per_TB + i));
         //   }
@@ -638,12 +652,20 @@ namespace MDR {
                  SIZE starting_bitplane,
                  SIZE num_bitplanes,
                  SIZE exp,
-                 SubArray<2, uint8_t> encoded_bitplanes,
+                 SubArray<2, T_bitplane> encoded_bitplanes,
                  SubArray<1, bool> signs,
                  SubArray<1, T> v,
                  int queue_idx) 
     {
-      TaskType task = GenTask<T_fp, T_sfp>(n, num_batches_per_TB, starting_bitplane, num_bitplanes, exp, encoded_bitplanes, signs, v, queue_idx);
+      TaskType task = GenTask<T_fp, T_sfp>(n, 
+                                          num_batches_per_TB, 
+                                          starting_bitplane, 
+                                          num_bitplanes, 
+                                          exp, 
+                                          encoded_bitplanes, 
+                                          signs, 
+                                          v, 
+                                          queue_idx);
       DeviceAdapter<HandleType, TaskType, DeviceType> adapter(this->handle);
       adapter.Execute(task);
       this->handle.sync_all();
@@ -731,6 +753,8 @@ namespace MDR {
                 level_errors[i] = 0;
             }
             stream_sizes = std::vector<uint32_t>(num_bitplanes, 0);
+            
+
             Array<1, T_data> v_array({(SIZE)n});
             v_array.loadData(data);
             SubArray<1, T_data> v(v_array);
@@ -740,7 +764,7 @@ namespace MDR {
 
 
             SIZE num_batches_per_TB = 2;
-            using T_bitplane = uint8_t;
+            using T_bitplane = uint32_t;
             const SIZE num_elems_per_TB = sizeof(T_bitplane) * 8 * num_batches_per_TB;
             const SIZE bitplane_max_length_per_TB = num_batches_per_TB * 2;
             SIZE num_blocks = (n-1)/num_elems_per_TB+1;
@@ -749,21 +773,21 @@ namespace MDR {
             Array<2, double> level_errors_work_array({(SIZE)num_bitplanes+1, num_blocks});
             SubArray<2, double> level_errors_work_subarray(level_errors_work_array);
 
-            Array<2, uint8_t> encoded_bitplanes_array({(SIZE)num_bitplanes, (SIZE)bitplane_max_length_total});
-            SubArray<2, uint8_t> encoded_bitplanes_subarray(encoded_bitplanes_array);
+            Array<2, T_bitplane> encoded_bitplanes_array({(SIZE)num_bitplanes, (SIZE)bitplane_max_length_total});
+            SubArray<2, T_bitplane> encoded_bitplanes_subarray(encoded_bitplanes_array);
             
-            GroupedEncoder<Handle<D, T_data>, T_data, uint8_t, double, BINARY_TYPE, DATA_ENCODING_ALGORITHM, ERROR_COLLECTING_ALGORITHM, CUDA>(_handle).Execute(n, num_batches_per_TB, num_bitplanes, exp, v, encoded_bitplanes_subarray, level_errors_subarray, level_errors_work_subarray, 0);
+            GroupedEncoder<Handle<D, T_data>, T_data, T_bitplane, double, BINARY_TYPE, DATA_ENCODING_ALGORITHM, ERROR_COLLECTING_ALGORITHM, CUDA>(_handle).Execute(n, num_batches_per_TB, num_bitplanes, exp, v, encoded_bitplanes_subarray, level_errors_subarray, level_errors_work_subarray, 0);
 
             cudaMemcpyAsyncHelper(_handle, level_errors.data(), level_errors_subarray.data(), (num_bitplanes+1)* sizeof(double), AUTO, 0);
             _handle.sync_all();
 
-            uint8_t * encoded_bitplanes = encoded_bitplanes_array.getDataHost();
+            T_bitplane * encoded_bitplanes = encoded_bitplanes_array.getDataHost();
 
             std::vector<uint8_t *> streams2;
             for(int i=0; i<num_bitplanes; i++){
-                stream_sizes[i] = bitplane_max_length_total*sizeof(uint8_t);
-                streams2.push_back((uint8_t *) malloc(bitplane_max_length_total*sizeof(uint8_t)));
-                memcpy(streams2[i], encoded_bitplanes + i * bitplane_max_length_total, bitplane_max_length_total*sizeof(uint8_t)); 
+                stream_sizes[i] = bitplane_max_length_total*sizeof(T_bitplane);
+                streams2.push_back((uint8_t *) malloc(bitplane_max_length_total*sizeof(T_bitplane)));
+                memcpy(streams2[i], encoded_bitplanes + i * bitplane_max_length_total, bitplane_max_length_total*sizeof(T_bitplane)); 
             }
             return streams2;
 
@@ -923,19 +947,19 @@ namespace MDR {
             }
             
             SIZE num_batches_per_TB = 2;
-            using T_bitplane = uint8_t;
+            using T_bitplane = uint32_t;
             const SIZE num_elems_per_TB = sizeof(T_bitplane) * 8 * num_batches_per_TB;
             const SIZE bitplane_max_length_per_TB = num_batches_per_TB * 2;
             SIZE num_blocks = (n-1)/num_elems_per_TB+1;
             SIZE bitplane_max_length_total = bitplane_max_length_per_TB * num_blocks;
 
-            uint8_t * encoded_bitplanes = new uint8_t[bitplane_max_length_total * num_bitplanes];
+            T_bitplane * encoded_bitplanes = new T_bitplane[bitplane_max_length_total * num_bitplanes];
             for (int i = 0; i < num_bitplanes; i++) {
-               memcpy(encoded_bitplanes + i * bitplane_max_length_total, streams[i], bitplane_max_length_total * sizeof(uint8_t));
+               memcpy(encoded_bitplanes + i * bitplane_max_length_total, streams[i], bitplane_max_length_total * sizeof(T_bitplane));
             }
-            Array<2, uint8_t> encoded_bitplanes_array({(SIZE)num_bitplanes, (SIZE)bitplane_max_length_total});
+            Array<2, T_bitplane> encoded_bitplanes_array({(SIZE)num_bitplanes, (SIZE)bitplane_max_length_total});
             encoded_bitplanes_array.loadData(encoded_bitplanes);
-            SubArray<2, uint8_t> encoded_bitplanes_subarray(encoded_bitplanes_array);
+            SubArray<2, T_bitplane> encoded_bitplanes_subarray(encoded_bitplanes_array);
 
             Array<1, bool> signs_array({(SIZE)n});
             signs_array.loadData(new_signs);
@@ -946,7 +970,7 @@ namespace MDR {
             Array<1, T_data> v_array({(SIZE)n});
             SubArray<1, T_data> v(v_array);
 
-            GroupedDecoder<Handle<D, T_data>, T_data, uint8_t, BINARY_TYPE, DATA_DECODING_ALGORITHM, CUDA>(_handle).Execute(n, num_batches_per_TB, starting_bitplane, num_bitplanes, exp, encoded_bitplanes_subarray, signs_subarray, v, 0);
+            GroupedDecoder<Handle<D, T_data>, T_data, T_bitplane, BINARY_TYPE, DATA_DECODING_ALGORITHM, CUDA>(_handle).Execute(n, num_batches_per_TB, starting_bitplane, num_bitplanes, exp, encoded_bitplanes_subarray, signs_subarray, v, 0);
 
             new_signs = signs_array.getDataHost();
 
@@ -1124,6 +1148,135 @@ namespace MDR {
         std::vector<std::vector<bool>> level_signs;
         std::vector<std::vector<uint8_t>> level_recording_bitplanes;
     };
+}
+}
+
+
+
+namespace mgard_m {
+namespace MDR {
+// general bitplane encoder that encodes data by block using T_stream type buffer
+template<typename HandleType, mgard_cuda::DIM D, typename T_data, typename T_bitplane, typename T_error>
+class GroupedBPEncoder : public concepts::BitplaneEncoderInterface<HandleType, D, T_data, T_bitplane, T_error> {
+public:
+  GroupedBPEncoder(HandleType& handle): handle(handle) {
+    std::cout <<  "GroupedBPEncoder\n";
+    static_assert(std::is_floating_point<T_data>::value, "GeneralBPEncoder: input data must be floating points.");
+    static_assert(!std::is_same<T_data, long double>::value, "GeneralBPEncoder: long double is not supported.");
+    static_assert(std::is_unsigned<T_bitplane>::value, "GroupedBPBlockEncoder: streams must be unsigned integers.");
+    static_assert(std::is_integral<T_bitplane>::value, "GroupedBPBlockEncoder: streams must be unsigned integers.");
+  }
+
+  mgard_cuda::Array<2, T_bitplane> encode(mgard_cuda::SIZE n, mgard_cuda::SIZE num_bitplanes, int32_t exp, 
+              mgard_cuda::SubArray<1, T_data> v,
+              mgard_cuda::SubArray<1, T_error> level_errors,
+              std::vector<mgard_cuda::SIZE>& streams_sizes, int queue_idx) const {
+
+    mgard_cuda::SIZE num_batches_per_TB = 2;
+    const mgard_cuda::SIZE num_elems_per_TB = sizeof(T_bitplane) * 8 * num_batches_per_TB;
+    const mgard_cuda::SIZE bitplane_max_length_per_TB = num_batches_per_TB * 2;
+    mgard_cuda::SIZE num_blocks = (n-1)/num_elems_per_TB+1;
+    mgard_cuda::SIZE bitplane_max_length_total = bitplane_max_length_per_TB * num_blocks;
+
+    mgard_cuda::Array<2, T_error> level_errors_work_array({(mgard_cuda::SIZE)num_bitplanes+1, num_blocks});
+    mgard_cuda::SubArray<2, T_error> level_errors_work(level_errors_work_array);
+    
+    mgard_cuda::Array<2, T_bitplane> encoded_bitplanes_array({(mgard_cuda::SIZE)num_bitplanes, (mgard_cuda::SIZE)bitplane_max_length_total});
+    mgard_cuda::SubArray<2, T_bitplane> encoded_bitplanes_subarray(encoded_bitplanes_array);
+
+
+    mgard_cuda::MDR::GroupedEncoder<HandleType, T_data, T_bitplane, T_error, BINARY_TYPE, DATA_ENCODING_ALGORITHM, ERROR_COLLECTING_ALGORITHM, mgard_cuda::CUDA>(handle).
+                  Execute(n, num_batches_per_TB, num_bitplanes, exp, 
+                          v, encoded_bitplanes_subarray, level_errors, level_errors_work, 
+                          queue_idx);
+
+    for(int i=0; i<num_bitplanes; i++){
+        streams_sizes[i] = bitplane_max_length_total*sizeof(T_bitplane);
+    }
+
+    return encoded_bitplanes_array;
+  }
+
+  mgard_cuda::Array<1, T_data> decode(mgard_cuda::SIZE n, mgard_cuda::SIZE num_bitplanes, int32_t exp, 
+                  mgard_cuda::SubArray<2, T_bitplane> encoded_bitplanes, int level,
+                  int queue_idx) {
+
+  }
+
+  // decode the data and record necessary information for progressiveness
+  mgard_cuda::Array<1, T_data> progressive_decode(mgard_cuda::SIZE n, mgard_cuda::SIZE starting_bitplane, mgard_cuda::SIZE num_bitplanes, int32_t exp, 
+                          mgard_cuda::SubArray<2, T_bitplane> encoded_bitplanes, int level,
+                          int queue_idx) {
+
+    mgard_cuda::SIZE num_batches_per_TB = 2;
+    const mgard_cuda::SIZE num_elems_per_TB = sizeof(T_bitplane) * 8 * num_batches_per_TB;
+    const mgard_cuda::SIZE bitplane_max_length_per_TB = num_batches_per_TB * 2;
+    mgard_cuda::SIZE num_blocks = (n-1)/num_elems_per_TB+1;
+    mgard_cuda::SIZE bitplane_max_length_total = bitplane_max_length_per_TB * num_blocks;
+
+    if(level_signs.size() == level){
+      level_signs.push_back(mgard_cuda::Array<1, bool>({n}));
+    }
+
+
+    // uint8_t * encoded_bitplanes = new uint8_t[bitplane_max_length_total * num_bitplanes];
+    // for (int i = 0; i < num_bitplanes; i++) {
+       // memcpy(encoded_bitplanes + i * bitplane_max_length_total, streams[i], bitplane_max_length_total * sizeof(uint8_t));
+    // }
+    // Array<2, uint8_t> encoded_bitplanes_array({(SIZE)num_bitplanes, (SIZE)bitplane_max_length_total});
+    // encoded_bitplanes_array.loadData(encoded_bitplanes);
+    // SubArray<2, uint8_t> encoded_bitplanes_subarray(encoded_bitplanes_array);
+
+    // Array<1, bool> signs_array({(SIZE)n});
+    // signs_array.loadData(new_signs);
+    mgard_cuda::SubArray<1, bool> signs_subarray(level_signs[level]);
+
+    mgard_cuda::Array<1, T_data> v_array({(mgard_cuda::SIZE)n});
+    mgard_cuda::SubArray<1, T_data> v(v_array);
+
+
+    // delete [] new_signs;
+
+    // Array<1, T_data> v_array({(SIZE)n});
+    // SubArray<1, T_data> v(v_array);
+
+    mgard_cuda::MDR::GroupedDecoder<HandleType, T_data, T_bitplane, BINARY_TYPE, 
+                  DATA_DECODING_ALGORITHM, mgard_cuda::CUDA>(handle).
+                  Execute(n, num_batches_per_TB, starting_bitplane, num_bitplanes, exp, 
+                  encoded_bitplanes, signs_subarray, v, queue_idx);
+
+    // new_signs = signs_array.getDataHost();
+
+    // for (int i = 0; i < n; i++) {
+    //   signs[i] = new_signs[i];
+    // }
+
+    // T_data * temp_data = v_array.getDataHost();
+    // memcpy(data, temp_data, n * sizeof(T_data));
+    // return data;
+    return v_array;
+  }
+
+
+  mgard_cuda::SIZE buffer_size(mgard_cuda::SIZE n) const {
+    mgard_cuda::SIZE num_batches_per_TB = 2;
+    const mgard_cuda::SIZE num_elems_per_TB = sizeof(T_bitplane) * 8 * num_batches_per_TB;
+    const mgard_cuda::SIZE bitplane_max_length_per_TB = num_batches_per_TB * 2;
+    mgard_cuda::SIZE num_blocks = (n-1)/num_elems_per_TB+1;
+    mgard_cuda::SIZE bitplane_max_length_total = bitplane_max_length_per_TB * num_blocks;
+    return bitplane_max_length_total;
+  }
+
+
+  void print() const {
+    std::cout << "Grouped bitplane encoder" << std::endl;
+  }
+private:
+HandleType& handle;
+std::vector<mgard_cuda::Array<1, bool>> level_signs;
+std::vector<std::vector<uint8_t>> level_recording_bitplanes;
+
+};
 }
 }
 #endif

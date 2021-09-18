@@ -11,8 +11,8 @@
 #include <bitset>
 namespace mgard_cuda {
 namespace MDR {
-  template <typename T, typename T_fp, typename T_bitplane, typename T_error, SIZE B, typename DeviceType>
-    class PerBitEncoderFunctor: public Functor<DeviceType> {
+template <typename T, typename T_fp, typename T_bitplane, typename T_error, SIZE B, typename DeviceType>
+  class PerBitEncoderFunctor: public Functor<DeviceType> {
       public: 
       MGARDm_CONT PerBitEncoderFunctor(SIZE n,
                                        SIZE num_bitplanes,

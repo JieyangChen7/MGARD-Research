@@ -13,7 +13,7 @@
 #include "IterativeProcessingKernel3D.h"
 namespace mgard_cuda {
 
-template <typename T, SIZE R, SIZE C, SIZE F, int G>
+template <typename T, SIZE R, SIZE C, SIZE F, SIZE G>
 __global__ void _ipk_1_3d(SIZE nr, SIZE nc, SIZE nf_c, T *am, T *bm, T *dist_f,
                           T *v, SIZE ldv1, SIZE ldv2) {
 
@@ -288,7 +288,7 @@ __global__ void _ipk_1_3d(SIZE nr, SIZE nc, SIZE nf_c, T *am, T *bm, T *dist_f,
   __syncthreads();
 }
 
-template <uint32_t D, typename T, SIZE R, SIZE C, SIZE F, int G>
+template <uint32_t D, typename T, SIZE R, SIZE C, SIZE F, SIZE G>
 void ipk_1_3d_adaptive_launcher(Handle<D, T> &handle, SIZE nr, SIZE nc, SIZE nf_c,
                                 T *am, T *bm, T *ddist_f, T *dv, SIZE lddv1,
                                 SIZE lddv2, int queue_idx) {
@@ -405,7 +405,7 @@ void ipk_1_3d(Handle<D, T> &handle, SIZE nr, SIZE nc, SIZE nf_c, T *am, T *bm,
 #undef IPK
 }
 
-template <typename T, SIZE R, SIZE C, SIZE F, int G>
+template <typename T, SIZE R, SIZE C, SIZE F, SIZE G>
 __global__ void _ipk_2_3d(SIZE nr, SIZE nc_c, SIZE nf_c, T *am, T *bm, T *dist_c,
                           T *v, SIZE ldv1, SIZE ldv2) {
 
@@ -689,7 +689,7 @@ __global__ void _ipk_2_3d(SIZE nr, SIZE nc_c, SIZE nf_c, T *am, T *bm, T *dist_c
   __syncthreads();
 }
 
-template <uint32_t D, typename T, SIZE R, SIZE C, SIZE F, int G>
+template <uint32_t D, typename T, SIZE R, SIZE C, SIZE F, SIZE G>
 void ipk_2_3d_adaptive_launcher(Handle<D, T> &handle, SIZE nr, SIZE nc_c,
                                 SIZE nf_c, T *am, T *bm, T *ddist_c, T *dv,
                                 SIZE lddv1, SIZE lddv2, int queue_idx) {
@@ -782,7 +782,7 @@ void ipk_2_3d(Handle<D, T> &handle, SIZE nr, SIZE nc_c, SIZE nf_c, T *am, T *bm,
 #undef IPK
 }
 
-template <typename T, SIZE R, SIZE C, SIZE F, int G>
+template <typename T, SIZE R, SIZE C, SIZE F, SIZE G>
 __global__ void _ipk_3_3d(SIZE nr_c, SIZE nc_c, SIZE nf_c, T *am, T *bm, T *dist_r,
                           T *v, SIZE ldv1, SIZE ldv2) {
 
@@ -1057,7 +1057,7 @@ __global__ void _ipk_3_3d(SIZE nr_c, SIZE nc_c, SIZE nf_c, T *am, T *bm, T *dist
   __syncthreads();
 }
 
-template <uint32_t D, typename T, SIZE R, SIZE C, SIZE F, int G>
+template <uint32_t D, typename T, SIZE R, SIZE C, SIZE F, SIZE G>
 void ipk_3_3d_adaptive_launcher(Handle<D, T> &handle, SIZE nr_c, SIZE nc_c,
                                 SIZE nf_c, T *am, T *bm, T *ddist_r, T *dv,
                                 SIZE lddv1, SIZE lddv2, int queue_idx) {

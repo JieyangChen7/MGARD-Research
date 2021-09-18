@@ -97,4 +97,34 @@ namespace MDR {
     };
 }
 }
+
+
+namespace mgard_m {
+namespace MDR {
+    // MGARD decomposer with orthogonal basis
+    template<typename HandleType, mgard_cuda::DIM D, typename T>
+    class MGARDOrthoganalDecomposer : public concepts::DecomposerInterface<HandleType, D, T> {
+    public:
+        MGARDOrthoganalDecomposer(HandleType &handle): handle(handle){}
+        void decompose(mgard_cuda::SubArray<D, T> v, mgard_cuda::SIZE target_level, int queue_idx) const {
+            handle.allocate_workspace();
+            mgard_cuda::decompose<D, T>(handle, v.dv, v.ldvs_h, v.ldvs_d, target_level, queue_idx);
+            handle.sync(queue_idx);
+            handle.free_workspace();
+        }
+        void recompose(mgard_cuda::SubArray<D, T> v, mgard_cuda::SIZE target_level, int queue_idx) const {
+            handle.allocate_workspace();
+            mgard_cuda::recompose<D, T>(handle, v.dv, v.ldvs_h, v.ldvs_d, target_level, queue_idx);
+            handle.sync(queue_idx);
+            handle.free_workspace();
+        }
+        void print() const {
+            std::cout << "MGARD orthogonal decomposer" << std::endl;
+        }
+    private:
+        HandleType &handle;
+    };
+
+}
+}
 #endif

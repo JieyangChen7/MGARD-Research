@@ -121,7 +121,7 @@ DATA=../../512x512x512/velocity_x.dat
 # $MgardSerialExec -z -i $DATA -c $DATA.mgard -t s -n 3 129 129 129 -m abs -e 1e5 -s inf -v
 
 mkdir -p refactored_data
-# $TestRefactor $DATA 1 32 3 5 5 5 
+# $TestRefactor $DATA 1 32 3 3 3 3 
 $TestRefactor $DATA 8 32 3 512 512 512 
 $TestReconstructor $DATA 1 1 1e3 0
 

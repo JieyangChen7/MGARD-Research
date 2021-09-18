@@ -14,8 +14,11 @@ namespace mgard_cuda {
 
 template <DIM D, typename T> class Array {
 public:
+  Array();
   Array(std::vector<SIZE> shape);
+  Array(const Array &array);
   Array(Array &array);
+  Array& operator = (const Array &array);
   Array(Array && array);
   ~Array();
   void loadData(const T *data, SIZE ld = 0);

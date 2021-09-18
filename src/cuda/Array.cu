@@ -14,6 +14,12 @@
 namespace mgard_cuda {
 
 template <DIM D, typename T>
+Array<D, T>::Array() {
+  this->host_allocated = false;
+  this->device_allocated = false;
+}
+
+template <DIM D, typename T>
 Array<D, T>::Array(std::vector<SIZE> shape) {
   this->host_allocated = false;
   this->device_allocated = false;
@@ -22,7 +28,7 @@ Array<D, T>::Array(std::vector<SIZE> shape) {
   int ret = check_shape<D>(shape);
   if (ret == -1) {
     std::cerr << log::log_err
-              << "Number of dimensions mismatch. mgard_cuda::Array not "
+              << "Number of dimensions mismatch (" << D << " != " << shape.size() << "). mgard_cuda::Array not "
                  "initialized!\n";
     return;
   }
@@ -55,7 +61,57 @@ Array<D, T>::Array(std::vector<SIZE> shape) {
   cudaMemcpyAsyncHelper(handle, this->ldvs_d, this->ldvs_h.data(),
                         this->ldvs_h.size() * sizeof(SIZE), AUTO, 0);
 
+  // printf("Array constructured: %u %u %u %u %u %u\n", 
+  //                         this->shape[0], this->shape[1], this->shape[2],
+  //                         this->ldvs_h[0], this->ldvs_h[1], this->ldvs_h[2]);
   this->device_allocated = true;
+}
+
+template <DIM D, typename T> Array<D, T>::Array(const Array<D, T> &array) {
+  
+  this->host_allocated = false;
+  this->device_allocated = false;
+  this->shape = array.shape;
+  this->D_padded = D;
+  if (D < 3) {
+    this->D_padded = 3;
+  }
+  if (D % 2 == 0) {
+    this->D_padded = D + 1;
+  }
+  // padding dimensions
+  for (int d = this->shape.size(); d < this->D_padded; d++) {
+    this->shape.push_back(1);
+  }
+
+  this->linearized_depth = 1;
+  for (int i = 2; i < this->D_padded; i++) {
+    this->linearized_depth *= this->shape[i];
+  }
+  Handle<1, float> handle;
+  size_t dv_pitch;
+  cudaMalloc3DHelper(handle, (void **)&dv, &dv_pitch, this->shape[0] * sizeof(T),
+                     this->shape[1], linearized_depth);
+  ldvs_h.push_back((SIZE)dv_pitch / sizeof(T));
+  for (int i = 1; i < this->D_padded; i++) {
+    this->ldvs_h.push_back(this->shape[i]);
+  }
+
+  // printf("Array copy constructured: %u %u %u (%llu)%u %u %u\n", 
+  //                         this->shape[0], this->shape[1], this->shape[2],
+  //                         dv_pitch, this->ldvs_h[0], this->ldvs_h[1], this->ldvs_h[2]);
+  
+  cudaMallocHelper(handle, (void **)&(this->ldvs_d), this->ldvs_h.size() * sizeof(SIZE));
+  cudaMemcpyAsyncHelper(handle, this->ldvs_d, this->ldvs_h.data(),
+                        this->ldvs_h.size() * sizeof(SIZE), AUTO, 0);
+  cudaMemcpy3DAsyncHelper(
+      handle, this->dv, this->ldvs_h[0] * sizeof(T), this->shape[0] * sizeof(T),
+      this->shape[1], array.dv, array.ldvs_h[0] * sizeof(T),
+      array.shape[0] * sizeof(T), array.shape[1], this->shape[0] * sizeof(T),
+      this->shape[1], this->linearized_depth, AUTO, 0);
+  this->device_allocated = true;
+
+  // printf("Array copy1 %llu -> %llu\n", array.dv, this->dv);
 }
 
 template <DIM D, typename T> Array<D, T>::Array(Array<D, T> &array) {
@@ -92,10 +148,54 @@ template <DIM D, typename T> Array<D, T>::Array(Array<D, T> &array) {
                         this->ldvs_h.size() * sizeof(SIZE), AUTO, 0);
   cudaMemcpy3DAsyncHelper(
       handle, this->dv, this->ldvs_h[0] * sizeof(T), this->shape[0] * sizeof(T),
-      this->shape[1], array.dv, this->ldvs_h[0] * sizeof(T),
-      this->shape[0] * sizeof(T), this->shape[1], this->shape[0] * sizeof(T),
+      this->shape[1], array.dv, array.ldvs_h[0] * sizeof(T),
+      array.shape[0] * sizeof(T), array.shape[1], this->shape[0] * sizeof(T),
       this->shape[1], this->linearized_depth, AUTO, 0);
   this->device_allocated = true;
+  // printf("Array copy2 %llu -> %llu\n", array.dv, this->dv);
+}
+
+
+template <DIM D, typename T> Array<D, T>& Array<D, T>::operator = (const Array<D, T> &array) {
+  this->host_allocated = false;
+  this->device_allocated = false;
+  this->shape = array.shape;
+  this->D_padded = D;
+  if (D < 3) {
+    this->D_padded = 3;
+  }
+  if (D % 2 == 0) {
+    this->D_padded = D + 1;
+  }
+  // padding dimensions
+  for (int d = this->shape.size(); d < this->D_padded; d++) {
+    this->shape.push_back(1);
+  }
+
+  this->linearized_depth = 1;
+  for (int i = 2; i < this->D_padded; i++) {
+    this->linearized_depth *= this->shape[i];
+  }
+  Handle<1, float> handle;
+  size_t dv_pitch;
+  cudaMalloc3DHelper(handle, (void **)&dv, &dv_pitch, this->shape[0] * sizeof(T),
+                     this->shape[1], linearized_depth);
+  ldvs_h.push_back((SIZE)dv_pitch / sizeof(T));
+  for (int i = 1; i < this->D_padded; i++) {
+    this->ldvs_h.push_back(this->shape[i]);
+  }
+  
+  cudaMallocHelper(handle, (void **)&(this->ldvs_d), this->ldvs_h.size() * sizeof(SIZE));
+  cudaMemcpyAsyncHelper(handle, this->ldvs_d, this->ldvs_h.data(),
+                        this->ldvs_h.size() * sizeof(SIZE), AUTO, 0);
+  cudaMemcpy3DAsyncHelper(
+      handle, this->dv, this->ldvs_h[0] * sizeof(T), this->shape[0] * sizeof(T),
+      this->shape[1], array.dv, array.ldvs_h[0] * sizeof(T),
+      array.shape[0] * sizeof(T), array.shape[1], this->shape[0] * sizeof(T),
+      this->shape[1], this->linearized_depth, AUTO, 0);
+  this->device_allocated = true;
+  // printf("Array copy3 %llu -> %llu\n", array.dv, this->dv);
+  return *this;
 }
 
 
@@ -124,16 +224,19 @@ template <DIM D, typename T> Array<D, T>::Array(Array<D, T> && array) {
   this->dv = array.dv;
   array.device_allocated = false;
   this->device_allocated = true;
+  // printf("Array move %llu -> %llu\n", array.dv, this->dv);
 }
 
 template <DIM D, typename T> Array<D, T>::~Array() {
+  // printf("Array deleted %llu\n", this->dv);
   if (device_allocated) {
     cudaFreeHelper(ldvs_d);
     cudaFreeHelper(dv);
   }
-  if (host_allocated) {
-    delete[] hv;
-  }
+  // if (host_allocated) {
+  //   delete[] hv;
+  // }
+
 }
 
 template <DIM D, typename T>
@@ -160,6 +263,7 @@ template <DIM D, typename T> T *Array<D, T>::getDataHost() {
       ldvs_h[0] * sizeof(T), shape[0] * sizeof(T), shape[1],
       shape[0] * sizeof(T), shape[1], linearized_depth, AUTO, 0);
   handle.sync(0);
+  // host_allocated = true;
   return hv;
 }
 
@@ -195,7 +299,6 @@ template class Array<5, float>;
 
 // template class Array<1, unsigned char>;
 
-template class Array<2, uint8_t>;
 
 template class Array<1, bool>;
 
@@ -203,6 +306,12 @@ template class Array<1, uint8_t>;
 template class Array<1, uint16_t>;
 template class Array<1, uint32_t>;
 template class Array<1, uint64_t>;
+
+template class Array<2, uint8_t>;
+template class Array<2, uint16_t>;
+template class Array<2, uint32_t>;
+template class Array<2, uint64_t>;
+
 template class Array<1, unsigned long long>;
 
 // template class Array<1, QUANTIZED_INT>;

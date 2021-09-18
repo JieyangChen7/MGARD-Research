@@ -14,6 +14,9 @@
 #include <mma.h>
 using namespace nvcuda;
 
+#define WARP_SIZE 32
+#define LOG_WARP_SIZE 5
+
 template <class T> struct SharedMemory {
   MGARDm_EXEC operator T *() {
     extern __shared__ int __smem[];
@@ -25,28 +28,40 @@ template <class T> struct SharedMemory {
     return (T *)__smem;
   }
 };
+
+static __device__ __inline__ uint32_t __mywarpid(){
+  uint32_t warpid = threadIdx.y;
+  //asm volatile("mov.u32 %0, %%warpid;" : "=r"(warpid));
+  return warpid;
+}
+
+static __device__ __inline__ uint32_t __mylaneid(){
+  uint32_t laneid = threadIdx.x;
+  // asm volatile("mov.u32 %0, %%laneid;" : "=r"(laneid));
+  return laneid;
+}
  
 
 
 
 namespace mgard_cuda {
 
-MGARDm_EXEC
+MGARDm_CONT_EXEC
 uint64_t binary2negabinary(const int64_t x) {
     return (x + (uint64_t)0xaaaaaaaaaaaaaaaaull) ^ (uint64_t)0xaaaaaaaaaaaaaaaaull;
 }
 
-MGARDm_EXEC
+MGARDm_CONT_EXEC
 uint32_t binary2negabinary(const int32_t x) {
     return (x + (uint32_t)0xaaaaaaaau) ^ (uint32_t)0xaaaaaaaau;
 }
 
-MGARDm_EXEC
+MGARDm_CONT_EXEC
 int64_t negabinary2binary(const uint64_t x) {
     return (x ^0xaaaaaaaaaaaaaaaaull) - 0xaaaaaaaaaaaaaaaaull;
 }
 
-MGARDm_EXEC
+MGARDm_CONT_EXEC
 int32_t negabinary2binary(const uint32_t x) {
     return (x ^0xaaaaaaaau) - 0xaaaaaaaau;
 }
@@ -102,11 +117,24 @@ struct BlockReduce<T, nblockx, nblocky, nblockz, CUDA> {
 #define Bit_Transpose_TCU 5
 
 
-#define Error_Collecting_Serial_All 0
-#define Error_Collecting_Parallel_B_Serial_b 1
-#define Error_Collecting_Parallel_B_Atomic_b 2
-#define Error_Collecting_Parallel_B_Reduce_b 3
+#define Warp_Bit_Transpose_Serial_All 0
+#define Warp_Bit_Transpose_Parallel_B_Serial_b 1
+#define Warp_Bit_Transpose_Serial_B_Atomic_b 2
+#define Warp_Bit_Transpose_Serial_B_Reduce_b 3
+#define Warp_Bit_Transpose_Serial_B_Ballot_b 4
+#define Warp_Bit_Transpose_TCU 5
 
+#define Error_Collecting_Disable -1
+#define Error_Collecting_Serial_All 0
+#define Error_Collecting_Parallel_Bitplanes_Serial_Error 1
+#define Error_Collecting_Parallel_Bitplanes_Atomic_Error 2
+#define Error_Collecting_Parallel_Bitplanes_Reduce_Error 3
+
+#define Warp_Error_Collecting_Disable -1
+#define Warp_Error_Collecting_Serial_All 0
+#define Warp_Error_Collecting_Parallel_Bitplanes_Serial_Error 1
+#define Warp_Error_Collecting_Serial_Bitplanes_Atomic_Error 2
+#define Warp_Error_Collecting_Serial_Bitplanes_Reduce_Error 3
 
 typedef unsigned long long int uint64_cu;
 
@@ -118,7 +146,7 @@ struct EncodeSignBits<T, METHOD, CUDA>{
     T buffer = 0;
     T shifted_bit;
     shifted_bit = bit << sizeof(T)*8-1-b_idx;
-    // atomicAdd(buffer, shifted_bit);
+    atomicAdd_block(buffer, shifted_bit);
     return buffer;
   }
 
@@ -234,7 +262,7 @@ struct BlockBitTranspose<T_org, T_trans, nblockx, nblocky, nblockz, ALIGN, METHO
             shifted_bit = bit << b-1-b_idx;
           } else { }
           T_trans * sum = &(tv[B_idx]);
-          // atomicAdd(sum, shifted_bit);
+          // atomicAdd_block(sum, shifted_bit);
         }
       }
     }
@@ -425,7 +453,7 @@ struct BlockBitTranspose<T_org, T_trans, nblockx, nblocky, nblockz, ALIGN, METHO
     else if (METHOD == Bit_Transpose_Parallel_B_Atomic_b) Parallel_B_Atomic_b(v, tv, b, B);
     else if (METHOD == Bit_Transpose_Parallel_B_Reduce_b) Parallel_B_Reduction_b(v, tv, b, B);
     else if (METHOD == Bit_Transpose_Parallel_B_Ballot_b) Parallel_B_Ballot_b(v, tv, b, B);
-    else { printf("Bit Transpose Wrong Algorithm Type!\n");  }
+    // else { printf("Bit Transpose Wrong Algorithm Type!\n");  }
     // else if (METHOD == 5) TCU(v, tv, b, B);
   }
 };
@@ -546,7 +574,7 @@ struct ErrorCollect<T, T_fp, T_sfp, T_error, nblockx, nblocky, nblockz, METHOD, 
           error = temp[(num_bitplanes - bitplane_idx) * num_elems + elem_idx];
         }
         T_error * sum = &(errors[num_bitplanes - bitplane_idx]);
-        atomicAdd(sum, error);
+        atomicAdd_block(sum, error);
       }
     }
   }
@@ -620,9 +648,10 @@ struct ErrorCollect<T, T_fp, T_sfp, T_error, nblockx, nblocky, nblockz, METHOD, 
   MGARDm_EXEC 
   void Collect(T * v, T_error * temp, T_error * errors, SIZE num_elems, SIZE num_bitplanes) {
     if (METHOD == Error_Collecting_Serial_All) Serial_All(v, temp, errors, num_elems, num_bitplanes);
-    else if (METHOD == Error_Collecting_Parallel_B_Serial_b) Parallel_Bitplanes_Serial_Error(v, temp, errors, num_elems, num_bitplanes);
-    else if (METHOD == Error_Collecting_Parallel_B_Atomic_b) Parallel_Bitplanes_Atomic_Error(v, temp, errors, num_elems, num_bitplanes);
-    else if (METHOD == Error_Collecting_Parallel_B_Reduce_b) Parallel_Bitplanes_Reduce_Error(v, temp, errors, num_elems, num_bitplanes);
+    else if (METHOD == Error_Collecting_Parallel_Bitplanes_Serial_Error) Parallel_Bitplanes_Serial_Error(v, temp, errors, num_elems, num_bitplanes);
+    else if (METHOD == Error_Collecting_Parallel_Bitplanes_Atomic_Error) Parallel_Bitplanes_Atomic_Error(v, temp, errors, num_elems, num_bitplanes);
+    else if (METHOD == Error_Collecting_Parallel_Bitplanes_Reduce_Error) Parallel_Bitplanes_Reduce_Error(v, temp, errors, num_elems, num_bitplanes);
+    // else if (METHOD == Error_Collecting_Disable) {}
     // else { printf("Error Collecting Wrong Algorithm Type!\n");  }
   }
 };
@@ -707,6 +736,17 @@ private:
   HandleType& handle;
 };
 
+
+struct AbsMaxOp
+{
+    template <typename T>
+    __device__ __forceinline__
+    T operator()(const T &a, const T &b) const {
+        return (fabs(b) > fabs(a)) ? b : a;
+    }
+};
+
+
 template <typename HandleType, typename T_reduce>
 class DeviceReduce<HandleType, T_reduce, CUDA>{
 public:
@@ -722,7 +762,23 @@ public:
     cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, v.data(), result.data(), n, stream, debug);
     cudaMalloc(&d_temp_storage, temp_storage_bytes);
     cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, v.data(), result.data(), n, stream, debug);
+    this->handle.sync(queue_idx);
+    cudaFree(d_temp_storage);
   }
+
+  MGARDm_CONT
+  void AbsMax(SIZE n, SubArray<1, T_reduce>& v, SubArray<1, T_reduce>& result, int queue_idx) {
+    void     *d_temp_storage = NULL;
+    size_t   temp_storage_bytes = 0;
+    AbsMaxOp absMaxOp;
+    cudaStream_t stream = *(cudaStream_t *)(this->handle.get(queue_idx));
+    bool debug = this->handle.sync_and_check_all_kernels;
+    cub::DeviceReduce::Reduce(d_temp_storage, temp_storage_bytes, v.data(), result.data(), n, absMaxOp, 0, stream, debug);
+    cudaMalloc(&d_temp_storage, temp_storage_bytes);
+    cub::DeviceReduce::Reduce(d_temp_storage, temp_storage_bytes, v.data(), result.data(), n, absMaxOp, 0, stream, debug);
+    cudaFree(d_temp_storage);
+  }
+
 private:
   HandleType& handle;
 };

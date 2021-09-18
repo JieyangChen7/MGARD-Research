@@ -72,6 +72,7 @@ template <DIM D, typename T> struct Handle {
   /* Refactoring env */
   SIZE l_target;
   DIM D_padded;
+  std::vector<SIZE> shape;
   std::vector<std::vector<SIZE>> dofs;
   std::vector<SIZE *> shapes_h;
   std::vector<SIZE *> shapes_d;
