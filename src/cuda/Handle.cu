@@ -489,7 +489,7 @@ template <DIM D, typename T> void Handle<D, T>::destroy_queues() {
 
 template <DIM D, typename T>
 std::vector<T *>
-Handle<D, T>::create_uniform_coords(std::vector<SIZE> shape) {
+Handle<D, T>::create_uniform_coords(std::vector<SIZE> shape, int mode) {
 
   
   std::vector<T *> coords(D);
@@ -497,18 +497,19 @@ Handle<D, T>::create_uniform_coords(std::vector<SIZE> shape) {
     T *curr_coords = new T[shape[d]];
     for (int i = 0; i < shape[d]; i++) {
       // 0...n-1
-      // curr_coords[i] = (T)i;
-
-      //0...1
-      curr_coords[i] = (T)i / (shape[d]-1);
-
+      if (mode == 0) {
+        // printf("create_uniform_coords %d\n", mode);
+        curr_coords[i] = (T)i;
+      } else if (mode == 1) {
+        //0...1
+        curr_coords[i] = (T)i / (shape[d]-1);
+      } else {
+        std::cout << log::log_err << "wrong uniform coordinates mode!\n";
+        exit(-1);
+      }
     }
-
     coords[d] = curr_coords;
   }
-
-
-
 
   uniform_coords_created = true;
   return coords;
@@ -987,7 +988,7 @@ Handle<D, T>::Handle(std::vector<SIZE> shape) {
                  "mgard_cuda::Hanlde not "
                  "initialized!\n";
   }
-  std::vector<T *> coords = create_uniform_coords(shape);
+  std::vector<T *> coords = create_uniform_coords(shape, 0);
   padding_dimensions(shape, coords);
   create_queues();
   init_auto_tuning_table();
@@ -1027,7 +1028,7 @@ Handle<D, T>::Handle(std::vector<SIZE> shape, Config config) {
   cudaSetDeviceHelper(dev_id);
   
   std::reverse(shape.begin(), shape.end());
-  std::vector<T *> coords = create_uniform_coords(shape);
+  std::vector<T *> coords = create_uniform_coords(shape, config.uniform_coord_mode);
   int ret = check_shape<D>(shape);
   if (ret == -1) {
     std::cerr << log::log_err

@@ -401,14 +401,14 @@ void cudaMalloc3DHelper(Handle<D, T> &handle, void **devPtr, size_t *pitch, size
                         size_t height, size_t depth) {
 
   // if (handle.reduce_memory_footprint) {
-  //   cudaMallocHelper(handle, devPtr, width*height*depth);
-  //   *pitch = width;
+    cudaMallocHelper(handle, devPtr, width*height*depth);
+    *pitch = width;
   // } else {
-    cudaPitchedPtr devPitchedPtr;
-    cudaExtent extent = make_cudaExtent(width, height, depth);
-    gpuErrchk(cudaMalloc3D(&devPitchedPtr, extent));
-    *devPtr = devPitchedPtr.ptr;
-    *pitch = devPitchedPtr.pitch;
+    // cudaPitchedPtr devPitchedPtr;
+    // cudaExtent extent = make_cudaExtent(width, height, depth);
+    // gpuErrchk(cudaMalloc3D(&devPitchedPtr, extent));
+    // *devPtr = devPitchedPtr.ptr;
+    // *pitch = devPitchedPtr.pitch;
   // }
 }
 
@@ -718,6 +718,7 @@ KERNELS(2, uint8_t)
 KERNELS(2, uint16_t)
 KERNELS(2, uint32_t)
 KERNELS(2, uint64_t)
+KERNELS(1, bool)
 
 #undef KERNELS
 

@@ -149,7 +149,6 @@ default_node_coordinates(const std::array<std::size_t, N> &shape) {
     const Real h = n > 1 ? static_cast<Real>(1) / (n - 1) : 0;
     for (std::size_t j = 0; j < n; ++j) {
       xs.at(j) = j * h;
-      // xs.at(j) = j;
     }
   }
   return coordinates;

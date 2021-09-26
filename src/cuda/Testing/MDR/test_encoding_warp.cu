@@ -3,7 +3,7 @@
 #include "cuda/AutoTuner.h"
 #include "cuda/Task.h"
 #include "cuda/DeviceAdapters/DeviceAdapterCuda.h"
-#include "cuda/MDR/BitplaneEncoder/GroupedWarpBPEncoderGPU.hpp"
+#include "cuda/MDR/BitplaneEncoder/BitplaneEncoder.hpp"
 #include <mma.h>
 #include <iostream>
 #include <fstream>
@@ -30,9 +30,9 @@ void test(mgard_cuda::LENGTH n,
   
   using T_sfp = typename std::conditional<std::is_same<T_data, double>::value, int64_t, int32_t>::type;
   using T_fp = typename std::conditional<std::is_same<T_data, double>::value, uint64_t, uint32_t>::type;
-  using HandleType = mgard_cuda::Handle<1, float>;
-  using T_error = double;
-  HandleType handle({5});
+  using HandleType = mgard_cuda::Handle<3, float>;
+  using T_error = float;
+  HandleType handle({5, 5, 5});
 
   double total_data = (n*encoding_num_bitplanes)/8/1e9;
   printf("T_data: %d, T_bitplane: %d, NumGroups: %u, NumWarps: %u, BinaryType: %d, Encoding: %d, Error: %d, Decoding: %d, n: %u, Total data: %.2e GB.\n", 
@@ -51,9 +51,9 @@ void test(mgard_cuda::LENGTH n,
                          std::to_string(DataDecodingAlgorithm) + ".csv";
 
   std::string path = __FILE__;
-  path.erase (path.end()-std::string("test_encoding.cu").length(), path.end());
-  ofs.open (path + "/encoding_pref_results/" + filename, std::ofstream::out | std::ofstream::app);
-  // if(!ofs) std::cout<<"Writing to file failed"<<std::endl;
+  path.erase (path.end()-std::string("test_encoding_warp.cu").length(), path.end());
+  ofs.open (path + "/encoding_perf_results/" + filename, std::ofstream::out );
+  if(!ofs) std::cout<<"Writing to file failed"<<std::endl;
 
   high_resolution_clock::time_point t1, t2, start, end;
   duration<double> time_span;
@@ -64,6 +64,9 @@ void test(mgard_cuda::LENGTH n,
     // v[i] = rand() - RAND_MAX / 2;// % 10000000;
     v[i] = rand() % 100;
   }
+
+
+
 
   mgard_cuda::Array<1, T_data> v_array({(mgard_cuda::SIZE)n});
   v_array.loadData(v);
@@ -76,8 +79,8 @@ void test(mgard_cuda::LENGTH n,
   mgard_cuda::Array<1, bool> signs_array({(mgard_cuda::SIZE)n});
   mgard_cuda::SubArray<1, bool> signs_subarray(signs_array);
 
-  mgard_cuda::Array<1, T_data> v2_array({(mgard_cuda::SIZE)n});
-  mgard_cuda::SubArray<1, T_data> v2_subarray(v2_array);
+  // mgard_cuda::Array<1, T_data> v2_array({(mgard_cuda::SIZE)n});
+  // mgard_cuda::SubArray<1, T_data> v2_subarray(v2_array);
 
 
   mgard_cuda::Array<1, T_data> result_array({1});
@@ -85,10 +88,41 @@ void test(mgard_cuda::LENGTH n,
   mgard_cuda::DeviceReduce<HandleType, T_data, mgard_cuda::CUDA> deviceReduce(handle);
   deviceReduce.AbsMax(v_subarray.shape[0], v_subarray, result, 0);
   handle.sync_all();
+
+  mgard_cuda::SIZE starting_bitplane = 0;
   T_data level_max_error = *(result_array.getDataHost());
   int exp = 0;
   frexp(level_max_error, &exp);
 
+  std::vector<uint32_t> stream_sizes;
+  std::vector<double> level_sq_err; 
+  // CPU
+  { 
+    total_data = (n*encoding_num_bitplanes)/8/1e9;
+    auto encoder = mgard_cuda::MDR::GroupedBPEncoder<3, T_data, T_bitplane>(handle);
+    t1 = high_resolution_clock::now();
+    auto streams = encoder.encode(v, n, exp, encoding_num_bitplanes, stream_sizes, level_sq_err);
+    t2 = high_resolution_clock::now();
+    time_span = duration_cast<duration<double>>(t2 - t1);
+    std::cout << "CPU Encoding time: " << time_span.count() <<" s (" << total_data/time_span.count() << "GB/s)\n";
+    ofs << total_data/time_span.count() << ",";
+
+    std::vector<uint8_t const *> const_streams;
+    for (int i = 0; i < streams.size(); i++) const_streams.push_back(streams[i]);
+
+    total_data = (n*decoding_num_bitplanes)/8/1e9;
+    t1 = high_resolution_clock::now();
+    auto level_decoded_data = encoder.progressive_decode(const_streams, n, exp, starting_bitplane, decoding_num_bitplanes, 0);
+    t2 = high_resolution_clock::now();
+    time_span = duration_cast<duration<double>>(t2 - t1);
+    std::cout << "CPU Decoding time: " << time_span.count() <<" s (" << total_data/time_span.count() << "GB/s)\n";
+    ofs << total_data/time_span.count() << ",";
+
+    for (int i = 0; i < streams.size(); i++) delete [] streams[i];
+    delete [] level_decoded_data;
+  }
+
+  //GPU-Warp
   {
     mgard_cuda::MDR::GroupedWarpEncoder<HandleType, T_data, T_bitplane, T_error, 
                                         NumGroupsPerWarpPerIter, NumWarpsPerTB, BinaryType, 
@@ -106,6 +140,8 @@ void test(mgard_cuda::LENGTH n,
     mgard_cuda::Array<2, T_bitplane> encoded_bitplanes_array({encoding_num_bitplanes, encoder.MaxBitplaneLength(n)});
     mgard_cuda::SubArray<2, T_bitplane> encoded_bitplanes_subarray(encoded_bitplanes_array);
 
+    total_data = (n*encoding_num_bitplanes)/8/1e9;
+
     for (int r = 0; r < warmup; r++) {
       encoder.Execute(n, encoding_num_bitplanes, exp, 
                         v_subarray, encoded_bitplanes_subarray, level_errors, level_errors_work, 0);
@@ -120,32 +156,32 @@ void test(mgard_cuda::LENGTH n,
     handle.sync(0);
     t2 = high_resolution_clock::now();
     time_span = duration_cast<duration<double>>(t2 - t1) / repeat;
-    std::cout << "Encoding time: " << time_span.count() <<" s (" << total_data/time_span.count() << "GB/s)\n";
+    std::cout << "GPU Encoding time: " << time_span.count() <<" s (" << total_data/time_span.count() << "GB/s)\n";
     ofs << total_data/time_span.count() << ",";
     // mgard_cuda::PrintSubarray("encoded_bitplanes_subarray", encoded_bitplanes_subarray);
 
     total_data = (n*decoding_num_bitplanes)/8/1e9;
-    mgard_cuda::SIZE starting_bitplane = 0;
+    
     
     for (int r = 0; r < warmup; r++) {
       decoder.Execute(n, starting_bitplane, decoding_num_bitplanes, exp, 
-                      encoded_bitplanes_subarray, signs_subarray, v2_subarray, 0);
+                      encoded_bitplanes_subarray, signs_subarray, v_subarray, 0);
     }
 
     handle.sync(0);
     t1 = high_resolution_clock::now();
     for (int r = 0; r < repeat; r++) {
       decoder.Execute(n, starting_bitplane, decoding_num_bitplanes, exp, 
-                      encoded_bitplanes_subarray, signs_subarray, v2_subarray, 0);
+                      encoded_bitplanes_subarray, signs_subarray, v_subarray, 0);
     }
     handle.sync(0);
     t2 = high_resolution_clock::now();
     time_span = duration_cast<duration<double>>(t2 - t1) / repeat;
-    std::cout << "Decoding time: " << time_span.count() <<" s (" << total_data/time_span.count() << "GB/s)\n";
+    std::cout << "GPU Decoding time: " << time_span.count() <<" s (" << total_data/time_span.count() << "GB/s)\n";
     ofs << total_data/time_span.count() << "\n";
   }
 
-  v2 = v2_array.getDataHost();  
+  // v2 = v2_array.getDataHost();  
 
   //  printf("Original data:\n");
   // for (int i = 0; i < n; i++) {
@@ -248,7 +284,7 @@ void test(mgard_cuda::LENGTH n,
   
   ofs.close();
   delete [] v;
-  mgard_cuda::cudaFreeHostHelper(v2);
+  // mgard_cuda::cudaFreeHostHelper(v2);
 
 }
 
@@ -263,8 +299,9 @@ void test_method() {
   int warmup = 0;
   int repeat = 1;
 
-  for(mgard_cuda::LENGTH N = 512*1024*1024; N <= 512*1024*1024 ; N *= 2) 
+  for(mgard_cuda::LENGTH N = 1024; N <= 512*1024*1024 ; N *= 2) 
   // mgard_cuda::SIZE N = 200;
+  // mgard_cuda::SIZE N = 512*1024*1024;
   { 
 
     // for debug
@@ -275,12 +312,13 @@ void test_method() {
     // test<float, uint32_t, 32, 2,
     //       BinaryType, DataEncodingAlgorithm, ErrorCollectingAlgorithm, DataDecodingAlgorithm>
     //       (N, 32, 32, warmup, repeat);
-    test<float, uint32_t, 16, 4,
-          BinaryType, DataEncodingAlgorithm, ErrorCollectingAlgorithm, DataDecodingAlgorithm>
-          (N, 32, 32, warmup, repeat);
-    test<float, uint32_t, 8, 8,
-          BinaryType, DataEncodingAlgorithm, ErrorCollectingAlgorithm, DataDecodingAlgorithm>
-          (N, 32, 32, warmup, repeat);
+    // test<float, uint32_t, 16, 4,
+    //       BinaryType, DataEncodingAlgorithm, ErrorCollectingAlgorithm, DataDecodingAlgorithm>
+    //       (N, 32, 32, warmup, repeat);
+    // test<float, uint32_t, 8, 8,
+    //       BinaryType, DataEncodingAlgorithm, ErrorCollectingAlgorithm, DataDecodingAlgorithm>
+    //       (N, 32, 32, warmup, repeat);
+
     test<float, uint32_t, 4, 16,
           BinaryType, DataEncodingAlgorithm, ErrorCollectingAlgorithm, DataDecodingAlgorithm>
           (N, 32, 32, warmup, repeat);
@@ -294,15 +332,21 @@ void test_method() {
     // test<uint64_t, uint16_t, METHOD>(N, 50, 10);
     // test<uint64_t, uint32_t, METHOD>(N, 50, 10);
     // test<uint64_t, uint64_t, METHOD>(N, 50, 10);
+
+    // for (mgard_cuda::SIZE num_bitplanes = 1; num_bitplanes <= 32; num_bitplanes++) {
+    //   test<float, uint32_t, 4, 16,
+    //       BinaryType, DataEncodingAlgorithm, ErrorCollectingAlgorithm, DataDecodingAlgorithm>
+    //       (N, num_bitplanes, num_bitplanes, warmup, repeat);
+    // }
   }
 }
 
 int main() {
   // test_method<BINARY, Warp_Bit_Transpose_Serial_All, Error_Collecting_Serial_All, Warp_Bit_Transpose_Serial_All>();
-  test_method<BINARY, Warp_Bit_Transpose_Parallel_B_Serial_b, Warp_Error_Collecting_Serial_All, Warp_Bit_Transpose_Parallel_B_Serial_b>();
+  // test_method<BINARY, Warp_Bit_Transpose_Parallel_B_Serial_b, Warp_Error_Collecting_Serial_All, Warp_Bit_Transpose_Parallel_B_Serial_b>();
   test_method<BINARY, Warp_Bit_Transpose_Parallel_B_Serial_b, Warp_Error_Collecting_Parallel_Bitplanes_Serial_Error, Warp_Bit_Transpose_Parallel_B_Serial_b>();
-  test_method<BINARY, Warp_Bit_Transpose_Parallel_B_Serial_b, Warp_Error_Collecting_Serial_Bitplanes_Atomic_Error, Warp_Bit_Transpose_Parallel_B_Serial_b>();
-  test_method<BINARY, Warp_Bit_Transpose_Parallel_B_Serial_b, Warp_Error_Collecting_Serial_Bitplanes_Reduce_Error, Warp_Bit_Transpose_Parallel_B_Serial_b>();
+  // test_method<BINARY, Warp_Bit_Transpose_Parallel_B_Serial_b, Warp_Error_Collecting_Serial_Bitplanes_Atomic_Error, Warp_Bit_Transpose_Parallel_B_Serial_b>();
+  // test_method<BINARY, Warp_Bit_Transpose_Parallel_B_Serial_b, Warp_Error_Collecting_Serial_Bitplanes_Reduce_Error, Warp_Bit_Transpose_Parallel_B_Serial_b>();
   // test_method<BINARY, Warp_Bit_Transpose_Serial_B_Atomic_b, Error_Collecting_Serial_All, Warp_Bit_Transpose_Serial_B_Atomic_b>();
   // test_method<BINARY, Warp_Bit_Transpose_Serial_B_Reduce_b, Error_Collecting_Serial_All, Warp_Bit_Transpose_Serial_B_Reduce_b>();
   // test_method<BINARY, Warp_Bit_Transpose_Serial_B_Ballot_b, Error_Collecting_Serial_All, Warp_Bit_Transpose_Serial_B_Ballot_b>();

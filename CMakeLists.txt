@@ -8,27 +8,25 @@ endif()
 
 list(INSERT CMAKE_MODULE_PATH 0 "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
-# Extract the version string from the header file and setup the project version
-# accordingly
-file(STRINGS ${CMAKE_CURRENT_LIST_DIR}/include/mgard.hpp MGARD_VERSION
-  REGEX "// version: "
-  LIMIT_COUNT 1)
-string(REGEX MATCH "[0-9]+(\.[0-9])+" MGARD_VERSION "${MGARD_VERSION}")
-project(MGARD VERSION ${MGARD_VERSION})
+set(MGARD_VERSION_MAJOR "0")
+set(MGARD_VERSION_MINOR "1")
+set(MGARD_VERSION_PATCH "0")
 
-macro (mgard_option variable)
-  if (NOT DEFINED "${variable}")
-    option("${variable}" ${ARGN})
-  endif ()
-endmacro ()
+project(
+  MGARD
+  HOMEPAGE_URL "https://github.com/CODARcode/MGARD"
+  VERSION "${MGARD_VERSION_MAJOR}.${MGARD_VERSION_MINOR}.${MGARD_VERSION_PATCH}"
+  #CUDA will be enabled below if `MGARD_ENABLE_CUDA` is `ON`.
+  LANGUAGES CXX
+)
 
 #Configurable Options
-mgard_option(MGARD_ENABLE_CUDA "Enable Cuda support" OFF)
+option(MGARD_ENABLE_CUDA "Enable CUDA support" OFF)
 
 #For performance optimization
-mgard_option(MGARD_ENABLE_CUDA_FMA "Enable Cuda support with fused multpily-add instruction" OFF)
-mgard_option(MGARD_ENABLE_CUDA_OPTIMIZE_VOLTA "Optimized for Volta GPUs" OFF)
-mgard_option(MGARD_ENABLE_CUDA_OPTIMIZE_TURING "Optimized for Turing GPUs" OFF)
+option(MGARD_ENABLE_CUDA_FMA "Enable CUDA support with fused multiply–add instruction" OFF)
+option(MGARD_ENABLE_CUDA_OPTIMIZE_VOLTA "Optimized for Volta GPUs" OFF)
+option(MGARD_ENABLE_CUDA_OPTIMIZE_TURING "Optimized for Turing GPUs" OFF)
 
 # Some boilerplate to setup nice output directories
 include(GNUInstallDirs)
@@ -63,11 +61,6 @@ cmake_dependent_option(BUILD_SHARED_LIBS
   "SHARED_LIBS_SUPPORTED" OFF
 )
 mark_as_advanced(BUILD_SHARED_LIBS)
-
-# Always build with PIC support if available
-#if(SHARED_LIBS_SUPPORTED)
-#  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-#endif()
 
 # Default to a release build if not specified
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -115,81 +108,86 @@ find_package(ZLIB REQUIRED)
 find_package(ZSTD)
 find_package(MOAB)
 
-set(MGARD_MOAB_HEADER
-include/blas.hpp
-include/utilities.hpp
-include/data.hpp
-include/UniformEdgeFamilies.hpp
-include/LinearQuantizer.hpp
-include/SituatedCoefficientRange.hpp
-include/MultilevelCoefficientQuantizer.hpp
+set(
+  MGARD_MOAB_HPP
+  include/blas.hpp
+  include/utilities.hpp
+  include/data.hpp
+  include/UniformEdgeFamilies.hpp
+  include/LinearQuantizer.hpp
+  include/SituatedCoefficientRange.hpp
+  include/MultilevelCoefficientQuantizer.hpp
 
-include/measure.hpp
-include/LinearOperator.hpp
-include/pcg.hpp
-include/MassMatrix.hpp
-include/MeshLevel.hpp
-include/MeshHierarchy.hpp
-include/MeshRefiner.hpp
-include/UniformMeshRefiner.hpp
-include/UniformMeshHierarchy.hpp
-include/UniformRestriction.hpp
-include/norms.hpp
-include/estimators.hpp
-include/EnumeratedMeshRange.hpp
-include/indicators.hpp
-include/IndicatorInput.hpp
+  include/measure.hpp
+  include/LinearOperator.hpp
+  include/pcg.hpp
+  include/MassMatrix.hpp
+  include/MeshLevel.hpp
+  include/MeshHierarchy.hpp
+  include/MeshRefiner.hpp
+  include/UniformMeshRefiner.hpp
+  include/UniformMeshHierarchy.hpp
+  include/UniformRestriction.hpp
+  include/norms.hpp
+  include/estimators.hpp
+  include/EnumeratedMeshRange.hpp
+  include/indicators.hpp
+  include/IndicatorInput.hpp
 )
-set(MGARD_MOAB_TEMPLATE_DEFINITION
-include/blas.tpp
-include/utilities.tpp
-include/data.tpp
-include/UniformEdgeFamilies.tpp
-include/LinearQuantizer.tpp
-include/SituatedCoefficientRange.tpp
-include/MultilevelCoefficientQuantizer.tpp
+set(
+  MGARD_MOAB_TPP
+  include/blas.tpp
+  include/utilities.tpp
+  include/data.tpp
+  include/UniformEdgeFamilies.tpp
+  include/LinearQuantizer.tpp
+  include/SituatedCoefficientRange.tpp
+  include/MultilevelCoefficientQuantizer.tpp
 )
-set(MGARD_MOAB_SOURCE
-src/measure.cpp
-src/LinearOperator.cpp
-src/pcg.cpp
-src/MassMatrix.cpp
-src/MeshLevel.cpp
-src/MeshHierarchy.cpp
-src/MeshRefiner.cpp
-src/UniformMeshRefiner.cpp
-src/UniformMeshHierarchy.cpp
-src/UniformRestriction.cpp
-src/norms.cpp
-src/estimators.cpp
-src/EnumeratedMeshRange.cpp
-src/indicators.cpp
-src/IndicatorInput.cpp
+set(
+  MGARD_MOAB_CPP
+  src/measure.cpp
+  src/LinearOperator.cpp
+  src/pcg.cpp
+  src/MassMatrix.cpp
+  src/MeshLevel.cpp
+  src/MeshHierarchy.cpp
+  src/MeshRefiner.cpp
+  src/UniformMeshRefiner.cpp
+  src/UniformMeshHierarchy.cpp
+  src/UniformRestriction.cpp
+  src/norms.cpp
+  src/estimators.cpp
+  src/EnumeratedMeshRange.cpp
+  src/indicators.cpp
+  src/IndicatorInput.cpp
+)
+set(
+  MGARD_LIBRARY_CPP
+  src/compressors.cpp
 )
 
-# Set library
-add_library(mgard-library SHARED
-  src/mgard_compress.cpp  include/mgard_compress.hpp
-  ${MGARD_CUDA_SRC}   ${MGARD_CUDA_HEADER}
+add_library(
+  mgard-library
+  STATIC
+  ${MGARD_LIBRARY_CPP}
+  ${MGARD_CUDA_SRC}
 )
+
 set_target_properties(mgard-library PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
 set_target_properties(mgard-library PROPERTIES OUTPUT_NAME mgard)
 
-#target_compile_options(mgard-library PUBLIC -fno-omit-frame-pointer -Wfatal-errors -Wall -Wextra)
-SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -Wfatal-errors -Wall -Wextra")
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -Wfatal-errors -Wall -Wextra")
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-	#target_compile_options(mgard-library PUBLIC -fsanitize=address -fsanitize=undefined)
-  SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize=undefined")
-	# target_link_libraries(mgard-library PUBLIC -fsanitize=address -fsanitize=undefined)
+  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize=undefined")
 else()
-	#target_compile_options(mgard-library PUBLIC -march=native -ffast-math -fno-finite-math-only)
   execute_process(COMMAND "arch" OUTPUT_VARIABLE ARCH)
   string(REGEX REPLACE "\n$" "" ARCH "${ARCH}")
-  if ("${ARCH}" STREQUAL "x86_64")
-    SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -march=native -ffast-math -fno-finite-math-only")
+  if("${ARCH}" STREQUAL "x86_64")
+    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -march=native -ffast-math -fno-finite-math-only")
   elseif("${ARCH}" STREQUAL "ppc64le")
-    SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -mcpu=native -mtune=native -ffast-math -fno-finite-math-only")
+    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -mcpu=native -mtune=native -ffast-math -fno-finite-math-only")
   endif()
 endif()
 
@@ -232,79 +230,165 @@ set_target_properties(mgard-library PROPERTIES
 
 install(TARGETS mgard-library EXPORT mgard-targets)
 
-install(FILES "${PROJECT_BINARY_DIR}/include/MGARDConfig.h" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/mgard")
+install(FILES "${PROJECT_BINARY_DIR}/include/MGARDConfig.hpp" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/mgard")
+install(DIRECTORY "include/" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/mgard")
 
-install(DIRECTORY include/ DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/mgard")
-
-# Create executables under build/bin
-include(CTest)
-if(BUILD_TESTING)
-#  enable_testing()
-  add_subdirectory(tests)
-endif()
 
 #It would be better if these took `MOAB_FOUND` into account.
-set(MGARD_TESTS_HEADER
-tests/include/testing_random.hpp
-tests/include/testing_utilities.hpp
+set(
+  MGARD_TESTS_HPP
+  tests/include/testing_random.hpp
+  tests/include/testing_utilities.hpp
 )
-set(MGARD_TESTS_TEMPLATE_DEFINITION
-tests/include/testing_random.tpp
-tests/include/testing_utilities.tpp
+set(
+  MGARD_TESTS_TPP
+  tests/include/testing_random.tpp
+  tests/include/testing_utilities.tpp
 )
-set(MGARD_TESTS_SOURCE
-tests/src/testing_utilities.cpp
-tests/src/test_blas.cpp
-tests/src/test_estimators.cpp
-tests/src/test_indicators.cpp
-tests/src/test_norms.cpp
-tests/src/test_data.cpp
-tests/src/test_pcg.cpp
-tests/src/test_measure.cpp
-tests/src/test_utilities.cpp
-tests/src/test_MeshLevel.cpp
-tests/src/test_MeshHierarchy.cpp
-tests/src/test_MeshRefiner.cpp
-tests/src/test_LinearOperator.cpp
-tests/src/test_MassMatrix.cpp
-tests/src/test_LinearQuantizer.cpp
-tests/src/test_UniformMeshHierarchy.cpp
-tests/src/test_UniformMeshRefiner.cpp
-tests/src/test_UniformEdgeFamilies.cpp
-tests/src/test_UniformRestriction.cpp
-tests/src/test_EnumeratedMeshRange.cpp
-tests/src/test_SituatedCoefficientRange.cpp
-tests/src/test_IndicatorInput.cpp
-tests/src/test_MultilevelCoefficientQuantizer.cpp
-tests/src/test_shuffle.cpp
-tests/src/test_TensorMeshHierarchy.cpp
-tests/src/test_TensorMeshHierarchyIteration.cpp
-tests/src/test_TensorLinearOperator.cpp
-tests/src/test_TensorMassMatrix.cpp
-tests/src/test_TensorProlongation.cpp
-tests/src/test_TensorRestriction.cpp
-tests/src/test_TensorMultilevelCoefficientQuantizer.cpp
-tests/src/test_TensorNorms.cpp
-tests/src/test_TensorQuantityOfInterest.cpp
-tests/src/test_mgard_api.cpp
-tests/src/test_mgard.cpp
+set(
+  MGARD_TESTS_CPP
+  tests/src/testing_utilities.cpp
+  tests/src/test_blas.cpp
+  tests/src/test_estimators.cpp
+  tests/src/test_indicators.cpp
+  tests/src/test_norms.cpp
+  tests/src/test_data.cpp
+  tests/src/test_pcg.cpp
+  tests/src/test_measure.cpp
+  tests/src/test_utilities.cpp
+  tests/src/test_MeshLevel.cpp
+  tests/src/test_MeshHierarchy.cpp
+  tests/src/test_MeshRefiner.cpp
+  tests/src/test_LinearOperator.cpp
+  tests/src/test_MassMatrix.cpp
+  tests/src/test_LinearQuantizer.cpp
+  tests/src/test_UniformMeshHierarchy.cpp
+  tests/src/test_UniformMeshRefiner.cpp
+  tests/src/test_UniformEdgeFamilies.cpp
+  tests/src/test_UniformRestriction.cpp
+  tests/src/test_EnumeratedMeshRange.cpp
+  tests/src/test_SituatedCoefficientRange.cpp
+  tests/src/test_IndicatorInput.cpp
+  tests/src/test_MultilevelCoefficientQuantizer.cpp
+  tests/src/test_shuffle.cpp
+  tests/src/test_TensorMeshHierarchy.cpp
+  tests/src/test_TensorMeshHierarchyIteration.cpp
+  tests/src/test_TensorLinearOperator.cpp
+  tests/src/test_TensorMassMatrix.cpp
+  tests/src/test_TensorProlongation.cpp
+  tests/src/test_TensorRestriction.cpp
+  tests/src/test_TensorMultilevelCoefficientQuantizer.cpp
+  tests/src/test_TensorNorms.cpp
+  tests/src/test_TensorQuantityOfInterest.cpp
+  tests/src/test_compress.cpp
+  tests/src/test_decompose.cpp
 )
+
+set(
+  MGARD_EXECUTABLE_HPP
+  include/arguments.hpp
+  include/cmdline.hpp
+  include/metadata.hpp
+  include/output.hpp
+)
+set(
+  MGARD_EXECUTABLE_TPP
+  include/arguments.tpp
+)
+set(
+  MGARD_EXECUTABLE_CPP
+  src/arguments.cpp
+  src/cmdline.cpp
+  src/executable.cpp
+  src/metadata.cpp
+  src/output.cpp
+)
+
+set(
+  MGARD_BENCHMARK_CPP
+  src/benchmarks.cpp
+)
+
+find_program(DOXYGEN NAMES "doxygen")
+find_program(SED NAMES "sed")
+find_program(PYTHON3 NAMES "python3" "python")
+
+if(NOT PYTHON3 STREQUAL "PYTHON3-NOTFOUND")
+  execute_process(
+    COMMAND "${PYTHON3}" "--version"
+    OUTPUT_VARIABLE PYTHON3_VERSION_OUTPUT
+    ERROR_VARIABLE PYTHON3_VERSION_OUTPUT
+  )
+  string(
+    REGEX REPLACE
+    "^Python ([0-9]+)\.([0-9]+)\.([0-9]+)\n$"
+    "\\1"
+    PYTHON3_VERSION_MAJOR
+    "${PYTHON3_VERSION_OUTPUT}"
+  )
+  if(PYTHON3_VERSION_MAJOR LESS 3)
+    set(PYTHON3 "PYTHON3-NOTFOUND")
+  endif()
+endif()
+
+set(
+  MGARD_DOC_PAGES
+  README.md
+  doc/MGARD-GPU.md
+  examples/README.md
+  examples/linking/README.md
+  examples/compression/README.md
+)
+
+if(NOT DOXYGEN STREQUAL "DOXYGEN-NOTFOUND" AND NOT SED STREQUAL "SED-NOTFOUND" AND NOT PYTHON3 STREQUAL "PYTHON3-NOTFOUND")
+  configure_file("scripts/modify_documentation_links.py.in" "scripts/modify_documentation_links.py")
+  foreach(MGARD_DOC_PAGE ${MGARD_DOC_PAGES})
+    set(MGARD_DOC_PAGE_FIXED "${CMAKE_CURRENT_BINARY_DIR}/${MGARD_DOC_PAGE}")
+    add_custom_command(
+      OUTPUT "${MGARD_DOC_PAGE_FIXED}"
+      #Fix the relative links.
+      COMMAND "${PYTHON3}"
+      ARGS
+        "${CMAKE_CURRENT_BINARY_DIR}/scripts/modify_documentation_links.py"
+        "${MGARD_DOC_PAGE}"
+        "${MGARD_DOC_PAGE_FIXED}"
+      #Get rid of the workflow status badges.
+      COMMAND "${SED}"
+      ARGS
+        "--expression" "s/\\\\s*\\\\[!\\\\[[^]]\\\\+\\\\]\\\\[[^]]\\\\+\\\\]\\\\]\\\\[[^]]\\\\+\\\\]//g"
+        "--in-place"
+        "${MGARD_DOC_PAGE_FIXED}"
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+      DEPENDS "${MGARD_DOC_PAGE}"
+    )
+  endforeach()
+  list(TRANSFORM MGARD_DOC_PAGES PREPEND "${CMAKE_CURRENT_BINARY_DIR}/")
+  list(GET MGARD_DOC_PAGES 0 MGARD_DOC_MAINPAGE)
+  list(JOIN MGARD_DOC_PAGES " " MGARD_DOC_PAGES_JOINED)
+  list(JOIN MGARD_EXECUTABLE_HPP " " MGARD_EXECUTABLE_HPP_JOINED)
+  configure_file(".doxygen.in" ".doxygen")
+  add_custom_target(
+    mgard-documentation
+    ALL
+    COMMAND "${DOXYGEN}" "${CMAKE_CURRENT_BINARY_DIR}/.doxygen"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    DEPENDS "${MGARD_DOC_PAGES}"
+  )
+  install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/doxygen/html/" TYPE DOC)
+else()
+  message("-- Will not build documentation (dependencies not met).")
+endif()
 
 find_package(Catch2)
 
 if(Catch2_FOUND)
-	configure_file("tests/include/testing_paths.hpp.in" "include/testing_paths.hpp")
-
-	add_executable(mgard-tests
-${MGARD_TESTS_HEADER}
-${MGARD_TESTS_TEMPLATE_DEFINITION}
-${MGARD_TESTS_SOURCE}
-	)
-	target_include_directories(mgard-tests PRIVATE tests/include "${CMAKE_CURRENT_BINARY_DIR}/include")
-	target_link_libraries(mgard-tests PRIVATE mgard-library Catch2::Catch2WithMain)
-	set_target_properties(mgard-tests PROPERTIES OUTPUT_NAME tests)
+  configure_file("tests/include/testing_paths.hpp.in" "include/testing_paths.hpp")
+  add_executable(mgard-tests ${MGARD_TESTS_CPP})
+  target_include_directories(mgard-tests PRIVATE tests/include "${CMAKE_CURRENT_BINARY_DIR}/include")
+  target_link_libraries(mgard-tests PRIVATE mgard-library Catch2::Catch2WithMain)
+  set_target_properties(mgard-tests PROPERTIES OUTPUT_NAME tests)
 else()
-	message("-- Will not build tests (dependencies not met).")
+  message("-- Will not build tests (dependencies not met).")
 endif()
 
 if(MGARD_ENABLE_CUDA)
@@ -342,20 +426,6 @@ if(MGARD_ENABLE_CUDA)
     target_link_libraries(test_encoding_warp mgard-library  ${CMAKE_DL_LIBS})
     target_include_directories(test_encoding_warp PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
     set_property(TARGET test_encoding_warp PROPERTY CUDA_ARCHITECTURES ${CUDA_ARCH_STRING})
-
-
-    # add_executable(TestDoubleRelativeError ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/TestDoubleRelativeError.cpp)
-    # target_link_libraries(TestDoubleRelativeError mgard-library  ${CMAKE_DL_LIBS})
-    # target_include_directories(TestDoubleRelativeError PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
-    # add_executable(TestFloatRelativeError ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/TestFloatRelativeError.cpp)
-    # target_link_libraries(TestFloatRelativeError mgard-library  ${CMAKE_DL_LIBS})
-    # target_include_directories(TestFloatRelativeError PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
-    # add_executable(TestDoubleAbsoluteError ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/TestDoubleAbsoluteError.cpp)
-    # target_link_libraries(TestDoubleAbsoluteError mgard-library  ${CMAKE_DL_LIBS})
-    # target_include_directories(TestDoubleAbsoluteError PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
-    # add_executable(TestFloatAbsoluteError ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/TestFloatAbsoluteError.cpp)
-    # target_link_libraries(TestFloatAbsoluteError mgard-library  ${CMAKE_DL_LIBS})
-    # target_include_directories(TestFloatAbsoluteError PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 endif()
 
 if(MGARD_ENABLE_CUDA)
@@ -366,9 +436,9 @@ endif()
 
 # Add all targets to the build-tree export set
 export(
-	TARGETS mgard-library
-	NAMESPACE mgard::
-	FILE "${PROJECT_BINARY_DIR}/mgard-targets.cmake"
+  TARGETS mgard-library
+  NAMESPACE mgard::
+  FILE "${PROJECT_BINARY_DIR}/mgard-targets.cmake"
 )
 
 # Create the mgard-config.cmake and mgard-config-version files
@@ -378,14 +448,14 @@ write_basic_package_version_file(
   COMPATIBILITY SameMajorVersion
 )
 configure_file(
-	"${PROJECT_SOURCE_DIR}/cmake/mgard-config.cmake.in"
-	"${PROJECT_BINARY_DIR}/mgard-config.cmake"
-	@ONLY
+  "${PROJECT_SOURCE_DIR}/cmake/mgard-config.cmake.in"
+  "${PROJECT_BINARY_DIR}/mgard-config.cmake"
+  @ONLY
 )
 
 configure_file(
-	"${PROJECT_SOURCE_DIR}/include/MGARDConfig.h.in"
-	"${PROJECT_BINARY_DIR}/include/MGARDConfig.h"
+  "${PROJECT_SOURCE_DIR}/include/MGARDConfig.hpp.in"
+  "${PROJECT_BINARY_DIR}/include/MGARDConfig.hpp"
 )
 
 # Install the mgard-config.cmake and mgard-config-version.cmake
@@ -403,9 +473,9 @@ install(EXPORT mgard-targets NAMESPACE mgard::
 
 # Install pkg-config files for non-cmake projects
 configure_file(
-	"${PROJECT_SOURCE_DIR}/cmake/mgard.pc.in"
-	"${PROJECT_BINARY_DIR}/mgard.pc"
-	@ONLY
+  "${PROJECT_SOURCE_DIR}/cmake/mgard.pc.in"
+  "${PROJECT_BINARY_DIR}/mgard.pc"
+  @ONLY
 )
 install(
   FILES "${PROJECT_BINARY_DIR}/mgard.pc"
@@ -416,31 +486,27 @@ install(
 find_package(benchmark)
 
 if(benchmark_FOUND)
-	add_executable(mgard-benchmarks src/benchmarks.cpp)
-	target_link_libraries(mgard-benchmarks PRIVATE benchmark::benchmark benchmark::benchmark_main mgard-library)
-	set_target_properties(mgard-benchmarks PROPERTIES OUTPUT_NAME benchmarks)
+  add_executable(mgard-benchmarks ${MGARD_BENCHMARK_CPP})
+  target_link_libraries(mgard-benchmarks PRIVATE benchmark::benchmark benchmark::benchmark_main mgard-library)
+  set_target_properties(mgard-benchmarks PROPERTIES OUTPUT_NAME benchmarks)
 else()
-	message("-- Will not build benchmarks (dependencies not met).")
+  message("-- Will not build benchmarks (dependencies not met).")
 endif()
 
 find_package(yaml-cpp)
 find_package(archive)
 find_package(TCLAP)
 
-if (yaml-cpp_FOUND AND archive_FOUND AND TCLAP_FOUND)
-	add_executable(
-		mgard-executable
-		src/executable.cpp
-		src/subcommand_arguments.cpp
-		include/subcommand_arguments.hpp
-		src/metadata.cpp
-		include/metadata.hpp
-	)
-	target_include_directories(mgard-executable PRIVATE include/)
-	target_link_libraries(mgard-executable PRIVATE mgard-library yaml-cpp::yaml-cpp archive::archive TCLAP::TCLAP)
-	set_target_properties(mgard-executable PROPERTIES OUTPUT_NAME mgard)
+if(yaml-cpp_FOUND AND archive_FOUND AND TCLAP_FOUND)
+  add_executable(mgard-executable ${MGARD_EXECUTABLE_CPP})
+  target_include_directories(mgard-executable PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")
+  target_link_libraries(mgard-executable PRIVATE mgard-library yaml-cpp::yaml-cpp archive::archive TCLAP::TCLAP)
+  set_target_properties(mgard-executable PROPERTIES OUTPUT_NAME mgard)
+
+  install(TARGETS mgard-executable RUNTIME)
+  install(FILES man/man1/mgard.1 DESTINATION "${CMAKE_INSTALL_MANDIR}/man1")
 else()
-	message("-- Will not build executable (dependencies not met).")
+  message("-- Will not build executable (dependencies not met).")
 endif()
 
 message("-- Configuration summary:")

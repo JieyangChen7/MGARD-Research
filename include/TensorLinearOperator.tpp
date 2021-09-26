@@ -4,10 +4,6 @@
 #include <omp.h>
 
 #include "utilities.hpp"
-#define ANSI_RED "\x1b[31m"
-#define ANSI_GREEN "\x1b[32m"
-#define ANSI_RESET "\x1b[0m"
-
 
 namespace mgard {
 
@@ -78,10 +74,7 @@ void TensorLinearOperator<N, Real>::operator()(Real *const v) const {
   std::array<TensorIndexRange, N> multiindex_components_ =
       multiindex_components;
   const std::array<std::size_t, N> &SHAPE = hierarchy.shapes.back();
-  // for (std::size_t i = N-1; i >= 0; i--) {
-  for (std::size_t j = 0; j < N; ++j) {
-    std::size_t i = N - 1 - j;
-    // printf("N = %llu\n", i);
+  for (std::size_t i = 0; i < N; ++i) {
     if (SHAPE.at(i) == 1) {
       continue;
     }
@@ -107,25 +100,11 @@ void TensorLinearOperator<N, Real>::operator()(Real *const v) const {
                                                                product.end());
     const std::size_t M = multiindices.size();
 
-// #pragma omp parallel for
+#pragma omp parallel for
     for (std::size_t j = 0; j < M; ++j) {
-      // printf("M = %llu\n", j);
       A->operator()(multiindices.at(j), v);
-      // printf("\n");
     }
 
-    // { //debug
-    //   Real * uv = new Real[hierarchy.ndof()];
-    //   unshuffle(hierarchy, v, uv);
-    //   printf("after TR[%lli]:\n", i);
-    //   for (int i =0; i < 1; i++) {
-    //     for (int j =0; j < 1; j++) {
-    //       printf(ANSI_RED "i, j = %d, %d\n" ANSI_RESET,i, j);
-    //       mgard_cuda::print_matrix(1, 5, 5, uv + i * 3*3*3*3 + j * 3*3*3, 5, 5);
-    //     }
-    //   }
-    // }
-    // printf("\n");
     // Reinstate this dimension's indices for the next iteration.
     multiindex_components_.at(i) = multiindex_components.at(i);
   }

@@ -7,7 +7,7 @@
 #include "blas.hpp"
 #include "moab/Core.hpp"
 
-#include "mgard_api.h"
+#include "compress.hpp"
 
 #include "MassMatrix.hpp"
 #include "MeshLevel.hpp"
@@ -18,7 +18,7 @@
 #include "TensorMultilevelCoefficientQuantizer.hpp"
 #include "TensorProlongation.hpp"
 #include "TensorRestriction.hpp"
-#include "mgard.hpp"
+#include "decompose.hpp"
 #include "shuffle.hpp"
 
 #define LOG_RANGE_LO 10

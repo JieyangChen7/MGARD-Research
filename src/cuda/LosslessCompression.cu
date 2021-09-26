@@ -5,11 +5,11 @@
  * Date: April 2, 2021
  */
 
+#include "compressors.hpp"
 #include "cuda/Common.h"
 #include "cuda/CommonInternal.h"
 #include "cuda/LosslessCompression.h"
 #include "cuda/ParallelHuffman/huffman_workflow.cuh"
-#include "mgard_compress.hpp"
 #include <typeinfo>
 
 namespace mgard_cuda {
@@ -384,102 +384,80 @@ KERNELS(5, double, int, uint32_t, uint64_t)
 KERNELS(5, float, int, uint32_t, uint64_t)
 
 template <uint32_t D, typename T, typename S, typename H>
-void cpu_lossless_compression(Handle<D, T> &handle, S *input_data, size_t input_count,
-  H *&out_data, size_t &out_data_size) {
+void cpu_lossless_compression(Handle<D, T> &handle, S *input_data,
+                              size_t input_count, H *&out_data,
+                              size_t &out_data_size) {
 
+  int *int_vector = new int[input_count];
 
-  int * int_vector = new int[input_count];
-
-  
-  cudaMemcpyAsyncHelper(handle, int_vector, input_data,
-                        input_count*sizeof(S), AUTO, 0);
+  cudaMemcpyAsyncHelper(handle, int_vector, input_data, input_count * sizeof(S),
+                        AUTO, 0);
   handle.sync(0);
 
   std::vector<long int> input_vector(input_count);
-  for (int i = 0; i < input_count; i++) input_vector[i] = int_vector[i];
+  for (int i = 0; i < input_count; i++)
+    input_vector[i] = int_vector[i];
 
   // printf("%u %u\n", sizeof(long int), sizeof(int));
   // printf("dqv\n");
   // print_matrix_cuda(1, input_count, input_data, input_count);
 
   // printf("input_vector: ");
-  // for (int i = 0; i < input_vector.size(); i++) printf("%d ", input_vector[i]);
-  // printf("\n");
-
-#ifndef MGARD_ZSTD
-  std::vector<std::uint8_t> z_output;
-  // TODO: Check whether `compress_memory_z` changes its input.
-  mgard::compress_memory_z(
-      const_cast<void *>(static_cast<void const *>(input_vector.data())),
-      input_vector.size() * sizeof(long int), z_output);
-  // Possibly we should check that `sizeof(std::uint8_t)` is `1`.
-  out_data_size = z_output.size();
-
-  void *const buffer = new unsigned char[size];
-  std::copy(z_output.begin(), z_output.end(),
-            static_cast<unsigned char *>(buffer));
-#else
-  // Compress an array of data using `zstd`.
-  std::vector<unsigned char> zstd_output;
-  int zstd_outsize;
+  // for (int i = 0; i < input_vector.size(); i++) printf("%d ",
+  // input_vector[i]); printf("\n"); Compress an array of data using `zstd`.
+  std::size_t zstd_outsize;
 
   void *const buffer =
-      mgard::compress_memory_huffman(input_vector, zstd_output, zstd_outsize);
+      mgard::compress_memory_huffman(input_vector, zstd_outsize);
 
   out_data_size = zstd_outsize;
-#endif
-  cudaMallocHelper(handle, (void**)&out_data, out_data_size);
-  cudaMemcpyAsyncHelper(handle, out_data, buffer,
-                        out_data_size, AUTO, 0);
+
+  cudaMallocHelper(handle, (void **)&out_data, out_data_size);
+  cudaMemcpyAsyncHelper(handle, out_data, buffer, out_data_size, AUTO, 0);
   handle.sync(0);
   delete[] int_vector;
 }
 
 template <uint32_t D, typename T, typename S, typename H>
-void cpu_lossless_decompression(Handle<D, T> &handle, H *input_data, size_t input_count,
-  S *&out_data, size_t output_count) {
+void cpu_lossless_decompression(Handle<D, T> &handle, H *input_data,
+                                size_t input_count, S *&out_data,
+                                size_t output_count) {
 
   // printf("cpu decompression: %llu\n", input_count);
   std::vector<unsigned char> input_vector(input_count);
-  cudaMemcpyAsyncHelper(handle, input_vector.data(), input_data,
-                        input_count, AUTO, 0);
+  cudaMemcpyAsyncHelper(handle, input_vector.data(), input_data, input_count,
+                        AUTO, 0);
   handle.sync(0);
   // printf("copy done\n");
 
-  long int * output_vector = new long int[output_count];
-  int * int_vector = new int[output_count];
+  long int *output_vector = new long int[output_count];
+  int *int_vector = new int[output_count];
 
-#ifndef MGARD_ZSTD
-  mgard::decompress_memory_z(const_cast<void *>(input_vector.data()), input_vector.size(),
-                      reinterpret_cast<int *>(output_vector),
-                      output_count * sizeof(*output_vector));
-#else
   mgard::decompress_memory_huffman(
       reinterpret_cast<unsigned char *>(input_vector.data()),
-      input_vector.size(), output_vector, output_count * sizeof(*output_vector));
-#endif
+      input_vector.size(), output_vector,
+      output_count * sizeof(*output_vector));
 
-  for (int i = 0; i < output_count; i++) int_vector[i] = output_vector[i];
-  cudaMallocHelper(handle, (void**)&out_data, output_count * sizeof(S));
-  cudaMemcpyAsyncHelper(handle, out_data, int_vector,
-                        output_count*sizeof(S), AUTO, 0);
+  for (int i = 0; i < output_count; i++)
+    int_vector[i] = output_vector[i];
+  cudaMallocHelper(handle, (void **)&out_data, output_count * sizeof(S));
+  cudaMemcpyAsyncHelper(handle, out_data, int_vector, output_count * sizeof(S),
+                        AUTO, 0);
   handle.sync(0);
-  delete [] output_vector;
-  delete [] int_vector;
+  delete[] output_vector;
+  delete[] int_vector;
 
   // printf("dqv\n");
   // print_matrix_cuda(1, output_count, out_data, output_count);
-
 }
 
 #define KERNELS(D, T, S, H)                                                    \
-  template void cpu_lossless_compression<D, T, S, H>(Handle<D, T> &handle,     \
-                                        S *input_data, size_t input_count,     \
-                                        H *&out_data, size_t &out_data_size);  \
-  template void cpu_lossless_decompression<D, T, S, H>(Handle<D, T> &handle,   \
-                                        H *input_data, size_t input_count,     \
-                                        S *&out_data, size_t output_count);
-
+  template void cpu_lossless_compression<D, T, S, H>(                          \
+      Handle<D, T> & handle, S * input_data, size_t input_count,               \
+      H * &out_data, size_t & out_data_size);                                  \
+  template void cpu_lossless_decompression<D, T, S, H>(                        \
+      Handle<D, T> & handle, H * input_data, size_t input_count,               \
+      S * &out_data, size_t output_count);
 
 KERNELS(1, double, int, unsigned char)
 KERNELS(1, float, int, unsigned char)
@@ -491,6 +469,5 @@ KERNELS(4, double, int, unsigned char)
 KERNELS(4, float, int, unsigned char)
 KERNELS(5, double, int, unsigned char)
 KERNELS(5, float, int, unsigned char)
-
 
 } // namespace mgard_cuda

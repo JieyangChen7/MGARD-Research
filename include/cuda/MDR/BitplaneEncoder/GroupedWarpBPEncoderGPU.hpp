@@ -10,27 +10,27 @@
 #include "BitplaneEncoderInterface.hpp"
 #include <string.h>
 
-#define NUM_GROUPS_PER_WARP_PER_ITER 1
-#define NUM_WARP_PER_TB 1
+#define NUM_GROUPS_PER_WARP_PER_ITER 4
+#define NUM_WARP_PER_TB 16
 
 #define BINARY_TYPE BINARY
 
-#define DATA_ENCODING_ALGORITHM Warp_Bit_Transpose_Serial_All
-// #define DATA_ENCODING_ALGORITHM Warp_Bit_Transpose_Parallel_B_Serial_b
+// #define DATA_ENCODING_ALGORITHM Warp_Bit_Transpose_Serial_All
+#define DATA_ENCODING_ALGORITHM Warp_Bit_Transpose_Parallel_B_Serial_b
 // #define DATA_ENCODING_ALGORITHM Warp_Bit_Transpose_Serial_B_Atomic_b
 // #define DATA_ENCODING_ALGORITHM Warp_Bit_Transpose_Parallel_B_Reduce_b
 // #define DATA_ENCODING_ALGORITHM Warp_Bit_Transpose_Parallel_B_Ballot_b
 
-#define DATA_DECODING_ALGORITHM Warp_Bit_Transpose_Serial_All
-// #define DATA_DECODING_ALGORITHM Warp_Bit_Transpose_Parallel_B_Serial_b
+// #define DATA_DECODING_ALGORITHM Warp_Bit_Transpose_Serial_All
+#define DATA_DECODING_ALGORITHM Warp_Bit_Transpose_Parallel_B_Serial_b
 // #define DATA_DECODING_ALGORITHM Warp_Bit_Transpose_Serial_B_Atomic_b
 // #define DATA_DECODING_ALGORITHM Warp_Bit_Transpose_Parallel_B_Reduce_b
 // #define DATA_DECODING_ALGORITHM Warp_Bit_Transpose_Parallel_B_Ballot_b
 
-#define ERROR_COLLECTING_ALGORITHM Warp_Error_Collecting_Serial_All
-// #define ERROR_COLLECTING_ALGORITHM Warp_Error_Collecting_Parallel_Bitplane_Serial_Error
-// #define ERROR_COLLECTING_ALGORITHM Warp_Error_Collecting_Serial_B_Atomic_Error
-// #define ERROR_COLLECTING_ALGORITHM Warp_Error_Collecting_Serial_B_Reduce_Error
+// #define ERROR_COLLECTING_ALGORITHM Warp_Error_Collecting_Serial_All
+#define ERROR_COLLECTING_ALGORITHM Warp_Error_Collecting_Parallel_Bitplanes_Serial_Error
+// #define ERROR_COLLECTING_ALGORITHM Warp_Error_Collecting_Serial_Bitplanes_Atomic_Error
+// #define ERROR_COLLECTING_ALGORITHM Warp_Error_Collecting_Serial_Bitplanes_Reduce_Error
 
 
 namespace mgard_cuda {
@@ -954,7 +954,11 @@ public:
             // if (__mywarpid() < 2 && __mylaneid() == 0) printf("blockx: %llu, sign: %u\n", this->blockx, *(sm_warp_local_bitplanes_sign + group_bitplane_offset));
 
           } else {
-            sm_warp_local_signs[group_data_offset + __mylaneid()] = *signs(global_data_idx + __mylaneid());
+            if (global_data_idx + __mylaneid() < n) {
+              sm_warp_local_signs[group_data_offset + __mylaneid()] = *signs(global_data_idx + __mylaneid());
+            } else {
+              sm_warp_local_signs[group_data_offset + __mylaneid()] = false;
+            }
           }
         }
 
@@ -1065,10 +1069,6 @@ private:
 
   SIZE NumGroupsPerTBPerIter = NumGroupsPerWarpPerIter * NumWarpsPerTB;
   SIZE NumGroupsPerIter; // depends on num of TB
-
-  // SIZE MaxLengthPerWarpPerIter; // dependes on BinaryType
-  // SIZE MaxLengthPerTBPerIter; // dependes on BinaryType
-  // SIZE MaxLengthPerIter; // dependes on BinaryType
 
   T_bitplane * sm_bitplanes;
   SIZE ld_sm_bitplanes;
@@ -1266,6 +1266,7 @@ public:
                           mgard_cuda::SubArray<2, T_bitplane> encoded_bitplanes, int level,
                           int queue_idx) {
 
+
     // mgard_cuda::SIZE num_batches_per_TB = 2;
     // const mgard_cuda::SIZE num_elems_per_TB = sizeof(T_bitplane) * 8 * num_batches_per_TB;
     // const mgard_cuda::SIZE bitplane_max_length_per_TB = num_batches_per_TB * 2;
@@ -1287,8 +1288,13 @@ public:
     mgard_cuda::Array<1, T_data> v_array({(mgard_cuda::SIZE)n});
     mgard_cuda::SubArray<1, T_data> v(v_array);
 
-    decoder.Execute(n, starting_bitplane, num_bitplanes, exp, 
-                  encoded_bitplanes, signs_subarray, v, queue_idx);
+    if (num_bitplanes > 0) {
+      // if (num_bitplanes == 1) {
+      //   mgard_cuda::PrintSubarray("signs_subarray", signs_subarray);
+      // }
+      decoder.Execute(n, starting_bitplane, num_bitplanes, exp, 
+                    encoded_bitplanes, signs_subarray, v, queue_idx);
+    }
     return v_array;
   }
 

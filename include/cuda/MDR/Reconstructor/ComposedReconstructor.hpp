@@ -338,7 +338,7 @@ namespace MDR {
               compressed_bitplanes.push_back(std::vector<mgard_cuda::Array<1, mgard_cuda::Byte>>());
               int num_bitplanes = level_num_bitplanes[level_idx] - prev_level_num_bitplanes[level_idx];
               for (int bitplane_idx = 0; bitplane_idx < num_bitplanes; bitplane_idx++) {
-                mgard_cuda::SIZE size = level_sizes[level_idx][bitplane_idx];
+                mgard_cuda::SIZE size = level_sizes[level_idx][prev_level_num_bitplanes[level_idx] + bitplane_idx];
                 // printf("level: %d, bitplane_idx: %d, size: %u\n", level_idx, bitplane_idx, size);
                 compressed_bitplanes[level_idx].push_back(mgard_cuda::Array<1, mgard_cuda::Byte>({size}));
                 compressed_bitplanes[level_idx][bitplane_idx].loadData(level_components[level_idx][bitplane_idx]);

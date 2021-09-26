@@ -133,58 +133,6 @@ int main(int argc, char *argv[]) {
   mgard_cuda::decompress(shape, mgard_cuda::Double,
                 compressed_data, out_size, (void*)mgard_out_buff);
 
-  // printf("Start compressing and decompressing with GPU\n");
-  // if (D == 1) {
-  //   mgard_cuda::Array<1, double> in_array(shape);
-  //   in_array.loadData(in_buff);
-  //   mgard_cuda::Array<1, double> test = in_array;
-  //   mgard_cuda::Handle<1, double> handle(shape);
-  //   mgard_cuda::Array<1, SERIALIZED_TYPE> compressed_array =
-  //       mgard_cuda::compress(handle, in_array, mgard_cuda::REL, tol, s);
-  //   out_size = compressed_array.getShape()[0];
-  //   mgard_cuda::Array<1, double> out_array =
-  //       mgard_cuda::decompress(handle, compressed_array);
-  //   mgard_out_buff = new double[num_double];
-  //   memcpy(mgard_out_buff, out_array.getDataHost(),
-  //          num_double * sizeof(double));
-  // } else if (D == 2) {
-  //   mgard_cuda::Array<2, double> in_array(shape);
-  //   in_array.loadData(in_buff);
-  //   mgard_cuda::Handle<2, double> handle(shape);
-  //   mgard_cuda::Array<1, SERIALIZED_TYPE> compressed_array =
-  //       mgard_cuda::compress(handle, in_array, mgard_cuda::REL, tol, s);
-  //   out_size = compressed_array.getShape()[0];
-  //   mgard_cuda::Array<2, double> out_array =
-  //       mgard_cuda::decompress(handle, compressed_array);
-  //   mgard_out_buff = new double[num_double];
-  //   memcpy(mgard_out_buff, out_array.getDataHost(),
-  //          num_double * sizeof(double));
-  // } else if (D == 3) {
-  //   mgard_cuda::Array<3, double> in_array(shape);
-  //   in_array.loadData(in_buff);
-  //   mgard_cuda::Handle<3, double> handle(shape);
-  //   mgard_cuda::Array<1, SERIALIZED_TYPE> compressed_array =
-  //       mgard_cuda::compress(handle, in_array, mgard_cuda::REL, tol, s);
-  //   out_size = compressed_array.getShape()[0];
-  //   mgard_cuda::Array<3, double> out_array =
-  //       mgard_cuda::decompress(handle, compressed_array);
-  //   mgard_out_buff = new double[num_double];
-  //   memcpy(mgard_out_buff, out_array.getDataHost(),
-  //          num_double * sizeof(double));
-  // } else if (D == 4) {
-  //   mgard_cuda::Array<4, double> in_array(shape);
-  //   in_array.loadData(in_buff);
-  //   mgard_cuda::Handle<4, double> handle(shape);
-  //   mgard_cuda::Array<1, SERIALIZED_TYPE> compressed_array =
-  //       mgard_cuda::compress(handle, in_array, mgard_cuda::REL, tol, s);
-  //   out_size = compressed_array.getShape()[0];
-  //   mgard_cuda::Array<4, double> out_array =
-  //       mgard_cuda::decompress(handle, compressed_array);
-  //   mgard_out_buff = new double[num_double];
-  //   memcpy(mgard_out_buff, out_array.getDataHost(),
-  //          num_double * sizeof(double));
-  // }
-
   printf("In size:  %10ld  Out size: %10ld  Compression ratio: %10ld \n", lSize,
          out_size, lSize / out_size);
 
